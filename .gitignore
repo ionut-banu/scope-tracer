@@ -1,0 +1,7 @@
+target/
+.idea/
+*.iml
+.DS_Store
+*.jfr
+*.log
+.vscode/settings.json

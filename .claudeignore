@@ -1,0 +1,6 @@
+target/
+.idea/
+*.jfr
+*.log
+.DS_Store
+node_modules/
