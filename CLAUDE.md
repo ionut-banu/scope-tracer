@@ -18,12 +18,64 @@ threads on JDK 26+.
 Code lives under `dev.scopetracer.{core,analyzer,demos}`. Maven coordinates:
 `dev.scopetracer:scope-tracer-*:0.1.0-SNAPSHOT`.
 
+## Architecture
+
+End-to-end pipeline: user code wrapped in `TracedScope` → run under JFR recording →
+`.jfr` file fed to `scope-tracer-analyzer` → HTML/SVG report.
+
+**`scope-tracer-core`**
+
+`TracedScope` (`dev.scopetracer.core`) wraps `StructuredTaskScope` using
+`Joiner.awaitAllSuccessfulOrThrow()` (fail-fast on first subtask failure). It emits six
+JFR events at every lifecycle moment:
+
+| Event | When | `taskId` |
+|---|---|---|
+| `ScopeOpenedEvent` | constructor | 0 |
+| `TaskForkedEvent` | `fork()` call, on caller thread | ≥1 |
+| `TaskSucceededEvent` | task returns normally | same as fork |
+| `TaskFailedEvent` | task throws; carries `exceptionType` FQN | same as fork |
+| `TaskCancelledEvent` | task observes scope shutdown (`InterruptedException`) | same as fork |
+| `ScopeClosedEvent` | `close()`, after all task threads finish | 0 |
+
+All six event classes extend `jdk.jfr.Event` and implement the `TracedScopeEvent` sealed
+interface (`dev.scopetracer.core.events`). This lets the analyzer exhaustively
+pattern-match over event types with a `switch` without a JFR consumer dependency in core.
+
+**JFR event fields** (on every event): `scopeName`, `taskId` (long), `threadName`.
+`TaskFailedEvent` adds `exceptionType`.
+
+**JFR testing pattern**
+
+The only way to assert emitted JFR events in tests is:
+
+```java
+try (var recording = new Recording()) {
+    recording.enable("dev.scopetracer.*");
+    recording.start();
+    // ... run TracedScope ...
+    recording.stop();
+    recording.dump(tempPath);
+}
+// read back:
+try (var file = new RecordingFile(path)) {
+    while (file.hasMoreEvents()) events.add(file.readEvent());
+}
+```
+
+Filter events by `scopeName` to isolate test cases. **Cross-thread flush ordering is not
+guaranteed**: `TaskSucceeded` (emitted on the task thread) may appear after `ScopeClosed`
+(emitted on the caller thread) in the dump even though it logically precedes it. Use
+`containsExactlyInAnyOrder` for presence checks; use `.getStartTime()` comparisons for
+ordering assertions within the same thread.
+
 ## Build & test
 
 - `mvn -q verify` — full build, tests, and Spotless style check
 - `mvn -pl scope-tracer-core -q verify` — single module
 - `mvn -pl scope-tracer-core -Dtest=ClassName#method test` — single test
 - `mvn spotless:apply` — auto-fix formatting (google-java-format + sortPom)
+- `mvn -pl scope-tracer-core spotless:apply` — format a single module without touching other poms
 - Java 26+, Maven 3.9+ (enforced by maven-enforcer-plugin). `--enable-preview` is intentionally enabled project-wide — `StructuredTaskScope` is a preview API. Do not disable it.
 
 ## Coding conventions
