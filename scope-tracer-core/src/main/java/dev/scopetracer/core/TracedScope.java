@@ -42,137 +42,138 @@ import java.util.concurrent.atomic.AtomicLong;
  * }</pre>
  *
  * <p>Instances are not thread-safe beyond the guarantees of {@link StructuredTaskScope}: {@link
- * #fork} may be called from the owner thread or any active subtask of this scope; {@link #join}
- * and {@link #close} are owner-only.
+ * #fork} may be called from the owner thread or any active subtask of this scope; {@link #join} and
+ * {@link #close} are owner-only.
  */
 public final class TracedScope implements AutoCloseable {
 
-    private final String name;
-    private final StructuredTaskScope<Object, Void> scope;
-    private final AtomicLong taskIdCounter = new AtomicLong();
-    private final AtomicBoolean closed = new AtomicBoolean();
+  private final String name;
+  private final StructuredTaskScope<Object, Void> scope;
+  private final AtomicLong taskIdCounter = new AtomicLong();
+  private final AtomicBoolean closed = new AtomicBoolean();
 
-    /**
-     * Opens a traced scope with the given name and virtual threads. Emits a "scope opened" JFR
-     * event.
-     *
-     * @param name human-readable scope name, recorded on every emitted event; must be non-null and
-     *     non-blank.
-     * @throws IllegalArgumentException if {@code name} is blank.
-     */
-    public TracedScope(String name) {
-        this(name, Thread.ofVirtual().factory());
+  /**
+   * Opens a traced scope with the given name and virtual threads. Emits a "scope opened" JFR event.
+   *
+   * @param name human-readable scope name, recorded on every emitted event; must be non-null and
+   *     non-blank.
+   * @throws IllegalArgumentException if {@code name} is blank.
+   */
+  public TracedScope(String name) {
+    this(name, Thread.ofVirtual().factory());
+  }
+
+  /**
+   * Opens a traced scope with the given name and a caller-supplied {@link ThreadFactory}. Useful
+   * for tests that pin tasks to platform threads.
+   *
+   * @param name scope name; must be non-null and non-blank.
+   * @param factory thread factory used by the underlying scope; must be non-null.
+   * @throws IllegalArgumentException if {@code name} is blank.
+   */
+  public TracedScope(String name, ThreadFactory factory) {
+    if (name == null || name.isBlank()) {
+      throw new IllegalArgumentException("name must be non-null and non-blank");
     }
+    this.name = name;
+    this.scope =
+        StructuredTaskScope.open(
+            Joiner.awaitAllSuccessfulOrThrow(),
+            config -> config.withName(name).withThreadFactory(factory));
+    var event = new ScopeOpenedEvent();
+    event.scopeName = name;
+    event.taskId = 0L;
+    event.threadName = Thread.currentThread().getName();
+    event.commit();
+  }
 
-    /**
-     * Opens a traced scope with the given name and a caller-supplied {@link ThreadFactory}. Useful
-     * for tests that pin tasks to platform threads.
-     *
-     * @param name scope name; must be non-null and non-blank.
-     * @param factory thread factory used by the underlying scope; must be non-null.
-     * @throws IllegalArgumentException if {@code name} is blank.
-     */
-    public TracedScope(String name, ThreadFactory factory) {
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("name must be non-null and non-blank");
-        }
-        this.name = name;
-        this.scope = StructuredTaskScope.open(
-                Joiner.awaitAllSuccessfulOrThrow(),
-                config -> config.withName(name).withThreadFactory(factory));
-        var event = new ScopeOpenedEvent();
-        event.scopeName = name;
-        event.taskId = 0L;
-        event.threadName = Thread.currentThread().getName();
-        event.commit();
-    }
+  /**
+   * @return the scope name supplied at construction. Never null or blank.
+   */
+  public String name() {
+    return name;
+  }
 
-    /**
-     * @return the scope name supplied at construction. Never null or blank.
-     */
-    public String name() {
-        return name;
-    }
+  /**
+   * Forks a value-returning task into the scope. Emits a "task forked" JFR event on the calling
+   * thread, and exactly one of "task succeeded", "task failed", or "task cancelled" on the task's
+   * own thread when it terminates.
+   *
+   * <p>Cancellation is reported when the task observes scope shutdown (e.g. a sibling failed)
+   * before completing on its own.
+   *
+   * @param task the callable to run as a structured subtask; must be non-null.
+   * @param <T> result type of the subtask.
+   * @return a {@link Subtask} handle whose value is observable after {@link #join()}.
+   */
+  public <T> Subtask<T> fork(Callable<? extends T> task) {
+    long id = taskIdCounter.incrementAndGet();
 
-    /**
-     * Forks a value-returning task into the scope. Emits a "task forked" JFR event on the calling
-     * thread, and exactly one of "task succeeded", "task failed", or "task cancelled" on the task's
-     * own thread when it terminates.
-     *
-     * <p>Cancellation is reported when the task observes scope shutdown (e.g. a sibling failed)
-     * before completing on its own.
-     *
-     * @param task the callable to run as a structured subtask; must be non-null.
-     * @param <T> result type of the subtask.
-     * @return a {@link Subtask} handle whose value is observable after {@link #join()}.
-     */
-    public <T> Subtask<T> fork(Callable<? extends T> task) {
-        long id = taskIdCounter.incrementAndGet();
+    var forked = new TaskForkedEvent();
+    forked.scopeName = name;
+    forked.taskId = id;
+    forked.threadName = Thread.currentThread().getName();
+    forked.commit();
 
-        var forked = new TaskForkedEvent();
-        forked.scopeName = name;
-        forked.taskId = id;
-        forked.threadName = Thread.currentThread().getName();
-        forked.commit();
-
-        return scope.fork(() -> {
-            try {
-                T result = task.call();
-                var ev = new TaskSucceededEvent();
-                ev.scopeName = name;
-                ev.taskId = id;
-                ev.threadName = Thread.currentThread().getName();
-                ev.commit();
-                return result;
-            } catch (InterruptedException e) {
-                var ev = new TaskCancelledEvent();
-                ev.scopeName = name;
-                ev.taskId = id;
-                ev.threadName = Thread.currentThread().getName();
-                ev.commit();
-                Thread.currentThread().interrupt();
-                throw e;
-            } catch (Exception e) {
-                var ev = new TaskFailedEvent();
-                ev.scopeName = name;
-                ev.taskId = id;
-                ev.threadName = Thread.currentThread().getName();
-                ev.exceptionType = e.getClass().getName();
-                ev.commit();
-                throw e;
-            }
+    return scope.fork(
+        () -> {
+          try {
+            T result = task.call();
+            var ev = new TaskSucceededEvent();
+            ev.scopeName = name;
+            ev.taskId = id;
+            ev.threadName = Thread.currentThread().getName();
+            ev.commit();
+            return result;
+          } catch (InterruptedException e) {
+            var ev = new TaskCancelledEvent();
+            ev.scopeName = name;
+            ev.taskId = id;
+            ev.threadName = Thread.currentThread().getName();
+            ev.commit();
+            Thread.currentThread().interrupt();
+            throw e;
+          } catch (Exception e) {
+            var ev = new TaskFailedEvent();
+            ev.scopeName = name;
+            ev.taskId = id;
+            ev.threadName = Thread.currentThread().getName();
+            ev.exceptionType = e.getClass().getName();
+            ev.commit();
+            throw e;
+          }
         });
-    }
+  }
 
-    /**
-     * Waits for all forked subtasks to complete, fail, or be cancelled. If any subtask failed, the
-     * failure is re-thrown as a {@link StructuredTaskScope.FailedException} (unchecked). Returns
-     * this scope for fluent use.
-     *
-     * @return this {@code TracedScope}.
-     * @throws InterruptedException if the owner thread is interrupted while waiting.
-     * @throws StructuredTaskScope.FailedException if any subtask failed.
-     */
-    public TracedScope join() throws InterruptedException {
-        scope.join();
-        return this;
-    }
+  /**
+   * Waits for all forked subtasks to complete, fail, or be cancelled. If any subtask failed, the
+   * failure is re-thrown as a {@link StructuredTaskScope.FailedException} (unchecked). Returns this
+   * scope for fluent use.
+   *
+   * @return this {@code TracedScope}.
+   * @throws InterruptedException if the owner thread is interrupted while waiting.
+   * @throws StructuredTaskScope.FailedException if any subtask failed.
+   */
+  public TracedScope join() throws InterruptedException {
+    scope.join();
+    return this;
+  }
 
-    /**
-     * Closes the scope, cancelling and joining any still-running subtasks. Emits a "scope closed"
-     * JFR event after all subtasks have terminated.
-     *
-     * <p>Idempotent: subsequent calls are no-ops and emit no further events.
-     */
-    @Override
-    public void close() {
-        if (closed.compareAndSet(false, true)) {
-            scope.close();
-            var event = new ScopeClosedEvent();
-            event.scopeName = name;
-            event.taskId = 0L;
-            event.threadName = Thread.currentThread().getName();
-            event.commit();
-        }
+  /**
+   * Closes the scope, cancelling and joining any still-running subtasks. Emits a "scope closed" JFR
+   * event after all subtasks have terminated.
+   *
+   * <p>Idempotent: subsequent calls are no-ops and emit no further events.
+   */
+  @Override
+  public void close() {
+    if (closed.compareAndSet(false, true)) {
+      scope.close();
+      var event = new ScopeClosedEvent();
+      event.scopeName = name;
+      event.taskId = 0L;
+      event.threadName = Thread.currentThread().getName();
+      event.commit();
     }
+  }
 }

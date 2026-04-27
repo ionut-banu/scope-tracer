@@ -14,15 +14,15 @@ import jdk.jfr.Name;
 @Category({"scope-tracer"})
 public final class TaskFailedEvent extends Event implements TracedScopeEvent {
 
-    @Label("Scope name")
-    public String scopeName;
+  @Label("Scope name")
+  public String scopeName;
 
-    @Label("Task ID")
-    public long taskId;
+  @Label("Task ID")
+  public long taskId;
 
-    @Label("Thread name")
-    public String threadName;
+  @Label("Thread name")
+  public String threadName;
 
-    @Label("Exception type")
-    public String exceptionType;
+  @Label("Exception type")
+  public String exceptionType;
 }

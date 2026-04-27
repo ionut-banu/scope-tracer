@@ -11,12 +11,12 @@ import jdk.jfr.Name;
 @Category({"scope-tracer"})
 public final class TaskSucceededEvent extends Event implements TracedScopeEvent {
 
-    @Label("Scope name")
-    public String scopeName;
+  @Label("Scope name")
+  public String scopeName;
 
-    @Label("Task ID")
-    public long taskId;
+  @Label("Task ID")
+  public long taskId;
 
-    @Label("Thread name")
-    public String threadName;
+  @Label("Thread name")
+  public String threadName;
 }

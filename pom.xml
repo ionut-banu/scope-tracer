@@ -36,7 +36,7 @@
     <surefire.version>3.2.5</surefire.version>
     <compiler.plugin.version>3.13.0</compiler.plugin.version>
     <spotless.version>2.44.5</spotless.version>
-    <palantir.version>2.68.0</palantir.version>
+    <google.java.format.version>1.27.0</google.java.format.version>
 
     <enforcer.plugin.version>3.5.0</enforcer.plugin.version>
   </properties>
@@ -102,11 +102,10 @@
           <version>${spotless.version}</version>
           <configuration>
             <java>
-              <palantirJavaFormat>
-                <version>${palantir.version}</version>
-              </palantirJavaFormat>
+              <googleJavaFormat>
+                <version>${google.java.format.version}</version>
+              </googleJavaFormat>
               <removeUnusedImports></removeUnusedImports>
-              <importOrder></importOrder>
               <trimTrailingWhitespace></trimTrailingWhitespace>
               <endWithNewline></endWithNewline>
             </java>

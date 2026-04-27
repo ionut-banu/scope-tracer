@@ -23,7 +23,7 @@ Code lives under `dev.scopetracer.{core,analyzer,demos}`. Maven coordinates:
 - `mvn -q verify` — full build, tests, and Spotless style check
 - `mvn -pl scope-tracer-core -q verify` — single module
 - `mvn -pl scope-tracer-core -Dtest=ClassName#method test` — single test
-- `mvn spotless:apply` — auto-fix formatting (palantir-java-format + sortPom)
+- `mvn spotless:apply` — auto-fix formatting (google-java-format + sortPom)
 - Java 26+, Maven 3.9+ (enforced by maven-enforcer-plugin). `--enable-preview` is intentionally enabled project-wide — `StructuredTaskScope` is a preview API. Do not disable it.
 
 ## Coding conventions
