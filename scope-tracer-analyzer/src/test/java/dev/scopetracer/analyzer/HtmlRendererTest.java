@@ -50,7 +50,7 @@ class HtmlRendererTest {
             task(1, T1, T2, new TaskOutcome.Success()),
             task(2, T2, T3, new TaskOutcome.Success()),
             task(3, T3, T4, new TaskOutcome.Success()));
-    var scope = new ScopeRecord("multi", "main", T0, T4, tasks, null);
+    var scope = new ScopeRecord("multi", "main", -1L, T0, T4, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     // one <tr> per task plus the header row
     var rowCount = countOccurrences(html, "<tr>");
@@ -123,7 +123,7 @@ class HtmlRendererTest {
   @Test
   void blankThreadNameRendersAsVirtual() {
     var tasks = List.of(new TaskRecord(1, "", -1L, T1, T2, new TaskOutcome.Success()));
-    var scope = new ScopeRecord("s", "main", T0, T3, tasks, null);
+    var scope = new ScopeRecord("s", "main", -1L, T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     assertThat(html).contains("&lt;virtual&gt;");
   }
@@ -131,7 +131,7 @@ class HtmlRendererTest {
   @Test
   void nullThreadNameRendersAsVirtual() {
     var tasks = List.of(new TaskRecord(1, null, -1L, T1, T2, new TaskOutcome.Success()));
-    var scope = new ScopeRecord("s", "main", T0, T3, tasks, null);
+    var scope = new ScopeRecord("s", "main", -1L, T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     assertThat(html).contains("&lt;virtual&gt;");
   }
@@ -144,6 +144,7 @@ class HtmlRendererTest {
         new ScopeRecord(
             "order-processing",
             "main",
+            -1L,
             T0,
             T4,
             List.of(task(1, T1, T3, new TaskOutcome.Success())),
@@ -152,6 +153,7 @@ class HtmlRendererTest {
         new ScopeRecord(
             "payment-steps",
             "worker-1",
+            -1L,
             T1,
             T3,
             List.of(task(2, T1, T2, new TaskOutcome.Success())),
@@ -183,7 +185,7 @@ class HtmlRendererTest {
 
   private static TraceModel modelWithSingleTask(String scopeName, TaskOutcome outcome) {
     var tasks = List.of(task(1, T1, T2, outcome));
-    var scope = new ScopeRecord(scopeName, "main", T0, T3, tasks, null);
+    var scope = new ScopeRecord(scopeName, "main", -1L, T0, T3, tasks, null);
     return new TraceModel(List.of(scope));
   }
 

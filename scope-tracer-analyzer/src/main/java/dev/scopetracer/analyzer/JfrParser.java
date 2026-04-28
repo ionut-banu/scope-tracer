@@ -136,6 +136,7 @@ public final class JfrParser {
           new ScopeRecord(
               scopeName,
               scopeOwners.get(scopeName),
+              scopeOwnerThreadIds.getOrDefault(scopeName, -1L),
               scopeOpens.get(scopeName),
               scopeCloses.get(scopeName),
               List.copyOf(tasks),

@@ -8,6 +8,7 @@ import java.util.List;
  *
  * @param name the scope name supplied at construction.
  * @param ownerThreadName thread that opened and closed the scope.
+ * @param ownerThreadId JFR Java thread ID of the owner thread; {@code -1} if unknown.
  * @param openTime when {@code ScopeOpenedEvent} was emitted.
  * @param closeTime when {@code ScopeClosedEvent} was emitted; {@code null} for truncated
  *     recordings.
@@ -17,6 +18,7 @@ import java.util.List;
 public record ScopeRecord(
     String name,
     String ownerThreadName,
+    long ownerThreadId,
     Instant openTime,
     Instant closeTime,
     List<TaskRecord> tasks,

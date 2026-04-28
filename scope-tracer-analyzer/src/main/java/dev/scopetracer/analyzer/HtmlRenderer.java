@@ -2,12 +2,14 @@ package dev.scopetracer.analyzer;
 
 import dev.scopetracer.analyzer.model.ScopeRecord;
 import dev.scopetracer.analyzer.model.TaskOutcome;
+import dev.scopetracer.analyzer.model.TaskRecord;
 import dev.scopetracer.analyzer.model.TraceModel;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -71,10 +73,20 @@ public final class HtmlRenderer {
         .child-scope { margin-left: 2rem; border-left: 3px solid #1565c0; padding-left: 1rem; }
         .parent-ref  { font-size: 0.75rem; color: #616161; font-weight: normal; margin-left: 0.5rem; }
         .nested-scope-ref { font-size: 0.75rem; color: #1565c0; margin-left: 0.5rem; }
+        .legend { display: flex; gap: 1.2rem; font-size: 0.8rem; margin-bottom: 1.5rem; color: #616161; flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 0.3rem; }
+        .legend-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
         </style>
         </head>
         <body>
         <h1>scope-tracer report</h1>
+        <div class="legend">
+        <span class="legend-item"><span class="legend-swatch" style="background:#1565c0"></span>scope lifetime</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#4caf50"></span>success</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#e53935"></span>failed</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#fb8c00"></span>cancelled</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#9e9e9e"></span>incomplete</span>
+        </div>
         """);
 
     if (model.scopes().isEmpty()) {
@@ -143,7 +155,7 @@ public final class HtmlRenderer {
     sb.append("</h2>\n");
     sb.append("<div class=\"scope-meta\">")
         .append("thread: ")
-        .append(escape(displayThread(scope.ownerThreadName())))
+        .append(escape(displayThread(scope.ownerThreadName(), scope.ownerThreadId())))
         .append(" &nbsp;|&nbsp; opened: ")
         .append(TIMESTAMP_FMT.format(openTime))
         .append(" &nbsp;|&nbsp; duration: ")
@@ -151,6 +163,16 @@ public final class HtmlRenderer {
         .append(" &nbsp;|&nbsp; tasks: ")
         .append(scope.tasks().size())
         .append("</div>\n");
+
+    // earliest failed task in this scope — the trigger for any cancellations
+    long triggerId =
+        scope.tasks().stream()
+            .filter(t -> t.outcome() instanceof TaskOutcome.Failed)
+            .min(
+                Comparator.comparing(
+                    t -> t.completionTime() != null ? t.completionTime() : Instant.MAX))
+            .map(TaskRecord::taskId)
+            .orElse(-1L);
 
     // task table
     sb.append(
@@ -177,14 +199,14 @@ public final class HtmlRenderer {
           .append(taskDuration != null ? formatDuration(taskDuration) : "—")
           .append("</td>")
           .append("<td>")
-          .append(outcomeCell(task.outcome(), nestedScopeName))
+          .append(outcomeCell(task.outcome(), nestedScopeName, triggerId))
           .append("</td>")
           .append("</tr>\n");
     }
     sb.append("</table>\n");
 
     // SVG timeline
-    int svgHeight = 20 + scope.tasks().size() * 22 + 28;
+    int svgHeight = 32 + scope.tasks().size() * 26 + 28;
     sb.append("<div class=\"timeline-wrap\">\n");
     sb.append("<svg class=\"timeline\" viewBox=\"0 0 800 ")
         .append(svgHeight)
@@ -210,7 +232,7 @@ public final class HtmlRenderer {
     // task bars
     int row = 0;
     for (var task : scope.tasks()) {
-      int y = 20 + row * 22;
+      int y = 32 + row * 26;
       long taskForkNs = Duration.between(openTime, task.forkTime()).toNanos();
       double taskX = scopeXPct + (double) taskForkNs / scopeDurationNs * scopeWidthPct;
       double taskW;
@@ -238,7 +260,7 @@ public final class HtmlRenderer {
           .append(" | ")
           .append(escape(displayThread(task.threadName(), task.threadId())))
           .append(" | ")
-          .append(outcomeTooltip(task.outcome()))
+          .append(outcomeTooltip(task.outcome(), triggerId))
           .append("</title>\n</rect>\n")
           .append("<text x=\"4\" y=\"13\" fill=\"white\" font-size=\"11\" ")
           .append("font-family=\"monospace\" pointer-events=\"none\">")
@@ -250,7 +272,7 @@ public final class HtmlRenderer {
     }
 
     // time axis
-    int axisY = 20 + scope.tasks().size() * 22 + 6;
+    int axisY = 32 + scope.tasks().size() * 26 + 6;
     int labelY = axisY + 12;
     sb.append("<line x1=\"")
         .append(f(scopeXPct))
@@ -273,7 +295,7 @@ public final class HtmlRenderer {
           .append("\" y2=\"")
           .append(axisY + 3)
           .append("\" stroke=\"#bdbdbd\" stroke-width=\"1\"/>\n");
-      String label = tickNs == 0 ? "0" : "+" + formatDuration(Duration.ofNanos(tickNs));
+      String label = tickNs == 0 ? "0" : "+" + formatAxisLabel(tickNs);
       sb.append("<text x=\"")
           .append(f(tickX + 2))
           .append("\" y=\"")
@@ -304,7 +326,7 @@ public final class HtmlRenderer {
     if (depth > 0) sb.append("</div>\n");
   }
 
-  private static String outcomeCell(TaskOutcome outcome, String nestedScopeName) {
+  private static String outcomeCell(TaskOutcome outcome, String nestedScopeName, long triggerId) {
     var cell =
         outcome == null
             ? "<span class=\"outcome-unknown\">—</span>"
@@ -312,7 +334,10 @@ public final class HtmlRenderer {
               case TaskOutcome.Success s -> "<span class=\"outcome-success\">success</span>";
               case TaskOutcome.Failed f ->
                   "<span class=\"outcome-failed\">failed: " + escape(f.exceptionType()) + "</span>";
-              case TaskOutcome.Cancelled c -> "<span class=\"outcome-cancelled\">cancelled</span>";
+              case TaskOutcome.Cancelled c ->
+                  triggerId >= 0
+                      ? "<span class=\"outcome-cancelled\">cancelled ← #" + triggerId + "</span>"
+                      : "<span class=\"outcome-cancelled\">cancelled</span>";
             };
     if (nestedScopeName == null) return cell;
     return cell + " <span class=\"nested-scope-ref\">↳ " + escape(nestedScopeName) + "</span>";
@@ -327,27 +352,72 @@ public final class HtmlRenderer {
     };
   }
 
-  private static String outcomeTooltip(TaskOutcome outcome) {
+  private static String outcomeTooltip(TaskOutcome outcome, long triggerId) {
     if (outcome == null) return "incomplete";
     return switch (outcome) {
       case TaskOutcome.Success s -> "success";
       case TaskOutcome.Failed f -> "failed: " + f.exceptionType();
-      case TaskOutcome.Cancelled c -> "cancelled";
+      case TaskOutcome.Cancelled c -> triggerId >= 0 ? "cancelled ← #" + triggerId : "cancelled";
     };
   }
 
   private static long niceTickIntervalNs(long durationNs) {
     long[] candidates = {
-      1L, 2L, 5L, 10L, 20L, 50L, 100L, 200L, 500L,
-      1_000L, 2_000L, 5_000L, 10_000L, 20_000L, 50_000L, 100_000L, 200_000L, 500_000L,
-      1_000_000L, 2_000_000L, 5_000_000L, 10_000_000L, 20_000_000L, 50_000_000L,
-      100_000_000L, 200_000_000L, 500_000_000L, 1_000_000_000L, 2_000_000_000L, 5_000_000_000L
+      1L,
+      2L,
+      5L,
+      10L,
+      20L,
+      50L,
+      100L,
+      200L,
+      500L,
+      1_000L,
+      2_000L,
+      5_000L,
+      10_000L,
+      20_000L,
+      50_000L,
+      100_000L,
+      200_000L,
+      500_000L,
+      1_000_000L,
+      2_000_000L,
+      5_000_000L,
+      10_000_000L,
+      20_000_000L,
+      50_000_000L,
+      100_000_000L,
+      200_000_000L,
+      500_000_000L,
+      1_000_000_000L,
+      2_000_000_000L,
+      5_000_000_000L
     };
     long target = Math.max(durationNs / 5, 1L);
     for (long c : candidates) {
       if (c >= target) return c;
     }
     return candidates[candidates.length - 1];
+  }
+
+  private static String formatAxisLabel(long ns) {
+    if (ns == 0) return "0";
+    if (ns < 1_000L) return ns + "ns";
+    if (ns < 1_000_000L) {
+      long v = ns / 1_000L;
+      return (ns % 1_000L == 0) ? v + "µs" : String.format(Locale.ROOT, "%.2fµs", ns / 1_000.0);
+    }
+    if (ns < 1_000_000_000L) {
+      long v = ns / 1_000_000L;
+      return (ns % 1_000_000L == 0)
+          ? v + "ms"
+          : String.format(Locale.ROOT, "%.2fms", ns / 1_000_000.0);
+    }
+    long v = ns / 1_000_000_000L;
+    return (ns % 1_000_000_000L == 0)
+        ? v + "s"
+        : String.format(Locale.ROOT, "%.3fs", ns / 1_000_000_000.0);
   }
 
   private static String formatDuration(Duration d) {
