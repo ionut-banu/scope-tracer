@@ -69,6 +69,49 @@ guaranteed**: `TaskSucceeded` (emitted on the task thread) may appear after `Sco
 `containsExactlyInAnyOrder` for presence checks; use `.getStartTime()` comparisons for
 ordering assertions within the same thread.
 
+**`scope-tracer-analyzer`**
+
+`JfrParser` (`dev.scopetracer.analyzer`) reads a `.jfr` file and builds a `TraceModel`:
+
+- `TraceModel` — root container; holds `List<ScopeRecord>` sorted by open time.
+- `ScopeRecord` — one `TracedScope` lifetime: `name`, `ownerThreadName`, `openTime`,
+  `closeTime`, `List<TaskRecord> tasks`, and `ParentRef parent` (null for root scopes).
+- `TaskRecord` — one forked subtask: `taskId`, `threadName`, `forkTime`,
+  `completionTime`, `TaskOutcome outcome`.
+- `TaskOutcome` — sealed interface with three implementations: `Success`, `Failed(String
+  exceptionType)`, `Cancelled`.
+
+**Nesting detection** (`JfrParser.detectNesting`): scope B is a child of task T in scope
+A when (1) `ScopeOpenedEvent` for B and the completion event for T share the same JFR
+thread ID (`event.getThread().getJavaThreadId()`), and (2) B's `[openTime, closeTime]` is
+contained within T's `[forkTime, completionTime]`. This uses JFR's stable thread ID, not
+the thread name (which is empty for unnamed virtual threads). The result is stored as
+`ScopeRecord.ParentRef(String scopeName, long taskId)`.
+
+`HtmlRenderer.render(TraceModel)` produces a self-contained HTML string with inline CSS
+and SVG timelines. Root scopes are rendered first; child scopes are indented inside a
+`<div class="child-scope">` beneath their parent. Each task bar is a nested `<svg>` (for
+natural overflow clipping) containing a coloured `<rect>` and a white `#N` label.
+
+## Running demos
+
+`exec:java` shares Maven's JVM and cannot receive `--enable-preview`, so demos must be
+run with an explicit `java` invocation:
+
+```bash
+mvn -q package -DskipTests   # build all jars first
+CP=$(mvn -pl scope-tracer-demos -q dependency:build-classpath -DforceStdout)
+JARS="scope-tracer-core/target/scope-tracer-core-0.1.0-SNAPSHOT.jar:\
+scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT.jar:\
+scope-tracer-demos/target/scope-tracer-demos-0.1.0-SNAPSHOT.jar:$CP"
+java --enable-preview -cp "$JARS" dev.scopetracer.demos.ParallelFetchDemo
+java --enable-preview -cp "$JARS" dev.scopetracer.demos.FailFastDemo
+java --enable-preview -cp "$JARS" dev.scopetracer.demos.NestedScopesDemo
+```
+
+Each demo writes `<name>.jfr` and `<name>.html` to `target/` relative to the working
+directory, then prints the absolute paths.
+
 ## Build & test
 
 - `mvn -q verify` — full build, tests, and Spotless style check
@@ -77,6 +120,10 @@ ordering assertions within the same thread.
 - `mvn spotless:apply` — auto-fix formatting (google-java-format + sortPom)
 - `mvn -pl scope-tracer-core spotless:apply` — format a single module without touching other poms
 - Java 26+, Maven 3.9+ (enforced by maven-enforcer-plugin). `--enable-preview` is intentionally enabled project-wide — `StructuredTaskScope` is a preview API. Do not disable it.
+
+**Test locations:** `scope-tracer-{module}/src/test/java/dev/scopetracer/{module}/`. Core tests use the JFR recording pattern above. Analyzer tests split into `JfrParserTest` (integration, requires a live JFR recording) and `HtmlRendererTest` (unit, constructs model objects directly).
+
+**Known pre-existing failures:** `JfrParserTest` tests fail with `UnsupportedOperationException` at runtime because `StructuredTaskScope` / `Joiner` are preview APIs whose runtime behaviour varies by JDK build. These failures pre-date any given change — do not attempt to fix them by disabling tests or catching the exception. `HtmlRendererTest` (15 tests) must always be green.
 
 ## Coding conventions
 
@@ -91,8 +138,11 @@ ordering assertions within the same thread.
 ## Rules for Claude
 
 - For any change touching more than one module, use Plan Mode first.
-- Run `mvn -q verify` after edits and fix failures before saying done.
+- Always run the full `mvn -q verify` (not `-pl <module>`) after edits that touch
+  `scope-tracer-core` or that span modules. Running a single-module verify against a
+  stale core JAR produces false-green results — the analyzer's integration tests will pass
+  against old bytecode even when the real build would fail.
 - Never silently add a Maven dependency — propose it in chat first.
 - Never disable or @Ignore a failing test to make the build green.
-- When adding a JFR event, also update `docs/jfr-events.md`.
+- When adding a JFR event, also update `docs/jfr-events.md`. That file has a "Common fields" table and an "Event catalog" table — add a row to the catalog and, if you added a new field, a row to common fields.
 - Never use `Thread.stop`, `Thread.suspend`, or other deprecated APIs.

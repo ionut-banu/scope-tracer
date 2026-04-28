@@ -19,6 +19,11 @@
       <artifactId>scope-tracer-core</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>dev.scopetracer</groupId>
+      <artifactId>scope-tracer-analyzer</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>org.slf4j</groupId>

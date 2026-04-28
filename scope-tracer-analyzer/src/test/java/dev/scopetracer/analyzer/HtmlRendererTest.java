@@ -50,7 +50,7 @@ class HtmlRendererTest {
             task(1, T1, T2, new TaskOutcome.Success()),
             task(2, T2, T3, new TaskOutcome.Success()),
             task(3, T3, T4, new TaskOutcome.Success()));
-    var scope = new ScopeRecord("multi", "main", T0, T4, tasks);
+    var scope = new ScopeRecord("multi", "main", T0, T4, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     // one <tr> per task plus the header row
     var rowCount = countOccurrences(html, "<tr>");
@@ -106,6 +106,62 @@ class HtmlRendererTest {
     assertThat(html).contains("</svg>");
   }
 
+  // --- locale safety ---
+
+  @Test
+  void svgCoordinatesUsePeriodsNotCommasAsSeparator() {
+    // SVG attribute values must use '.' as decimal separator regardless of JVM locale.
+    // A comma causes browsers to silently ignore the attribute and render nothing.
+    var html = HtmlRenderer.render(modelWithSingleSuccessTask("scope"));
+    var svgBlock = html.substring(html.indexOf("<svg"), html.indexOf("</svg>") + 6);
+    assertThat(svgBlock).doesNotContainPattern("x=\"[^\"]*,[^\"]*\"");
+    assertThat(svgBlock).doesNotContainPattern("width=\"[^\"]*,[^\"]*\"");
+  }
+
+  // --- blank thread name fallback ---
+
+  @Test
+  void blankThreadNameRendersAsVirtual() {
+    var tasks = List.of(new TaskRecord(1, "", T1, T2, new TaskOutcome.Success()));
+    var scope = new ScopeRecord("s", "main", T0, T3, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+    assertThat(html).contains("&lt;virtual&gt;");
+  }
+
+  @Test
+  void nullThreadNameRendersAsVirtual() {
+    var tasks = List.of(new TaskRecord(1, null, T1, T2, new TaskOutcome.Success()));
+    var scope = new ScopeRecord("s", "main", T0, T3, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+    assertThat(html).contains("&lt;virtual&gt;");
+  }
+
+  // --- nesting ---
+
+  @Test
+  void childScopeRendersWithBreadcrumb() {
+    var parentScope =
+        new ScopeRecord(
+            "order-processing",
+            "main",
+            T0,
+            T4,
+            List.of(task(1, T1, T3, new TaskOutcome.Success())),
+            null);
+    var childScope =
+        new ScopeRecord(
+            "payment-steps",
+            "worker-1",
+            T1,
+            T3,
+            List.of(task(2, T1, T2, new TaskOutcome.Success())),
+            new ScopeRecord.ParentRef("order-processing", 1));
+    var html = HtmlRenderer.render(new TraceModel(List.of(parentScope, childScope)));
+    assertThat(html).contains("payment-steps");
+    assertThat(html).contains("↳ task 1 of order-processing");
+    assertThat(html).contains("child-scope");
+  }
+
   // --- XSS safety ---
 
   @Test
@@ -127,7 +183,7 @@ class HtmlRendererTest {
 
   private static TraceModel modelWithSingleTask(String scopeName, TaskOutcome outcome) {
     var tasks = List.of(task(1, T1, T2, outcome));
-    var scope = new ScopeRecord(scopeName, "main", T0, T3, tasks);
+    var scope = new ScopeRecord(scopeName, "main", T0, T3, tasks, null);
     return new TraceModel(List.of(scope));
   }
 

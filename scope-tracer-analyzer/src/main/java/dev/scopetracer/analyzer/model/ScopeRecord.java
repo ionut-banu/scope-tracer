@@ -12,10 +12,21 @@ import java.util.List;
  * @param closeTime when {@code ScopeClosedEvent} was emitted; {@code null} for truncated
  *     recordings.
  * @param tasks subtasks in fork order; unmodifiable.
+ * @param parent reference to the parent scope and task; {@code null} for root scopes.
  */
 public record ScopeRecord(
     String name,
     String ownerThreadName,
     Instant openTime,
     Instant closeTime,
-    List<TaskRecord> tasks) {}
+    List<TaskRecord> tasks,
+    ParentRef parent) {
+
+  /**
+   * Identifies the task inside a parent scope that directly contains this scope.
+   *
+   * @param scopeName name of the parent {@code TracedScope}.
+   * @param taskId task ID within the parent scope that opened this scope.
+   */
+  public record ParentRef(String scopeName, long taskId) {}
+}

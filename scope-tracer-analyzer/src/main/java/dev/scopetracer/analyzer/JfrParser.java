@@ -36,7 +36,7 @@ public final class JfrParser {
 
   /**
    * Parses all {@code dev.scopetracer.*} events from the given recording and reconstructs the
-   * scope/task lifecycle model.
+   * scope/task lifecycle model, including parent-child relationships between nested scopes.
    *
    * <p>Tasks whose completion event is absent (truncated recordings) are included with {@code null}
    * {@code completionTime} and {@code outcome}. Scopes whose {@code ScopeClosed} event is absent
@@ -49,6 +49,7 @@ public final class JfrParser {
   public static TraceModel parse(Path jfrFile) throws IOException {
     var scopeOpens = new HashMap<String, Instant>();
     var scopeOwners = new HashMap<String, String>();
+    var scopeOwnerThreadIds = new HashMap<String, Long>();
     var scopeCloses = new HashMap<String, Instant>();
     var forks = new HashMap<String, Map<Long, ForkData>>();
     var completions = new HashMap<String, Map<Long, CompletionData>>();
@@ -63,11 +64,14 @@ public final class JfrParser {
         var taskId = event.getLong("taskId");
         var threadName = event.getString("threadName");
         var time = event.getStartTime();
+        var thread = event.getThread();
+        long javaThreadId = thread != null ? thread.getJavaThreadId() : -1L;
 
         switch (type) {
           case SCOPE_OPENED -> {
             scopeOpens.put(scopeName, time);
             scopeOwners.put(scopeName, threadName);
+            scopeOwnerThreadIds.put(scopeName, javaThreadId);
           }
           case TASK_FORKED ->
               forks
@@ -76,17 +80,26 @@ public final class JfrParser {
           case TASK_SUCCEEDED ->
               completions
                   .computeIfAbsent(scopeName, k -> new HashMap<>())
-                  .put(taskId, new CompletionData(time, new TaskOutcome.Success()));
+                  .put(
+                      taskId,
+                      new CompletionData(
+                          time, new TaskOutcome.Success(), threadName, javaThreadId));
           case TASK_FAILED -> {
             var exType = event.getString("exceptionType");
             completions
                 .computeIfAbsent(scopeName, k -> new HashMap<>())
-                .put(taskId, new CompletionData(time, new TaskOutcome.Failed(exType)));
+                .put(
+                    taskId,
+                    new CompletionData(
+                        time, new TaskOutcome.Failed(exType), threadName, javaThreadId));
           }
           case TASK_CANCELLED ->
               completions
                   .computeIfAbsent(scopeName, k -> new HashMap<>())
-                  .put(taskId, new CompletionData(time, new TaskOutcome.Cancelled()));
+                  .put(
+                      taskId,
+                      new CompletionData(
+                          time, new TaskOutcome.Cancelled(), threadName, javaThreadId));
           case SCOPE_CLOSED -> scopeCloses.put(scopeName, time);
           default -> {
             // ignore unrecognised dev.scopetracer.* events for forward compatibility
@@ -94,6 +107,9 @@ public final class JfrParser {
         }
       }
     }
+
+    var parentRefs =
+        detectNesting(scopeOpens, scopeCloses, scopeOwnerThreadIds, forks, completions);
 
     var scopes = new ArrayList<ScopeRecord>();
     for (var scopeName : scopeOpens.keySet()) {
@@ -108,7 +124,7 @@ public final class JfrParser {
         tasks.add(
             new TaskRecord(
                 id,
-                fork.threadName(),
+                completion != null ? completion.threadName() : fork.threadName(),
                 fork.forkTime(),
                 completion != null ? completion.completionTime() : null,
                 completion != null ? completion.outcome() : null));
@@ -121,14 +137,62 @@ public final class JfrParser {
               scopeOwners.get(scopeName),
               scopeOpens.get(scopeName),
               scopeCloses.get(scopeName),
-              List.copyOf(tasks)));
+              List.copyOf(tasks),
+              parentRefs.get(scopeName)));
     }
     scopes.sort(Comparator.comparing(ScopeRecord::openTime));
 
     return new TraceModel(List.copyOf(scopes));
   }
 
+  private static Map<String, ScopeRecord.ParentRef> detectNesting(
+      Map<String, Instant> scopeOpens,
+      Map<String, Instant> scopeCloses,
+      Map<String, Long> scopeOwnerThreadIds,
+      Map<String, Map<Long, ForkData>> forks,
+      Map<String, Map<Long, CompletionData>> completions) {
+
+    var parentRefs = new HashMap<String, ScopeRecord.ParentRef>();
+
+    for (var scopeB : scopeOpens.keySet()) {
+      long ownerThreadId = scopeOwnerThreadIds.getOrDefault(scopeB, -1L);
+      if (ownerThreadId == -1L) continue;
+
+      Instant bOpen = scopeOpens.get(scopeB);
+      Instant bClose = scopeCloses.get(scopeB);
+
+      outer:
+      for (var scopeA : completions.keySet()) {
+        if (scopeA.equals(scopeB)) continue;
+        var aForks = forks.getOrDefault(scopeA, Map.of());
+        for (var entry : completions.get(scopeA).entrySet()) {
+          long taskId = entry.getKey();
+          var completion = entry.getValue();
+          if (completion.executingThreadId() != ownerThreadId) continue;
+
+          var forkData = aForks.get(taskId);
+          if (forkData == null) continue;
+
+          Instant tFork = forkData.forkTime();
+          Instant tDone = completion.completionTime();
+
+          boolean openedAfterFork = bOpen != null && bOpen.compareTo(tFork) >= 0;
+          boolean closedBeforeCompletion =
+              bClose == null || tDone == null || bClose.compareTo(tDone) <= 0;
+
+          if (openedAfterFork && closedBeforeCompletion) {
+            parentRefs.put(scopeB, new ScopeRecord.ParentRef(scopeA, taskId));
+            break outer;
+          }
+        }
+      }
+    }
+
+    return parentRefs;
+  }
+
   private record ForkData(Instant forkTime, String threadName) {}
 
-  private record CompletionData(Instant completionTime, TaskOutcome outcome) {}
+  private record CompletionData(
+      Instant completionTime, TaskOutcome outcome, String threadName, long executingThreadId) {}
 }

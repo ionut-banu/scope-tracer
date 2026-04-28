@@ -234,6 +234,38 @@ class JfrParserTest {
     }
   }
 
+  // --- nesting detection ---
+
+  @Test
+  void nestedScopeDetectsParentRef() throws Exception {
+    var model =
+        capture(
+            "nested-scope-detection",
+            () -> {
+              try (var outer = new TracedScope("order-processing", Thread.ofPlatform().factory())) {
+                outer.fork(
+                    () -> {
+                      try (var inner =
+                          new TracedScope("payment-steps", Thread.ofPlatform().factory())) {
+                        inner.fork(() -> "authorise");
+                        inner.join();
+                      }
+                      return "payment-done";
+                    });
+                outer.join();
+              }
+            });
+
+    var paymentSteps =
+        model.scopes().stream()
+            .filter(s -> s.name().equals("payment-steps"))
+            .findFirst()
+            .orElseThrow();
+
+    assertThat(paymentSteps.parent()).isNotNull();
+    assertThat(paymentSteps.parent().scopeName()).isEqualTo("order-processing");
+  }
+
   // --- empty recording ---
 
   @Test
