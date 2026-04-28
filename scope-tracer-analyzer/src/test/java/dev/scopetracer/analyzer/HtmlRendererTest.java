@@ -122,7 +122,7 @@ class HtmlRendererTest {
 
   @Test
   void blankThreadNameRendersAsVirtual() {
-    var tasks = List.of(new TaskRecord(1, "", T1, T2, new TaskOutcome.Success()));
+    var tasks = List.of(new TaskRecord(1, "", -1L, T1, T2, new TaskOutcome.Success()));
     var scope = new ScopeRecord("s", "main", T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     assertThat(html).contains("&lt;virtual&gt;");
@@ -130,7 +130,7 @@ class HtmlRendererTest {
 
   @Test
   void nullThreadNameRendersAsVirtual() {
-    var tasks = List.of(new TaskRecord(1, null, T1, T2, new TaskOutcome.Success()));
+    var tasks = List.of(new TaskRecord(1, null, -1L, T1, T2, new TaskOutcome.Success()));
     var scope = new ScopeRecord("s", "main", T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     assertThat(html).contains("&lt;virtual&gt;");
@@ -188,7 +188,7 @@ class HtmlRendererTest {
   }
 
   private static TaskRecord task(long id, Instant fork, Instant completion, TaskOutcome outcome) {
-    return new TaskRecord(id, "worker-" + id, fork, completion, outcome);
+    return new TaskRecord(id, "worker-" + id, -1L, fork, completion, outcome);
   }
 
   private static int countOccurrences(String text, String sub) {

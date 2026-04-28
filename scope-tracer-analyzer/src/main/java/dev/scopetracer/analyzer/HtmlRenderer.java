@@ -91,8 +91,9 @@ public final class HtmlRenderer {
             .get();
     var totalNs = Math.max(Duration.between(globalMin, globalMax).toNanos(), 1L);
 
+    long rootCount = model.scopes().stream().filter(s -> s.parent() == null).count();
     sb.append("<p class=\"summary\">")
-        .append(model.scopes().size())
+        .append(rootCount)
         .append(" scope(s) &nbsp;|&nbsp; wall time: ")
         .append(formatDuration(Duration.between(globalMin, globalMax)))
         .append("</p>\n");
@@ -167,7 +168,7 @@ public final class HtmlRenderer {
           .append(task.taskId())
           .append("</td>")
           .append("<td>")
-          .append(escape(displayThread(task.threadName())))
+          .append(escape(displayThread(task.threadName(), task.threadId())))
           .append("</td>")
           .append("<td>+")
           .append(formatDuration(forkOffset))
@@ -183,7 +184,7 @@ public final class HtmlRenderer {
     sb.append("</table>\n");
 
     // SVG timeline
-    int svgHeight = 20 + scope.tasks().size() * 22 + 10;
+    int svgHeight = 20 + scope.tasks().size() * 22 + 28;
     sb.append("<div class=\"timeline-wrap\">\n");
     sb.append("<svg class=\"timeline\" viewBox=\"0 0 800 ")
         .append(svgHeight)
@@ -235,7 +236,7 @@ public final class HtmlRenderer {
           .append("<title>task ")
           .append(task.taskId())
           .append(" | ")
-          .append(escape(displayThread(task.threadName())))
+          .append(escape(displayThread(task.threadName(), task.threadId())))
           .append(" | ")
           .append(outcomeTooltip(task.outcome()))
           .append("</title>\n</rect>\n")
@@ -246,6 +247,40 @@ public final class HtmlRenderer {
           .append("</text>\n")
           .append("</svg>\n");
       row++;
+    }
+
+    // time axis
+    int axisY = 20 + scope.tasks().size() * 22 + 6;
+    int labelY = axisY + 12;
+    sb.append("<line x1=\"")
+        .append(f(scopeXPct))
+        .append("\" y1=\"")
+        .append(axisY)
+        .append("\" x2=\"")
+        .append(f(scopeXPct + scopeWidthPct))
+        .append("\" y2=\"")
+        .append(axisY)
+        .append("\" stroke=\"#bdbdbd\" stroke-width=\"1\"/>\n");
+    long tickIntervalNs = niceTickIntervalNs(scopeDurationNs);
+    for (long tickNs = 0; tickNs <= scopeDurationNs; tickNs += tickIntervalNs) {
+      double tickX = scopeXPct + (double) tickNs / scopeDurationNs * scopeWidthPct;
+      sb.append("<line x1=\"")
+          .append(f(tickX))
+          .append("\" y1=\"")
+          .append(axisY - 3)
+          .append("\" x2=\"")
+          .append(f(tickX))
+          .append("\" y2=\"")
+          .append(axisY + 3)
+          .append("\" stroke=\"#bdbdbd\" stroke-width=\"1\"/>\n");
+      String label = tickNs == 0 ? "0" : "+" + formatDuration(Duration.ofNanos(tickNs));
+      sb.append("<text x=\"")
+          .append(f(tickX + 2))
+          .append("\" y=\"")
+          .append(labelY)
+          .append("\" font-size=\"8\" fill=\"#9e9e9e\" font-family=\"monospace\">")
+          .append(escape(label))
+          .append("</text>\n");
     }
 
     sb.append("</svg>\n</div>\n</section>\n");
@@ -301,6 +336,20 @@ public final class HtmlRenderer {
     };
   }
 
+  private static long niceTickIntervalNs(long durationNs) {
+    long[] candidates = {
+      1L, 2L, 5L, 10L, 20L, 50L, 100L, 200L, 500L,
+      1_000L, 2_000L, 5_000L, 10_000L, 20_000L, 50_000L, 100_000L, 200_000L, 500_000L,
+      1_000_000L, 2_000_000L, 5_000_000L, 10_000_000L, 20_000_000L, 50_000_000L,
+      100_000_000L, 200_000_000L, 500_000_000L, 1_000_000_000L, 2_000_000_000L, 5_000_000_000L
+    };
+    long target = Math.max(durationNs / 5, 1L);
+    for (long c : candidates) {
+      if (c >= target) return c;
+    }
+    return candidates[candidates.length - 1];
+  }
+
   private static String formatDuration(Duration d) {
     long ns = d.toNanos();
     if (ns < 1_000L) return ns + "ns";
@@ -310,7 +359,13 @@ public final class HtmlRenderer {
   }
 
   private static String displayThread(String threadName) {
-    return (threadName == null || threadName.isBlank()) ? "<virtual>" : threadName;
+    return displayThread(threadName, -1L);
+  }
+
+  private static String displayThread(String threadName, long threadId) {
+    if (threadName != null && !threadName.isBlank()) return threadName;
+    if (threadId > 0) return "vt-" + threadId;
+    return "<virtual>";
   }
 
   private static String escape(String s) {

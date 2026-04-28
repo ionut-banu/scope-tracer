@@ -125,6 +125,7 @@ public final class JfrParser {
             new TaskRecord(
                 id,
                 completion != null ? completion.threadName() : fork.threadName(),
+                completion != null ? completion.executingThreadId() : -1L,
                 fork.forkTime(),
                 completion != null ? completion.completionTime() : null,
                 completion != null ? completion.outcome() : null));
