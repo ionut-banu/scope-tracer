@@ -18,6 +18,7 @@
   <modules>
     <module>scope-tracer-core</module>
     <module>scope-tracer-analyzer</module>
+    <module>scope-tracer-agent</module>
     <module>scope-tracer-demos</module>
   </modules>
 
@@ -32,6 +33,7 @@
     <junit.version>5.10.2</junit.version>
     <assertj.version>3.25.3</assertj.version>
     <awaitility.version>4.2.1</awaitility.version>
+    <bytebuddy.version>1.14.18</bytebuddy.version>
 
     <surefire.version>3.2.5</surefire.version>
     <compiler.plugin.version>3.13.0</compiler.plugin.version>
@@ -69,6 +71,16 @@
         <groupId>org.awaitility</groupId>
         <artifactId>awaitility</artifactId>
         <version>${awaitility.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy</artifactId>
+        <version>${bytebuddy.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy-agent</artifactId>
+        <version>${bytebuddy.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

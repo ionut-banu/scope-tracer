@@ -13,9 +13,10 @@ threads on JDK 26+.
 
 - `scope-tracer-core` — wraps StructuredTaskScope, emits JFR events
 - `scope-tracer-analyzer` — reads .jfr files, renders HTML/SVG reports
+- `scope-tracer-agent` — Java agent; instruments `StructuredTaskScope` at bytecode level
 - `scope-tracer-demos` — example programs (correct + buggy)
 
-Code lives under `dev.scopetracer.{core,analyzer,demos}`. Maven coordinates:
+Code lives under `dev.scopetracer.{core,analyzer,agent,demos}`. Maven coordinates:
 `dev.scopetracer:scope-tracer-*:0.1.0-SNAPSHOT`.
 
 ## Architecture
@@ -93,6 +94,26 @@ and SVG timelines. Root scopes are rendered first; child scopes are indented ins
 `<div class="child-scope">` beneath their parent. Each task bar is a nested `<svg>` (for
 natural overflow clipping) containing a coloured `<rect>` and a white `#N` label.
 
+**`scope-tracer-agent`**
+
+Java agent that instruments `StructuredTaskScope` at the bytecode level (via ByteBuddy
+`@Advice`). Attach with `-javaagent:scope-tracer-agent-*-agent.jar`. The agent fat-jar is
+produced by `maven-shade-plugin` with classifier `agent` and lists itself in
+`Boot-Class-Path` so advice code is accessible from the bootstrap classloader (required
+because `StructuredTaskScope` is a JDK class loaded by bootstrap).
+
+Key implementation details:
+- `ScopeTracerAgent.premain()` sets `net.bytebuddy.experimental=true` to allow ByteBuddy
+  1.14.x to process Java 26 class files (remove once ByteBuddy officially supports JDK 26).
+- Two type matchers are needed: `StructuredTaskScope` for the static `open()` factory, and
+  **`StructuredTaskScopeImpl`** for `fork()`/`close()` (the concrete class returned by
+  `open()` overrides these methods; advising the abstract class alone doesn't suffice).
+- `fork(Callable)` is matched explicitly by parameter type to avoid colliding with
+  `fork(Runnable)` (a different overload present in `StructuredTaskScopeImpl`).
+- `TracingCallable<T>` wraps the user's callable and emits task-completion events.
+- `ScopeNameDeriver` uses `StackWalker` to produce `SimpleClassName#methodName` scope names.
+- Do not combine with `TracedScope` — duplicate events would be emitted.
+
 ## Running demos
 
 `exec:java` shares Maven's JVM and cannot receive `--enable-preview`, so demos must be
@@ -107,6 +128,10 @@ scope-tracer-demos/target/scope-tracer-demos-0.1.0-SNAPSHOT.jar:$CP"
 java --enable-preview -cp "$JARS" dev.scopetracer.demos.ParallelFetchDemo
 java --enable-preview -cp "$JARS" dev.scopetracer.demos.FailFastDemo
 java --enable-preview -cp "$JARS" dev.scopetracer.demos.NestedScopesDemo
+# AgentDemo uses plain StructuredTaskScope — no TracedScope in source
+java --enable-preview \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
+     -cp "$JARS" dev.scopetracer.demos.AgentDemo
 ```
 
 Each demo writes `<name>.jfr` and `<name>.html` to `target/` relative to the working
@@ -123,7 +148,7 @@ directory, then prints the absolute paths.
 
 **Test locations:** `scope-tracer-{module}/src/test/java/dev/scopetracer/{module}/`. Core tests use the JFR recording pattern above. Analyzer tests split into `JfrParserTest` (integration, requires a live JFR recording) and `HtmlRendererTest` (unit, constructs model objects directly).
 
-**Known pre-existing failures:** `JfrParserTest` tests fail with `UnsupportedOperationException` at runtime because `StructuredTaskScope` / `Joiner` are preview APIs whose runtime behaviour varies by JDK build. These failures pre-date any given change — do not attempt to fix them by disabling tests or catching the exception. `HtmlRendererTest` (15 tests) must always be green.
+**All 55 tests must be green** (`mvn test` from the root after `mvn install -DskipTests`). Running `-pl scope-tracer-analyzer test` without a prior install will resolve `scope-tracer-core` from the local Maven repo — if that jar is stale the tests will fail with `UnsupportedOperationException`. Always run `mvn clean install -DskipTests` first when switching branches or after a `clean`.
 
 ## Coding conventions
 

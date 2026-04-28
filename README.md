@@ -67,9 +67,12 @@ java -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
 
 ```bash
 java --enable-preview \
-     -cp scope-tracer-analyzer-0.1.0-SNAPSHOT.jar \
-     dev.scopetracer.analyzer.AnalyzerMain myapp.jfr report.html
+     -jar scope-tracer-analyzer-0.1.0-SNAPSHOT-executable.jar \
+     myapp.jfr report.html
 ```
+
+The `-executable` jar is a self-contained fat-jar produced by `mvn package`. It bundles
+all runtime dependencies so no classpath assembly is needed.
 
 Or use the programmatic API:
 
@@ -105,15 +108,40 @@ breadcrumb showing which task spawned them.
 
 ---
 
+## Zero-code-change tracing (Java agent)
+
+Don't want to change source code? Use the agent. It instruments `StructuredTaskScope` at
+the bytecode level — any JDK 26+ application is traced without touching its source.
+
+```bash
+java --enable-preview \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
+     -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
+     -cp <your-classpath> \
+     com.example.MyApp
+```
+
+The agent:
+- Derives scope names automatically from the call-site stack frame (format:
+  `SimpleClassName#methodName`). Scope names set via `Config.withName()` are not used.
+- Emits the same six JFR events as `TracedScope`, so the analyzer pipeline is identical.
+- **Do not** combine with `TracedScope` — each scope would emit duplicate events.
+
+> **Note:** The agent jar is self-bootstrapped via `Boot-Class-Path` in its manifest. No
+> extra JVM flags are needed for the bootstrap classloader setup.
+
+---
+
 ## Demos
 
-Three runnable examples are included in `scope-tracer-demos`:
+Four runnable examples are included in `scope-tracer-demos`:
 
 | Demo | What it shows |
 |------|--------------|
 | `ParallelFetchDemo` | Happy path — three tasks run in parallel, all succeed |
 | `FailFastDemo` | Cancellation — one task fails, its sibling is interrupted |
 | `NestedScopesDemo` | Nesting — a task inside the outer scope opens an inner scope |
+| `AgentDemo` | Zero-code-change — plain `StructuredTaskScope`, traced by the agent |
 
 Each demo writes a `.jfr` and `.html` file to `target/` and prints the paths.
 
@@ -129,6 +157,11 @@ scope-tracer-demos/target/scope-tracer-demos-0.1.0-SNAPSHOT.jar:$CP"
 java --enable-preview -cp "$JARS" dev.scopetracer.demos.ParallelFetchDemo
 java --enable-preview -cp "$JARS" dev.scopetracer.demos.FailFastDemo
 java --enable-preview -cp "$JARS" dev.scopetracer.demos.NestedScopesDemo
+
+# AgentDemo uses the agent — no TracedScope in source
+java --enable-preview \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
+     -cp "$JARS" dev.scopetracer.demos.AgentDemo
 ```
 
 ---
@@ -153,4 +186,5 @@ guidelines.
 |--------|----------|---------|
 | `scope-tracer-core` | `dev.scopetracer:scope-tracer-core` | `TracedScope` wrapper; emits JFR events |
 | `scope-tracer-analyzer` | `dev.scopetracer:scope-tracer-analyzer` | Parses `.jfr` files; renders HTML/SVG reports |
+| `scope-tracer-agent` | `dev.scopetracer:scope-tracer-agent` | Java agent; instruments `StructuredTaskScope` at bytecode level |
 | `scope-tracer-demos` | `dev.scopetracer:scope-tracer-demos` | Runnable example programs |
