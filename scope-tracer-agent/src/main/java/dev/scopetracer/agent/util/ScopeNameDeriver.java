@@ -27,8 +27,15 @@ public final class ScopeNameDeriver {
                     .filter(
                         f -> {
                           String cls = f.getClassName();
+                          // Exclude JDK scope machinery and ByteBuddy internals.
+                          // Do NOT exclude the entire dev.scopetracer.agent package:
+                          // user code (e.g. test subjects) may live there too.
+                          // The only agent class that genuinely appears on this
+                          // stack is ScopeNameDeriver itself (advice methods are
+                          // inlined by ByteBuddy and show up as StructuredTaskScope
+                          // frames, which are already excluded below).
                           return !cls.startsWith("java.util.concurrent.StructuredTaskScope")
-                              && !cls.startsWith("dev.scopetracer.agent")
+                              && !cls.equals("dev.scopetracer.agent.util.ScopeNameDeriver")
                               && !cls.startsWith("net.bytebuddy.");
                         })
                     .findFirst()

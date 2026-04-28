@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(mvn -pl scope-tracer-core -q verify)",
-      "Bash(/Library/Java/JavaVirtualMachines/temurin-26.jdk/Contents/Home/bin/jfr print *)"
+      "Bash(/Library/Java/JavaVirtualMachines/temurin-26.jdk/Contents/Home/bin/jfr print *)",
+      "Bash(mvn verify *)"
     ]
   }
 }

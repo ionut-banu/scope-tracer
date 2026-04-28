@@ -29,6 +29,12 @@
     </dependency>
 
     <dependency>
+      <groupId>dev.scopetracer</groupId>
+      <artifactId>scope-tracer-analyzer</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
@@ -98,6 +104,28 @@
                 </filter>
               </filters>
             </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Step 3: run integration tests after the fat-jar is built.
+           The IT forks a child JVM with -javaagent pointing at the fat-jar,
+           so it must run in the failsafe (post-package) phase. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <argLine>--enable-preview</argLine>
+          <systemPropertyVariables>
+            <agentJar>${project.build.directory}/scope-tracer-agent-${project.version}-agent.jar</agentJar>
+            <testClassesDir>${project.build.testOutputDirectory}</testClassesDir>
+          </systemPropertyVariables>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
           </execution>
         </executions>
       </plugin>
