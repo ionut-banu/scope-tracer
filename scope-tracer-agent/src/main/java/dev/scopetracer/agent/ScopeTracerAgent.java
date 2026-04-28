@@ -2,6 +2,7 @@ package dev.scopetracer.agent;
 
 import dev.scopetracer.agent.advice.ForkAdvice;
 import dev.scopetracer.agent.advice.ScopeCloseAdvice;
+import dev.scopetracer.agent.advice.ScopeConstructorAdvice;
 import dev.scopetracer.agent.advice.ScopeOpenAdvice;
 import java.lang.instrument.Instrumentation;
 import net.bytebuddy.agent.builder.AgentBuilder;
@@ -16,6 +17,10 @@ import net.bytebuddy.matcher.ElementMatchers;
  * (scope open/close, task fork/succeed/fail/cancel). The resulting {@code .jfr} recording is
  * compatible with the standard {@code scope-tracer-analyzer} pipeline.
  *
+ * <p><b>Scope naming:</b> When a scope is opened with {@code Config.withName("my-scope")}, that
+ * name is used as-is. When no name is configured, the name is derived from the call-site stack
+ * frame (format: {@code SimpleClassName#methodName}).
+ *
  * <p><b>Requirements:</b>
  *
  * <ul>
@@ -29,8 +34,9 @@ import net.bytebuddy.matcher.ElementMatchers;
  * <ul>
  *   <li>Do not combine with {@link dev.scopetracer.core.TracedScope} — duplicate events will be
  *       emitted for the same scope.
- *   <li>Scope names are derived from the call-site stack frame (format: {@code
- *       SimpleClassName#methodName}); they are not the names passed to {@code Config.withName()}.
+ *   <li>{@code fork(Runnable)} tasks are traced transparently: the JDK delegates {@code
+ *       fork(Runnable)} to {@code fork(Callable)} internally, so the existing {@code
+ *       fork(Callable)} advice covers both overloads.
  * </ul>
  */
 public final class ScopeTracerAgent {
@@ -73,6 +79,18 @@ public final class ScopeTracerAgent {
                             ElementMatchers.named("open")
                                 .and(ElementMatchers.isStatic())
                                 .and(ElementMatchers.isPublic()))))
+        // --- constructor advice: captures the configured name into a ThreadLocal ---
+        .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScopeImpl"))
+        .transform(
+            (builder, typeDescription, classLoader, module, protectionDomain) ->
+                builder.visit(
+                    Advice.to(ScopeConstructorAdvice.class)
+                        .on(
+                            ElementMatchers.isConstructor()
+                                .and(ElementMatchers.takesArguments(3))
+                                .and(
+                                    ElementMatchers.takesArgument(
+                                        2, ElementMatchers.named("java.lang.String"))))))
         // --- fork() and close() on both the API class and its concrete impl ---
         .type(forkAndCloseMatcher)
         .transform(
@@ -84,7 +102,8 @@ public final class ScopeTracerAgent {
                                 ElementMatchers.named("fork")
                                     .and(ElementMatchers.not(ElementMatchers.isStatic()))
                                     .and(ElementMatchers.isPublic())
-                                    // Match only fork(Callable), not fork(Runnable)
+                                    // Match only fork(Callable); fork(Runnable) delegates to it
+                                    // internally so it is covered automatically.
                                     .and(
                                         ElementMatchers.takesArgument(
                                             0,

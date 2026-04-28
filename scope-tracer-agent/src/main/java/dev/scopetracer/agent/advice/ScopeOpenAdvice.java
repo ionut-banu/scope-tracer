@@ -12,7 +12,9 @@ import net.bytebuddy.asm.Advice;
  * Runs after {@code open()} returns and:
  *
  * <ol>
- *   <li>Derives a scope name from the call-site stack frame.
+ *   <li>Resolves the scope name: prefers the user-configured name captured by {@link
+ *       ScopeConstructorAdvice} via {@link AgentState#PENDING_SCOPE_NAME}; falls back to {@link
+ *       ScopeNameDeriver} (call-site stack frame) when no name was configured.
  *   <li>Records a {@link ScopeState} in {@link AgentState#SCOPE_STATES} keyed by the new scope
  *       instance.
  *   <li>Emits a {@code ScopeOpenedEvent} JFR event.
@@ -30,7 +32,12 @@ public final class ScopeOpenAdvice {
   @Advice.OnMethodExit(suppress = Throwable.class)
   public static void onOpen(@Advice.Return Object scope) {
     if (scope == null) return;
-    String name = ScopeNameDeriver.derive();
+
+    // Prefer the name set via Config.withName(); fall back to the call-site stack frame.
+    String pending = AgentState.PENDING_SCOPE_NAME.get();
+    AgentState.PENDING_SCOPE_NAME.remove();
+    String name = (pending != null && !pending.isBlank()) ? pending : ScopeNameDeriver.derive();
+
     AgentState.SCOPE_STATES.put(scope, new ScopeState(name, new AtomicLong()));
 
     ScopeOpenedEvent event = new ScopeOpenedEvent();

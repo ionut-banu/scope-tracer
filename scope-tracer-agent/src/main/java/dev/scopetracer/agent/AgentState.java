@@ -21,4 +21,15 @@ public final class AgentState {
    */
   public static final Map<Object, ScopeState> SCOPE_STATES =
       Collections.synchronizedMap(new WeakHashMap<>());
+
+  /**
+   * Carries the user-configured scope name (from {@code Config.withName()}) from the {@code
+   * StructuredTaskScopeImpl} constructor advice to {@code ScopeOpenAdvice}. Set by {@link
+   * dev.scopetracer.agent.advice.ScopeConstructorAdvice} and consumed (then cleared) by {@link
+   * dev.scopetracer.agent.advice.ScopeOpenAdvice}.
+   *
+   * <p>{@code null} means no name was configured; the open advice falls back to {@link
+   * dev.scopetracer.agent.util.ScopeNameDeriver}.
+   */
+  public static final ThreadLocal<String> PENDING_SCOPE_NAME = new ThreadLocal<>();
 }

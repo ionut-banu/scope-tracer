@@ -41,7 +41,14 @@ public final class ScopeNameDeriver {
                           // Strip inner-class suffix after '$'
                           int dollar = simple.indexOf('$');
                           if (dollar > 0) simple = simple.substring(0, dollar);
-                          return simple + "#" + f.getMethodName();
+                          // Clean up synthetic lambda method names: "lambda$main$0" → "main"
+                          String method = f.getMethodName();
+                          if (method.startsWith("lambda$")) {
+                            String inner = method.substring("lambda$".length());
+                            int lastDollar = inner.lastIndexOf('$');
+                            method = lastDollar > 0 ? inner.substring(0, lastDollar) : inner;
+                          }
+                          return simple + "#" + method;
                         })
                     .orElse("unknown-scope"));
   }
