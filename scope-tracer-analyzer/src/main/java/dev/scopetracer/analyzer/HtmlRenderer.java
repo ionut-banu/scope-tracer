@@ -28,6 +28,7 @@ import java.util.Map;
 public final class HtmlRenderer {
 
   private static final String COLOR_SUCCESS = "#4caf50";
+  private static final String COLOR_CRITICAL_STROKE = "#d97706";
   private static final String COLOR_FAILED = "#e53935";
   private static final String COLOR_CANCELLED = "#fb8c00";
   private static final String COLOR_INCOMPLETE = "#9e9e9e";
@@ -73,6 +74,7 @@ public final class HtmlRenderer {
         .child-scope { margin-left: 2rem; border-left: 3px solid #1565c0; padding-left: 1rem; }
         .parent-ref  { font-size: 0.75rem; color: #616161; font-weight: normal; margin-left: 0.5rem; }
         .nested-scope-ref { font-size: 0.75rem; color: #1565c0; margin-left: 0.5rem; }
+        .critical-path-note { color: #d97706; font-size: 0.75rem; margin-left: 0.3rem; }
         .legend { display: flex; gap: 1.2rem; font-size: 0.8rem; margin-bottom: 1.5rem; color: #616161; flex-wrap: wrap; }
         .legend-item { display: flex; align-items: center; gap: 0.3rem; }
         .legend-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
@@ -86,6 +88,7 @@ public final class HtmlRenderer {
         <span class="legend-item"><span class="legend-swatch" style="background:#e53935"></span>failed</span>
         <span class="legend-item"><span class="legend-swatch" style="background:#fb8c00"></span>cancelled</span>
         <span class="legend-item"><span class="legend-swatch" style="background:#9e9e9e"></span>incomplete</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#4caf50;box-shadow:0 0 0 2px #d97706"></span>critical path</span>
         </div>
         """);
 
@@ -174,6 +177,20 @@ public final class HtmlRenderer {
             .map(TaskRecord::taskId)
             .orElse(-1L);
 
+    // task with the latest completionTime among all-success scopes — sets the scope duration
+    boolean allSucceeded =
+        !scope.tasks().isEmpty()
+            && scope.tasks().stream()
+                .allMatch(
+                    t -> t.outcome() instanceof TaskOutcome.Success && t.completionTime() != null);
+    long criticalTaskId =
+        allSucceeded
+            ? scope.tasks().stream()
+                .max(Comparator.comparing(TaskRecord::completionTime))
+                .map(TaskRecord::taskId)
+                .orElse(-1L)
+            : -1L;
+
     // task table
     sb.append(
         "<table>\n<tr><th>#</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>\n");
@@ -185,6 +202,11 @@ public final class HtmlRenderer {
               ? Duration.between(task.forkTime(), task.completionTime())
               : null;
       var nestedScopeName = scopeNestedScopes.get(task.taskId());
+      boolean isCritical = task.taskId() == criticalTaskId;
+      String criticalDelta =
+          isCritical && task.completionTime() != null
+              ? formatDuration(Duration.between(openTime, task.completionTime()))
+              : null;
       sb.append("<tr>")
           .append("<td>")
           .append(task.taskId())
@@ -199,7 +221,8 @@ public final class HtmlRenderer {
           .append(taskDuration != null ? formatDuration(taskDuration) : "—")
           .append("</td>")
           .append("<td>")
-          .append(outcomeCell(task.outcome(), nestedScopeName, triggerId))
+          .append(
+              outcomeCell(task.outcome(), nestedScopeName, triggerId, isCritical, criticalDelta))
           .append("</td>")
           .append("</tr>\n");
     }
@@ -242,7 +265,12 @@ public final class HtmlRenderer {
       } else {
         taskW = 2;
       }
+      boolean isCriticalBar = task.taskId() == criticalTaskId;
       var color = outcomeColor(task.outcome());
+      String criticalBarDelta =
+          isCriticalBar && task.completionTime() != null
+              ? formatDuration(Duration.between(openTime, task.completionTime()))
+              : null;
       sb.append("<svg x=\"")
           .append(f(taskX))
           .append("\" y=\"")
@@ -260,9 +288,17 @@ public final class HtmlRenderer {
           .append(" | ")
           .append(escape(displayThread(task.threadName(), task.threadId())))
           .append(" | ")
-          .append(outcomeTooltip(task.outcome(), triggerId))
-          .append("</title>\n</rect>\n")
-          .append("<text x=\"4\" y=\"13\" fill=\"white\" font-size=\"11\" ")
+          .append(outcomeTooltip(task.outcome(), triggerId, isCriticalBar, criticalBarDelta))
+          .append("</title>\n</rect>\n");
+      if (isCriticalBar) {
+        // Gold outline overlaid on the green bar — visually distinct from cancelled orange
+        sb.append("<rect x=\"0\" y=\"0\" width=\"")
+            .append(f(taskW))
+            .append("\" height=\"18\" fill=\"none\" stroke=\"")
+            .append(COLOR_CRITICAL_STROKE)
+            .append("\" stroke-width=\"2\" rx=\"2\"/>\n");
+      }
+      sb.append("<text x=\"4\" y=\"13\" fill=\"white\" font-size=\"11\" ")
           .append("font-family=\"monospace\" pointer-events=\"none\">")
           .append("#")
           .append(task.taskId())
@@ -326,7 +362,12 @@ public final class HtmlRenderer {
     if (depth > 0) sb.append("</div>\n");
   }
 
-  private static String outcomeCell(TaskOutcome outcome, String nestedScopeName, long triggerId) {
+  private static String outcomeCell(
+      TaskOutcome outcome,
+      String nestedScopeName,
+      long triggerId,
+      boolean isCritical,
+      String criticalDelta) {
     var cell =
         outcome == null
             ? "<span class=\"outcome-unknown\">—</span>"
@@ -339,6 +380,12 @@ public final class HtmlRenderer {
                       ? "<span class=\"outcome-cancelled\">cancelled ← #" + triggerId + "</span>"
                       : "<span class=\"outcome-cancelled\">cancelled</span>";
             };
+    if (isCritical && criticalDelta != null) {
+      cell +=
+          " <span class=\"critical-path-note\">← critical path +"
+              + escape(criticalDelta)
+              + "</span>";
+    }
     if (nestedScopeName == null) return cell;
     return cell + " <span class=\"nested-scope-ref\">↳ " + escape(nestedScopeName) + "</span>";
   }
@@ -352,13 +399,20 @@ public final class HtmlRenderer {
     };
   }
 
-  private static String outcomeTooltip(TaskOutcome outcome, long triggerId) {
+  private static String outcomeTooltip(
+      TaskOutcome outcome, long triggerId, boolean isCritical, String criticalDelta) {
     if (outcome == null) return "incomplete";
-    return switch (outcome) {
-      case TaskOutcome.Success s -> "success";
-      case TaskOutcome.Failed f -> "failed: " + f.exceptionType();
-      case TaskOutcome.Cancelled c -> triggerId >= 0 ? "cancelled ← #" + triggerId : "cancelled";
-    };
+    String base =
+        switch (outcome) {
+          case TaskOutcome.Success s -> "success";
+          case TaskOutcome.Failed f -> "failed: " + f.exceptionType();
+          case TaskOutcome.Cancelled c ->
+              triggerId >= 0 ? "cancelled ← #" + triggerId : "cancelled";
+        };
+    if (isCritical && criticalDelta != null) {
+      base += " · critical path +" + criticalDelta;
+    }
+    return base;
   }
 
   private static long niceTickIntervalNs(long durationNs) {

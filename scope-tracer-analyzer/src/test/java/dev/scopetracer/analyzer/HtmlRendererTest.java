@@ -164,6 +164,63 @@ class HtmlRendererTest {
     assertThat(html).contains("child-scope");
   }
 
+  // --- critical path highlighting ---
+
+  @Test
+  void criticalPathTaskRendersGoldOutline() {
+    // Task 2 completes last (T1→T4 = 30 ms) and is the critical path
+    var tasks =
+        List.of(
+            task(1, T1, T2, new TaskOutcome.Success()), // 10 ms
+            task(2, T1, T4, new TaskOutcome.Success()), // 30 ms — latest
+            task(3, T1, T3, new TaskOutcome.Success())); // 20 ms
+    var scope = new ScopeRecord("cp-scope", "main", -1L, T0, T4, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+    // The critical task bar has a gold stroke outline
+    assertThat(html).contains("stroke=\"#d97706\"");
+  }
+
+  @Test
+  void onlyCriticalTaskHasGoldOutline() {
+    var tasks =
+        List.of(
+            task(1, T1, T2, new TaskOutcome.Success()), // 10 ms
+            task(2, T1, T4, new TaskOutcome.Success()), // 30 ms — latest
+            task(3, T1, T3, new TaskOutcome.Success())); // 20 ms
+    var scope = new ScopeRecord("cp-scope", "main", -1L, T0, T4, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+    // Gold stroke appears exactly once (task 2); all three bars use the green fill
+    assertThat(countOccurrences(html, "stroke=\"#d97706\"")).isEqualTo(1);
+    assertThat(countOccurrences(html, "fill=\"#4caf50\"")).isEqualTo(3);
+  }
+
+  @Test
+  void criticalPathAnnotationAppearsInTable() {
+    var tasks =
+        List.of(
+            task(1, T1, T2, new TaskOutcome.Success()),
+            task(2, T1, T4, new TaskOutcome.Success()),
+            task(3, T1, T3, new TaskOutcome.Success()));
+    var scope = new ScopeRecord("cp-scope", "main", -1L, T0, T4, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+    assertThat(html).contains("critical path");
+  }
+
+  @Test
+  void failedScopeHasNoCriticalPathHighlight() {
+    // One success, one failed — critical path undefined for non-all-success scopes
+    var tasks =
+        List.of(
+            task(1, T1, T2, new TaskOutcome.Success()),
+            task(2, T1, T3, new TaskOutcome.Failed("java.lang.RuntimeException")));
+    var scope = new ScopeRecord("fail-scope", "main", -1L, T0, T3, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+    // No gold stroke on any task bar (the CSS class definition is always present, but not the attr)
+    assertThat(html).doesNotContain("stroke=\"#d97706\"");
+    // No critical path annotation text in the table
+    assertThat(html).doesNotContain("← critical path");
+  }
+
   // --- XSS safety ---
 
   @Test

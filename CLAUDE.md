@@ -94,6 +94,11 @@ and SVG timelines. Root scopes are rendered first; child scopes are indented ins
 `<div class="child-scope">` beneath their parent. Each task bar is a nested `<svg>` (for
 natural overflow clipping) containing a coloured `<rect>` and a white `#N` label.
 
+**Critical path highlighting**: in scopes where every task succeeded and has a non-null
+`completionTime`, the task with the latest `completionTime` is rendered amber (`#f59e0b`)
+instead of green, and its table row shows `← critical path +Xms`. Scopes with any
+failed/cancelled task or truncated data are left unhighlighted.
+
 **`scope-tracer-agent`**
 
 Java agent that instruments `StructuredTaskScope` at the bytecode level (via ByteBuddy
@@ -105,13 +110,20 @@ because `StructuredTaskScope` is a JDK class loaded by bootstrap).
 Key implementation details:
 - `ScopeTracerAgent.premain()` sets `net.bytebuddy.experimental=true` to allow ByteBuddy
   1.14.x to process Java 26 class files (remove once ByteBuddy officially supports JDK 26).
-- Two type matchers are needed: `StructuredTaskScope` for the static `open()` factory, and
-  **`StructuredTaskScopeImpl`** for `fork()`/`close()` (the concrete class returned by
-  `open()` overrides these methods; advising the abstract class alone doesn't suffice).
+- Three type-matcher chains in the `AgentBuilder`: (1) `StructuredTaskScope` for the static
+  `open()` factory (`ScopeOpenAdvice`), (2) `StructuredTaskScopeImpl` for the private
+  3-arg constructor (`ScopeConstructorAdvice` — captures the `Config.withName()` value into
+  a `ThreadLocal<String>` before the constructor body runs), (3) both classes for `fork()`
+  and `close()`.
+- `ScopeOpenAdvice` reads the `ThreadLocal` set by `ScopeConstructorAdvice`; falls back to
+  `ScopeNameDeriver` (call-site stack frame) when no name was configured.
 - `fork(Callable)` is matched explicitly by parameter type to avoid colliding with
   `fork(Runnable)` (a different overload present in `StructuredTaskScopeImpl`).
 - `TracingCallable<T>` wraps the user's callable and emits task-completion events.
 - `ScopeNameDeriver` uses `StackWalker` to produce `SimpleClassName#methodName` scope names.
+  The filter excludes only `java.util.concurrent.StructuredTaskScope*`, `net.bytebuddy.*`,
+  and `ScopeNameDeriver` itself — not the whole `dev.scopetracer.agent` package (user code,
+  including test subjects, may live there).
 - Do not combine with `TracedScope` — duplicate events would be emitted.
 
 ## Running demos
@@ -148,7 +160,12 @@ directory, then prints the absolute paths.
 
 **Test locations:** `scope-tracer-{module}/src/test/java/dev/scopetracer/{module}/`. Core tests use the JFR recording pattern above. Analyzer tests split into `JfrParserTest` (integration, requires a live JFR recording) and `HtmlRendererTest` (unit, constructs model objects directly).
 
-**All 55 tests must be green** (`mvn test` from the root after `mvn install -DskipTests`). Running `-pl scope-tracer-analyzer test` without a prior install will resolve `scope-tracer-core` from the local Maven repo — if that jar is stale the tests will fail with `UnsupportedOperationException`. Always run `mvn clean install -DskipTests` first when switching branches or after a `clean`.
+**Test counts:** 55 unit tests run by `mvn test` (surefire) + 7 agent integration tests run
+by `mvn verify` (failsafe, requires the fat-jar to be built first). All 62 must be green
+under `mvn verify`. Running `-pl scope-tracer-analyzer test` without a prior install will
+resolve `scope-tracer-core` from the local Maven repo — if that jar is stale the tests
+will fail with `UnsupportedOperationException`. Always run `mvn clean install -DskipTests`
+first when switching branches or after a `clean`.
 
 ## Coding conventions
 
