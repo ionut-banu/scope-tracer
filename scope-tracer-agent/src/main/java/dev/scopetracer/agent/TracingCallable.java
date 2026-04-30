@@ -25,6 +25,7 @@ public final class TracingCallable<T> implements Callable<T> {
 
   private final Callable<? extends T> delegate;
   private final String scopeName;
+  private final long scopeId;
   private final long taskId;
 
   /**
@@ -32,11 +33,14 @@ public final class TracingCallable<T> implements Callable<T> {
    *
    * @param delegate the original callable; must be non-null.
    * @param scopeName the scope name from {@link AgentState}; recorded on every event.
+   * @param scopeId the unique scope ID assigned at scope-open time; recorded on every event.
    * @param taskId the task ID assigned by the fork advice.
    */
-  public TracingCallable(Callable<? extends T> delegate, String scopeName, long taskId) {
+  public TracingCallable(
+      Callable<? extends T> delegate, String scopeName, long scopeId, long taskId) {
     this.delegate = delegate;
     this.scopeName = scopeName;
+    this.scopeId = scopeId;
     this.taskId = taskId;
   }
 
@@ -45,6 +49,7 @@ public final class TracingCallable<T> implements Callable<T> {
     try {
       T result = delegate.call();
       TaskSucceededEvent ev = new TaskSucceededEvent();
+      ev.scopeId = scopeId;
       ev.scopeName = scopeName;
       ev.taskId = taskId;
       ev.threadName = Thread.currentThread().getName();
@@ -52,6 +57,7 @@ public final class TracingCallable<T> implements Callable<T> {
       return result;
     } catch (InterruptedException e) {
       TaskCancelledEvent ev = new TaskCancelledEvent();
+      ev.scopeId = scopeId;
       ev.scopeName = scopeName;
       ev.taskId = taskId;
       ev.threadName = Thread.currentThread().getName();
@@ -60,6 +66,7 @@ public final class TracingCallable<T> implements Callable<T> {
       throw e;
     } catch (Exception e) {
       TaskFailedEvent ev = new TaskFailedEvent();
+      ev.scopeId = scopeId;
       ev.scopeName = scopeName;
       ev.taskId = taskId;
       ev.threadName = Thread.currentThread().getName();

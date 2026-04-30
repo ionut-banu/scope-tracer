@@ -44,11 +44,12 @@ public final class ForkAdvice {
     long taskId = state.nextTaskId();
 
     TaskForkedEvent event = new TaskForkedEvent();
+    event.scopeId = state.scopeId();
     event.scopeName = state.name();
     event.taskId = taskId;
     event.threadName = Thread.currentThread().getName();
     event.commit();
 
-    task = new TracingCallable<>(task, state.name(), taskId);
+    task = new TracingCallable<>(task, state.name(), state.scopeId(), taskId);
   }
 }

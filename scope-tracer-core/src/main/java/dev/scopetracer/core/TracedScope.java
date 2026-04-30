@@ -47,7 +47,11 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class TracedScope implements AutoCloseable {
 
+  /** Global counter; each new {@code TracedScope} instance gets a unique monotonic ID. */
+  private static final AtomicLong SCOPE_ID_COUNTER = new AtomicLong();
+
   private final String name;
+  private final long scopeId;
   private final StructuredTaskScope<Object, Void> scope;
   private final AtomicLong taskIdCounter = new AtomicLong();
   private final AtomicBoolean closed = new AtomicBoolean();
@@ -76,11 +80,13 @@ public final class TracedScope implements AutoCloseable {
       throw new IllegalArgumentException("name must be non-null and non-blank");
     }
     this.name = name;
+    this.scopeId = SCOPE_ID_COUNTER.incrementAndGet();
     this.scope =
         StructuredTaskScope.open(
             Joiner.awaitAllSuccessfulOrThrow(),
             config -> config.withName(name).withThreadFactory(factory));
     var event = new ScopeOpenedEvent();
+    event.scopeId = this.scopeId;
     event.scopeName = name;
     event.taskId = 0L;
     event.threadName = Thread.currentThread().getName();
@@ -110,6 +116,7 @@ public final class TracedScope implements AutoCloseable {
     long id = taskIdCounter.incrementAndGet();
 
     var forked = new TaskForkedEvent();
+    forked.scopeId = this.scopeId;
     forked.scopeName = name;
     forked.taskId = id;
     forked.threadName = Thread.currentThread().getName();
@@ -120,6 +127,7 @@ public final class TracedScope implements AutoCloseable {
           try {
             T result = task.call();
             var ev = new TaskSucceededEvent();
+            ev.scopeId = this.scopeId;
             ev.scopeName = name;
             ev.taskId = id;
             ev.threadName = Thread.currentThread().getName();
@@ -127,6 +135,7 @@ public final class TracedScope implements AutoCloseable {
             return result;
           } catch (InterruptedException e) {
             var ev = new TaskCancelledEvent();
+            ev.scopeId = this.scopeId;
             ev.scopeName = name;
             ev.taskId = id;
             ev.threadName = Thread.currentThread().getName();
@@ -135,6 +144,7 @@ public final class TracedScope implements AutoCloseable {
             throw e;
           } catch (Exception e) {
             var ev = new TaskFailedEvent();
+            ev.scopeId = this.scopeId;
             ev.scopeName = name;
             ev.taskId = id;
             ev.threadName = Thread.currentThread().getName();
@@ -170,6 +180,7 @@ public final class TracedScope implements AutoCloseable {
     if (closed.compareAndSet(false, true)) {
       scope.close();
       var event = new ScopeClosedEvent();
+      event.scopeId = this.scopeId;
       event.scopeName = name;
       event.taskId = 0L;
       event.threadName = Thread.currentThread().getName();

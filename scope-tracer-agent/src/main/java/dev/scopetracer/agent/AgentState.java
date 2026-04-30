@@ -3,6 +3,7 @@ package dev.scopetracer.agent;
 import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Singleton holder for agent-wide state. Uses {@link WeakHashMap} so that GC can collect scope and
@@ -14,6 +15,13 @@ import java.util.WeakHashMap;
 public final class AgentState {
 
   private AgentState() {}
+
+  /**
+   * Global scope-ID counter. Each instrumented {@code StructuredTaskScope} instance gets a unique
+   * monotonic ID that is stamped on every JFR event it emits. This eliminates name-based collisions
+   * in the parser when two scopes share the same derived name and open concurrently.
+   */
+  public static final AtomicLong SCOPE_ID_COUNTER = new AtomicLong();
 
   /**
    * Maps a live {@code StructuredTaskScope} instance to its {@link ScopeState}. Entry is removed

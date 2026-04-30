@@ -31,6 +31,7 @@ public final class ScopeCloseAdvice {
     if (state == null) return;
 
     ScopeClosedEvent event = new ScopeClosedEvent();
+    event.scopeId = state.scopeId();
     event.scopeName = state.name();
     event.taskId = 0L;
     event.threadName = Thread.currentThread().getName();

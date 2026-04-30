@@ -8,11 +8,12 @@ They share the JFR category `scope-tracer` and the prefix `dev.scopetracer.*`.
 
 Every event carries:
 
-| Field        | Type   | Notes                                                         |
-|--------------|--------|---------------------------------------------------------------|
-| `scopeName`  | String | Name supplied to the `TracedScope` constructor.               |
-| `taskId`     | long   | Per-scope monotonic id starting at 1; `0` on scope-level events. |
-| `threadName` | String | The thread that produced the event (typically a virtual thread). |
+| Field        | Type   | Notes                                                                          |
+|--------------|--------|--------------------------------------------------------------------------------|
+| `scopeId`    | long   | Globally unique monotonic ID per scope instance. Primary parser key; eliminates name-based collisions between concurrent scopes that share the same name. |
+| `scopeName`  | String | Name supplied to the `TracedScope` constructor (or derived from the call site by the agent). |
+| `taskId`     | long   | Per-scope monotonic id starting at 1; `0` on scope-level events.              |
+| `threadName` | String | The thread that produced the event (typically a virtual thread).               |
 
 JFR records the timestamp itself via `Event.startTime` — no explicit field.
 

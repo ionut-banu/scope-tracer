@@ -11,6 +11,9 @@ import jdk.jfr.Name;
 @Category({"scope-tracer"})
 public final class TaskSucceededEvent extends Event implements TracedScopeEvent {
 
+  @Label("Scope ID")
+  public long scopeId;
+
   @Label("Scope name")
   public String scopeName;
 

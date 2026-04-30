@@ -38,9 +38,11 @@ public final class ScopeOpenAdvice {
     AgentState.PENDING_SCOPE_NAME.remove();
     String name = (pending != null && !pending.isBlank()) ? pending : ScopeNameDeriver.derive();
 
-    AgentState.SCOPE_STATES.put(scope, new ScopeState(name, new AtomicLong()));
+    long scopeId = AgentState.SCOPE_ID_COUNTER.incrementAndGet();
+    AgentState.SCOPE_STATES.put(scope, new ScopeState(name, scopeId, new AtomicLong()));
 
     ScopeOpenedEvent event = new ScopeOpenedEvent();
+    event.scopeId = scopeId;
     event.scopeName = name;
     event.taskId = 0L;
     event.threadName = Thread.currentThread().getName();
