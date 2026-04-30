@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * forked, task succeeded, task failed, task cancelled, scope closed. Every event carries:
  *
  * <ul>
+ *   <li>{@code scopeId} — a globally unique monotonic id per scope instance; the primary key used
+ *       by the parser to correlate events even when multiple scopes share the same name,
  *   <li>{@code scopeName} — the name supplied at construction,
  *   <li>{@code taskId} — a per-scope monotonic id starting at 1 ({@code 0} on scope-level events),
  *   <li>{@code threadName} — the carrier/virtual thread that produced the event.

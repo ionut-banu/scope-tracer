@@ -43,7 +43,8 @@ All six event classes extend `jdk.jfr.Event` and implement the `TracedScopeEvent
 interface (`dev.scopetracer.core.events`). This lets the analyzer exhaustively
 pattern-match over event types with a `switch` without a JFR consumer dependency in core.
 
-**JFR event fields** (on every event): `scopeName`, `taskId` (long), `threadName`.
+**JFR event fields** (on every event): `scopeId` (long, globally unique per scope instance —
+primary parser key), `scopeName`, `taskId` (long), `threadName`.
 `TaskFailedEvent` adds `exceptionType`.
 
 **JFR testing pattern**
