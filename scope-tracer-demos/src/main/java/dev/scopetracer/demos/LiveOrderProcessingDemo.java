@@ -1,17 +1,22 @@
 package dev.scopetracer.demos;
 
-import dev.scopetracer.core.TracedScope;
 import java.util.List;
 import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.StructuredTaskScope.Joiner;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.random.RandomGenerator;
 
 /**
  * Long-running e-commerce order-processing demo with multi-level scope nesting and on-demand JFR
- * monitoring.
+ * monitoring — using plain {@link StructuredTaskScope} with no {@code TracedScope} dependency.
+ *
+ * <p>This demo is intentionally written as if it were existing production code that you <em>do not
+ * own</em>: it uses the standard JDK API only. Tracing is added entirely from the outside by
+ * attaching the scope-tracer agent at launch. The only concession to observability is naming each
+ * scope via {@code c.withName()} — a single-argument config call that is part of the JDK API.
  *
  * <p>Runs continuously until Ctrl+C, processing one order every 2–3 seconds through a two-stage
- * pipeline identical in structure to {@link OrderProcessingDemo}:
+ * pipeline:
  *
  * <ol>
  *   <li><b>Fulfillment</b> ({@code order-processing-NNN}) — three branches in parallel:
@@ -29,23 +34,7 @@ import java.util.random.RandomGenerator;
  * <p>The application manages no JFR recording itself. Control tracing from a second terminal using
  * {@code jcmd} — the PID and ready-to-paste commands are printed at startup.
  *
- * <p>Interesting things to observe in the captured report:
- *
- * <ul>
- *   <li>Nested scopes ({@code payment-pipeline-*}, {@code inventory-reservation-*}) appear indented
- *       below the task that opened them, with a breadcrumb link back to the parent scope.
- *   <li>High-value orders (≥ £500) have a 30 % chance of fraud rejection — the {@code
- *       payment-pipeline-*} and {@code order-processing-*} scopes both turn red, and {@code
- *       order-dispatch-*} is skipped entirely.
- *   <li>Warehouse B is occasionally slow — it becomes the critical-path task inside {@code
- *       inventory-reservation-*}.
- *   <li>The {@code payment-pipeline-*} scope bar extends slightly past its last parallel task bar
- *       because the capture step runs sequentially after {@code scope.join()}.
- *   <li>Scopes are grouped by prefix in the report ({@code order-processing}, {@code
- *       payment-pipeline}, etc.) and can be expanded/collapsed independently.
- * </ul>
- *
- * <p><b>Step 1 — build and launch:</b>
+ * <p><b>Step 1 — build and launch with the agent:</b>
  *
  * <pre>{@code
  * mvn -q package -DskipTests
@@ -54,7 +43,9 @@ import java.util.random.RandomGenerator;
  * scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT.jar:\
  * scope-tracer-demos/target/scope-tracer-demos-0.1.0-SNAPSHOT.jar:$CP"
  *
- * java --enable-preview -cp "$JARS" dev.scopetracer.demos.LiveOrderProcessingDemo
+ * java --enable-preview \
+ *      -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
+ *      -cp "$JARS" dev.scopetracer.demos.LiveOrderProcessingDemo
  * }</pre>
  *
  * <p><b>Step 2 — in a second terminal, copy the {@code jcmd} commands printed at startup.</b>
@@ -86,6 +77,7 @@ public final class LiveOrderProcessingDemo {
 
   public static void main(String[] args) throws InterruptedException {
     long pid = ProcessHandle.current().pid();
+    String agentJar = "scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar";
     String analyzerJar =
         "scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT-executable.jar";
 
@@ -94,6 +86,9 @@ public final class LiveOrderProcessingDemo {
     System.out.println("╚══════════════════════════════════════════════════════════════╝");
     System.out.println();
     System.out.println("  Service PID: " + pid);
+    System.out.println();
+    System.out.println("  NOTE: launch with the agent to enable tracing:");
+    System.out.printf("    -javaagent:%s%n", agentJar);
     System.out.println();
     System.out.println("  ── Turn monitoring ON ──────────────────────────────────────");
     System.out.printf("  jcmd %d JFR.start name=trace filename=/tmp/orders.jfr%n", pid);
@@ -159,7 +154,9 @@ public final class LiveOrderProcessingDemo {
 
   private static boolean runFulfillment(
       String orderId, double amount, List<String> items, RandomGenerator rng) {
-    try (var scope = new TracedScope("order-processing-" + orderId)) {
+    try (var scope =
+        StructuredTaskScope.open(
+            Joiner.awaitAllSuccessfulOrThrow(), c -> c.withName("order-processing-" + orderId))) {
       var validation = scope.fork(() -> validateOrder(rng));
       var payment = scope.fork(() -> runPaymentPipeline(orderId, amount, rng));
       var inventory = scope.fork(() -> runInventoryReservation(orderId, items, rng));
@@ -181,7 +178,9 @@ public final class LiveOrderProcessingDemo {
   }
 
   private static void runDispatch(String orderId, RandomGenerator rng) {
-    try (var scope = new TracedScope("order-dispatch-" + orderId)) {
+    try (var scope =
+        StructuredTaskScope.open(
+            Joiner.awaitAllSuccessfulOrThrow(), c -> c.withName("order-dispatch-" + orderId))) {
       scope.fork(() -> assignCourier(rng));
       scope.fork(() -> generateLabel(rng));
       scope.fork(() -> notifyCustomer(rng));
@@ -198,7 +197,9 @@ public final class LiveOrderProcessingDemo {
 
   private static String runPaymentPipeline(String orderId, double amount, RandomGenerator rng)
       throws Exception {
-    try (var scope = new TracedScope("payment-pipeline-" + orderId)) {
+    try (var scope =
+        StructuredTaskScope.open(
+            Joiner.awaitAllSuccessfulOrThrow(), c -> c.withName("payment-pipeline-" + orderId))) {
       var fraud = scope.fork(() -> checkFraud(orderId, amount, rng));
       var auth = scope.fork(() -> authorizeCard(rng));
       scope.join(); // throws FailedException if fraud check rejects
@@ -210,7 +211,10 @@ public final class LiveOrderProcessingDemo {
 
   private static String runInventoryReservation(
       String orderId, List<String> items, RandomGenerator rng) throws Exception {
-    try (var scope = new TracedScope("inventory-reservation-" + orderId)) {
+    try (var scope =
+        StructuredTaskScope.open(
+            Joiner.awaitAllSuccessfulOrThrow(),
+            c -> c.withName("inventory-reservation-" + orderId))) {
       var warehouseA = scope.fork(() -> checkWarehouse("warehouse-A", rng));
       var warehouseB = scope.fork(() -> checkWarehouse("warehouse-B", rng));
       scope.join();
