@@ -137,7 +137,7 @@ The agent:
 
 ## Demos
 
-Four runnable examples are included in `scope-tracer-demos`:
+Five runnable examples are included in `scope-tracer-demos`:
 
 | Demo | What it shows |
 |------|--------------|
@@ -145,8 +145,10 @@ Four runnable examples are included in `scope-tracer-demos`:
 | `FailFastDemo` | Cancellation — one task fails, its sibling is interrupted |
 | `NestedScopesDemo` | Nesting — a task inside the outer scope opens an inner scope |
 | `AgentDemo` | Zero-code-change — plain `StructuredTaskScope`, traced by the agent |
+| `LiveServiceDemo` | On-demand monitoring — long-running service; use `jcmd` to turn tracing on/off without restarting |
 
-Each demo writes a `.jfr` and `.html` file to `target/` and prints the paths.
+The first four demos write a `.jfr` and `.html` file to `target/` and exit. `LiveServiceDemo`
+runs until Ctrl+C and prints ready-to-paste `jcmd` commands at startup.
 
 **Run a demo:**
 
@@ -165,7 +167,33 @@ java --enable-preview -cp "$JARS" dev.scopetracer.demos.NestedScopesDemo
 java --enable-preview \
      -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
      -cp "$JARS" dev.scopetracer.demos.AgentDemo
+
+# LiveServiceDemo — long-running; copy the jcmd commands it prints, then Ctrl+C to stop
+java --enable-preview \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
+     -cp "$JARS" dev.scopetracer.demos.LiveServiceDemo
 ```
+
+**Using LiveServiceDemo** (in a second terminal while the service is running):
+
+```bash
+# capture a window of activity
+jcmd <pid> JFR.start name=trace filename=/tmp/scope-trace.jfr
+
+# ... wait for a few orders to process ...
+
+# stop and dump
+jcmd <pid> JFR.stop name=trace
+
+# analyze
+java --enable-preview \
+     -jar scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT-executable.jar \
+     /tmp/scope-trace.jfr /tmp/report.html
+open /tmp/report.html
+```
+
+You can repeat `JFR.start` / `JFR.stop` as many times as you like without restarting the
+service. Each recording captures only the orders that ran during that window.
 
 ---
 
