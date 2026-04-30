@@ -137,7 +137,7 @@ The agent:
 
 ## Demos
 
-Five runnable examples are included in `scope-tracer-demos`:
+Seven runnable examples are included in `scope-tracer-demos`:
 
 | Demo | What it shows |
 |------|--------------|
@@ -146,9 +146,11 @@ Five runnable examples are included in `scope-tracer-demos`:
 | `NestedScopesDemo` | Nesting — a task inside the outer scope opens an inner scope |
 | `AgentDemo` | Zero-code-change — plain `StructuredTaskScope`, traced by the agent |
 | `LiveServiceDemo` | On-demand monitoring — long-running service; use `jcmd` to turn tracing on/off without restarting |
+| `OrderProcessingDemo` | Multi-level nesting — e-commerce pipeline with payment and inventory sub-scopes; fraud failures; critical-path highlighting |
+| `LiveOrderProcessingDemo` | Live version of `OrderProcessingDemo` — runs until Ctrl+C; use `jcmd` to capture windows of the nested pipeline |
 
-The first four demos write a `.jfr` and `.html` file to `target/` and exit. `LiveServiceDemo`
-runs until Ctrl+C and prints ready-to-paste `jcmd` commands at startup.
+The first four demos write a `.jfr` and `.html` file to `target/` and exit. The live demos
+run until Ctrl+C and print ready-to-paste `jcmd` commands at startup.
 
 **Run a demo:**
 
@@ -168,10 +170,16 @@ java --enable-preview \
      -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
      -cp "$JARS" dev.scopetracer.demos.AgentDemo
 
+# OrderProcessingDemo — multi-level nesting; writes .jfr and .html then exits
+java --enable-preview -cp "$JARS" dev.scopetracer.demos.OrderProcessingDemo
+
 # LiveServiceDemo — long-running; copy the jcmd commands it prints, then Ctrl+C to stop
 java --enable-preview \
      -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
      -cp "$JARS" dev.scopetracer.demos.LiveServiceDemo
+
+# LiveOrderProcessingDemo — live nested pipeline; copy the jcmd commands it prints, then Ctrl+C to stop
+java --enable-preview -cp "$JARS" dev.scopetracer.demos.LiveOrderProcessingDemo
 ```
 
 **Using LiveServiceDemo** (in a second terminal while the service is running):
