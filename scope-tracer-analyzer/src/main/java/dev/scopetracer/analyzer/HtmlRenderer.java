@@ -11,10 +11,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Renders a {@link TraceModel} as a self-contained HTML report with an inline SVG Gantt timeline.
@@ -556,12 +558,60 @@ public final class HtmlRenderer {
     return numericSuffix ? name.substring(0, lastDash) : name;
   }
 
-  /** Groups root scopes by {@link #groupKey}, preserving encounter order. */
+  /**
+   * Extracts the trailing numeric suffix from a scope name (the part after the last {@code -} when
+   * it consists entirely of digits), or {@code ""} when the name has no such suffix.
+   *
+   * <p>Examples: {@code "order-processing-001"} → {@code "001"}, {@code "checkout-flow"} → {@code
+   * ""}.
+   */
+  private static String numericSuffix(String name) {
+    int lastDash = name.lastIndexOf('-');
+    if (lastDash < 0) return "";
+    String suffix = name.substring(lastDash + 1);
+    return (!suffix.isEmpty() && suffix.chars().allMatch(Character::isDigit)) ? suffix : "";
+  }
+
+  /**
+   * Groups root scopes for display, using one of two strategies:
+   *
+   * <ul>
+   *   <li><b>Per-instance grouping</b> (option 2): when a numeric suffix (e.g. {@code "001"})
+   *       appears across ≥ 2 distinct base names, all scopes sharing that suffix are placed in a
+   *       single group keyed by the suffix. This keeps pipeline stages of the same request (e.g.
+   *       {@code order-processing-001} + {@code order-dispatch-001}) together in the report.
+   *   <li><b>Per-name grouping</b> (fallback): scopes whose suffix is unique to a single base name
+   *       — or have no numeric suffix at all — are grouped by their base name prefix, exactly as
+   *       before.
+   * </ul>
+   *
+   * <p>Insertion order is preserved so scopes appear in the report sorted by their first open time.
+   */
   private static LinkedHashMap<String, List<ScopeRecord>> groupScopes(
       List<ScopeRecord> rootScopes) {
+    // Pass 1: discover which numeric suffixes appear across ≥2 distinct base names.
+    var suffixToBaseNames = new HashMap<String, Set<String>>();
+    for (var scope : rootScopes) {
+      String suffix = numericSuffix(scope.name());
+      if (!suffix.isEmpty()) {
+        suffixToBaseNames.computeIfAbsent(suffix, k -> new HashSet<>()).add(groupKey(scope.name()));
+      }
+    }
+    // Suffixes with ≥2 distinct base names are "correlated" (pipeline stages of the same instance).
+    var correlatedSuffixes = new HashSet<String>();
+    for (var entry : suffixToBaseNames.entrySet()) {
+      if (entry.getValue().size() >= 2) correlatedSuffixes.add(entry.getKey());
+    }
+
+    // Pass 2: assign each scope to its group key.
     var groups = new LinkedHashMap<String, List<ScopeRecord>>();
     for (var scope : rootScopes) {
-      groups.computeIfAbsent(groupKey(scope.name()), k -> new ArrayList<>()).add(scope);
+      String suffix = numericSuffix(scope.name());
+      String key =
+          (!suffix.isEmpty() && correlatedSuffixes.contains(suffix))
+              ? suffix
+              : groupKey(scope.name());
+      groups.computeIfAbsent(key, k -> new ArrayList<>()).add(scope);
     }
     return groups;
   }
