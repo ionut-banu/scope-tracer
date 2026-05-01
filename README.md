@@ -227,3 +227,19 @@ guidelines.
 | `scope-tracer-analyzer` | `dev.scopetracer:scope-tracer-analyzer` | Parses `.jfr` files; renders HTML/SVG reports |
 | `scope-tracer-agent` | `dev.scopetracer:scope-tracer-agent` | Java agent; instruments `StructuredTaskScope` at bytecode level |
 | `scope-tracer-demos` | `dev.scopetracer:scope-tracer-demos` | Runnable example programs |
+
+---
+
+## JFR event schema
+
+The six events emitted by `TracedScope` and the agent are documented in
+[docs/jfr-events.md](docs/jfr-events.md). That file lists every field, its type, and
+when each event is emitted — useful when writing custom consumers of the raw `.jfr` file.
+
+---
+
+## License
+
+[PolyForm Noncommercial License 1.0.0](LICENSE) — free for personal, educational, and
+non-profit use. Commercial use (direct or indirect benefit of a business) is not
+permitted without a separate agreement with the author.

@@ -161,8 +161,8 @@ directory, then prints the absolute paths.
 
 **Test locations:** `scope-tracer-{module}/src/test/java/dev/scopetracer/{module}/`. Core tests use the JFR recording pattern above. Analyzer tests split into `JfrParserTest` (integration, requires a live JFR recording) and `HtmlRendererTest` (unit, constructs model objects directly).
 
-**Test counts:** 55 unit tests run by `mvn test` (surefire) + 7 agent integration tests run
-by `mvn verify` (failsafe, requires the fat-jar to be built first). All 62 must be green
+**Test counts:** 44 unit tests run by `mvn test` (surefire) + 7 agent integration tests run
+by `mvn verify` (failsafe, requires the fat-jar to be built first). All 51 must be green
 under `mvn verify`. Running `-pl scope-tracer-analyzer test` without a prior install will
 resolve `scope-tracer-core` from the local Maven repo — if that jar is stale the tests
 will fail with `UnsupportedOperationException`. Always run `mvn clean install -DskipTests`

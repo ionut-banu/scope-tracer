@@ -62,18 +62,33 @@ public final class ScopeTracerAgent {
             "java.util.concurrent.StructuredTaskScope",
             "java.util.concurrent.StructuredTaskScopeImpl");
 
-    new AgentBuilder.Default()
-        .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
-        .with(AgentBuilder.RedefinitionStrategy.Listener.StreamWriting.toSystemError())
+    // Verbose logging (every instrumented class printed to stderr) is disabled by default.
+    // Enable with -Dscopetracer.agent.verbose=true.
+    boolean verbose = Boolean.getBoolean("scopetracer.agent.verbose");
+
+    // .with(RETRANSFORMATION) returns a RedefinitionListenable subtype that accepts a
+    // RedefinitionStrategy.Listener — a different overload from AgentBuilder.with(Listener).
+    // We must add the redefinition listener before transitioning back to AgentBuilder.
+    var redefinable =
+        new AgentBuilder.Default().with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION);
+    AgentBuilder agentBuilder;
+    if (verbose) {
+      agentBuilder =
+          redefinable
+              .with(AgentBuilder.RedefinitionStrategy.Listener.StreamWriting.toSystemError())
+              .with(AgentBuilder.Listener.StreamWriting.toSystemError().withTransformationsOnly());
+    } else {
+      agentBuilder = redefinable;
+    }
+    agentBuilder
         .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE)
         .with(AgentBuilder.TypeStrategy.Default.REDEFINE)
-        .with(AgentBuilder.Listener.StreamWriting.toSystemError().withTransformationsOnly())
         .ignore(ElementMatchers.none()) // instrument JDK classes too
         // --- open() on the public API class ---
         .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScope"))
         .transform(
-            (builder, typeDescription, classLoader, module, protectionDomain) ->
-                builder.visit(
+            (b, typeDescription, classLoader, module, protectionDomain) ->
+                b.visit(
                     Advice.to(ScopeOpenAdvice.class)
                         .on(
                             ElementMatchers.named("open")
@@ -82,8 +97,8 @@ public final class ScopeTracerAgent {
         // --- constructor advice: captures the configured name into a ThreadLocal ---
         .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScopeImpl"))
         .transform(
-            (builder, typeDescription, classLoader, module, protectionDomain) ->
-                builder.visit(
+            (b, typeDescription, classLoader, module, protectionDomain) ->
+                b.visit(
                     Advice.to(ScopeConstructorAdvice.class)
                         .on(
                             ElementMatchers.isConstructor()
@@ -94,9 +109,8 @@ public final class ScopeTracerAgent {
         // --- fork() and close() on both the API class and its concrete impl ---
         .type(forkAndCloseMatcher)
         .transform(
-            (builder, typeDescription, classLoader, module, protectionDomain) ->
-                builder
-                    .visit(
+            (b, typeDescription, classLoader, module, protectionDomain) ->
+                b.visit(
                         Advice.to(ForkAdvice.class)
                             .on(
                                 ElementMatchers.named("fork")
