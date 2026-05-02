@@ -267,6 +267,37 @@ class JfrParserTest {
     assertThat(paymentSteps.parent().scopeName()).isEqualTo("order-processing");
   }
 
+  // --- scopeId uniqueness for same-named scopes ---
+
+  /**
+   * Regression test: two sequential scopes with identical names must produce two distinct
+   * ScopeRecords with different scopeIds. Before the scopeId fix, name-based keying collapsed them.
+   */
+  @Test
+  void twoScopesWithSameNameHaveDistinctScopeIds() throws Exception {
+    var model =
+        capture(
+            "same-name-scopes",
+            () -> {
+              try (var s1 = new TracedScope("duplicate-name", Thread.ofPlatform().factory())) {
+                s1.fork(() -> "first");
+                s1.join();
+              }
+              try (var s2 = new TracedScope("duplicate-name", Thread.ofPlatform().factory())) {
+                s2.fork(() -> "second");
+                s2.join();
+              }
+            });
+
+    var records = model.scopes().stream().filter(s -> "duplicate-name".equals(s.name())).toList();
+    assertThat(records).hasSize(2);
+    assertThat(records.get(0).scopeId()).isNotEqualTo(records.get(1).scopeId());
+    assertThat(records).allSatisfy(s -> assertThat(s.tasks()).hasSize(1));
+    assertThat(records)
+        .allSatisfy(
+            s -> assertThat(s.tasks().get(0).outcome()).isInstanceOf(TaskOutcome.Success.class));
+  }
+
   // --- empty recording ---
 
   @Test

@@ -50,7 +50,7 @@ class HtmlRendererTest {
             task(1, T1, T2, new TaskOutcome.Success()),
             task(2, T2, T3, new TaskOutcome.Success()),
             task(3, T3, T4, new TaskOutcome.Success()));
-    var scope = new ScopeRecord("multi", "main", -1L, T0, T4, tasks, null);
+    var scope = new ScopeRecord(1L, "multi", "main", -1L, T0, T4, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     // one <tr> per task plus the header row
     var rowCount = countOccurrences(html, "<tr>");
@@ -123,7 +123,7 @@ class HtmlRendererTest {
   @Test
   void blankThreadNameRendersAsVirtual() {
     var tasks = List.of(new TaskRecord(1, "", -1L, T1, T2, new TaskOutcome.Success()));
-    var scope = new ScopeRecord("s", "main", -1L, T0, T3, tasks, null);
+    var scope = new ScopeRecord(1L, "s", "main", -1L, T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     assertThat(html).contains("&lt;virtual&gt;");
   }
@@ -131,7 +131,7 @@ class HtmlRendererTest {
   @Test
   void nullThreadNameRendersAsVirtual() {
     var tasks = List.of(new TaskRecord(1, null, -1L, T1, T2, new TaskOutcome.Success()));
-    var scope = new ScopeRecord("s", "main", -1L, T0, T3, tasks, null);
+    var scope = new ScopeRecord(1L, "s", "main", -1L, T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     assertThat(html).contains("&lt;virtual&gt;");
   }
@@ -142,6 +142,7 @@ class HtmlRendererTest {
   void childScopeRendersWithBreadcrumb() {
     var parentScope =
         new ScopeRecord(
+            1L,
             "order-processing",
             "main",
             -1L,
@@ -151,17 +152,83 @@ class HtmlRendererTest {
             null);
     var childScope =
         new ScopeRecord(
+            2L,
             "payment-steps",
             "worker-1",
             -1L,
             T1,
             T3,
             List.of(task(2, T1, T2, new TaskOutcome.Success())),
-            new ScopeRecord.ParentRef("order-processing", 1));
+            new ScopeRecord.ParentRef(1L, "order-processing", 1));
     var html = HtmlRenderer.render(new TraceModel(List.of(parentScope, childScope)));
     assertThat(html).contains("payment-steps");
     assertThat(html).contains("↳ task 1 of order-processing");
     assertThat(html).contains("child-scope");
+  }
+
+  /**
+   * Regression test for the same-named scope collision bug. Two root scopes share the same name
+   * ("payment") but have different scopeIds. Each has its own distinct child. The renderer must not
+   * fuse their children — each parent should show only its own child, not both.
+   */
+  @Test
+  void sameNamedScopesGetDistinctChildren() {
+    // Parent A (scopeId=1) has child C (scopeId=3, name "child-a")
+    // Parent B (scopeId=2) has child D (scopeId=4, name "child-b")
+    // Both parents share the name "payment".
+    var parentA =
+        new ScopeRecord(
+            1L,
+            "payment",
+            "main",
+            -1L,
+            T0,
+            T4,
+            List.of(task(1, T1, T3, new TaskOutcome.Success())),
+            null);
+    var parentB =
+        new ScopeRecord(
+            2L,
+            "payment",
+            "main",
+            -1L,
+            T0,
+            T4,
+            List.of(task(1, T1, T3, new TaskOutcome.Success())),
+            null);
+    var childOfA =
+        new ScopeRecord(
+            3L,
+            "child-a",
+            "worker-1",
+            -1L,
+            T1,
+            T3,
+            List.of(task(1, T1, T2, new TaskOutcome.Success())),
+            new ScopeRecord.ParentRef(1L, "payment", 1));
+    var childOfB =
+        new ScopeRecord(
+            4L,
+            "child-b",
+            "worker-2",
+            -1L,
+            T1,
+            T3,
+            List.of(task(1, T1, T2, new TaskOutcome.Success())),
+            new ScopeRecord.ParentRef(2L, "payment", 1));
+
+    var html = HtmlRenderer.render(new TraceModel(List.of(parentA, parentB, childOfA, childOfB)));
+
+    // Both child sections must appear somewhere in the output.
+    assertThat(html).contains("child-a");
+    assertThat(html).contains("child-b");
+
+    // The "↳ child-X" annotation in a task table row must appear exactly once per child:
+    // parentA's task row gets "↳ child-a", parentB's task row gets "↳ child-b".
+    // Before the fix (name-keyed maps) the wrong child would bleed into both parents, making
+    // each annotation appear twice.
+    assertThat(countOccurrences(html, "↳ child-a")).isEqualTo(1);
+    assertThat(countOccurrences(html, "↳ child-b")).isEqualTo(1);
   }
 
   // --- critical path highlighting ---
@@ -174,7 +241,7 @@ class HtmlRendererTest {
             task(1, T1, T2, new TaskOutcome.Success()), // 10 ms
             task(2, T1, T4, new TaskOutcome.Success()), // 30 ms — latest
             task(3, T1, T3, new TaskOutcome.Success())); // 20 ms
-    var scope = new ScopeRecord("cp-scope", "main", -1L, T0, T4, tasks, null);
+    var scope = new ScopeRecord(1L, "cp-scope", "main", -1L, T0, T4, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     // The critical task bar has a gold stroke outline
     assertThat(html).contains("stroke=\"#d97706\"");
@@ -187,7 +254,7 @@ class HtmlRendererTest {
             task(1, T1, T2, new TaskOutcome.Success()), // 10 ms
             task(2, T1, T4, new TaskOutcome.Success()), // 30 ms — latest
             task(3, T1, T3, new TaskOutcome.Success())); // 20 ms
-    var scope = new ScopeRecord("cp-scope", "main", -1L, T0, T4, tasks, null);
+    var scope = new ScopeRecord(1L, "cp-scope", "main", -1L, T0, T4, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     // Gold stroke appears exactly once (task 2); all three bars use the green fill
     assertThat(countOccurrences(html, "stroke=\"#d97706\"")).isEqualTo(1);
@@ -201,7 +268,7 @@ class HtmlRendererTest {
             task(1, T1, T2, new TaskOutcome.Success()),
             task(2, T1, T4, new TaskOutcome.Success()),
             task(3, T1, T3, new TaskOutcome.Success()));
-    var scope = new ScopeRecord("cp-scope", "main", -1L, T0, T4, tasks, null);
+    var scope = new ScopeRecord(1L, "cp-scope", "main", -1L, T0, T4, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     assertThat(html).contains("critical path");
   }
@@ -213,7 +280,7 @@ class HtmlRendererTest {
         List.of(
             task(1, T1, T2, new TaskOutcome.Success()),
             task(2, T1, T3, new TaskOutcome.Failed("java.lang.RuntimeException")));
-    var scope = new ScopeRecord("fail-scope", "main", -1L, T0, T3, tasks, null);
+    var scope = new ScopeRecord(1L, "fail-scope", "main", -1L, T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     // No gold stroke on any task bar (the CSS class definition is always present, but not the attr)
     assertThat(html).doesNotContain("stroke=\"#d97706\"");
@@ -242,7 +309,7 @@ class HtmlRendererTest {
 
   private static TraceModel modelWithSingleTask(String scopeName, TaskOutcome outcome) {
     var tasks = List.of(task(1, T1, T2, outcome));
-    var scope = new ScopeRecord(scopeName, "main", -1L, T0, T3, tasks, null);
+    var scope = new ScopeRecord(1L, scopeName, "main", -1L, T0, T3, tasks, null);
     return new TraceModel(List.of(scope));
   }
 
