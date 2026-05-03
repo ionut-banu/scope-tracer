@@ -23,7 +23,7 @@ public final class ParallelFetchDemo {
     DemoRunner.run(
         "parallel-fetch",
         () -> {
-          try (var scope = new TracedScope("parallel-fetch")) {
+          try (var scope = TracedScope.open("parallel-fetch")) {
             var pricing = scope.fork(ParallelFetchDemo::fetchPrice);
             var inventory = scope.fork(ParallelFetchDemo::fetchInventory);
             var shipping = scope.fork(ParallelFetchDemo::fetchShipping);

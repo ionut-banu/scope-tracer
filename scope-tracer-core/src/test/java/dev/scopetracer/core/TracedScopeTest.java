@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.StructuredTaskScope.Joiner;
 import jdk.jfr.Recording;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordingFile;
@@ -20,7 +21,7 @@ class TracedScopeTest {
 
   @TempDir Path tempDir;
 
-  // --- constructor validation ---
+  // --- constructor / factory validation ---
 
   @Test
   void constructorRejectsNullName() {
@@ -38,8 +39,13 @@ class TracedScopeTest {
   }
 
   @Test
+  void openFactoryRejectsNullName() {
+    assertThatIllegalArgumentException().isThrownBy(() -> TracedScope.open(null));
+  }
+
+  @Test
   void nameIsRetained() throws Exception {
-    try (var scope = new TracedScope("my-scope")) {
+    try (var scope = TracedScope.open("my-scope")) {
       assertThat(scope.name()).isEqualTo("my-scope");
       scope.join();
     }
@@ -54,7 +60,7 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = new TracedScope(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
                 scope.fork(() -> "result");
                 scope.join();
               }
@@ -77,7 +83,7 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = new TracedScope(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
                 scope.fork(() -> "x");
                 scope.join();
               }
@@ -95,7 +101,7 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = new TracedScope(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
                 scope.fork(() -> "x");
                 scope.join();
               }
@@ -113,7 +119,7 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = new TracedScope(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
                 scope.fork(() -> 1);
                 scope.join();
               }
@@ -132,7 +138,7 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = new TracedScope(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
                 scope.fork(() -> 1);
                 scope.fork(() -> 2);
                 scope.fork(() -> 3);
@@ -155,7 +161,7 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = new TracedScope(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
                 scope.fork(() -> "a");
                 scope.fork(() -> "b");
                 scope.fork(() -> "c");
@@ -175,7 +181,7 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = new TracedScope(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
                 scope.fork(() -> 42);
                 scope.join();
               }
@@ -193,7 +199,7 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = new TracedScope(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
                 scope.fork(
                     () -> {
                       throw new IllegalStateException("boom");
@@ -216,7 +222,7 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = new TracedScope(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
                 scope.fork(
                     () -> {
                       throw new RuntimeException("fail");
@@ -242,7 +248,7 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = new TracedScope(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
                 scope.fork(
                     () -> {
                       taskStarted.countDown();
@@ -272,13 +278,87 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              var scope = new TracedScope(scopeName, Thread.ofPlatform().factory());
+              var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory());
               scope.fork(() -> 1);
               scope.join();
               scope.close();
               scope.close(); // second close must be a no-op
             });
 
+    assertThat(eventsOfType(events, "dev.scopetracer.ScopeClosed")).hasSize(1);
+  }
+
+  // --- custom joiner: racing tasks ---
+
+  /**
+   * With {@code anySuccessfulResultOrThrow()}, the scope shuts down as soon as one task returns
+   * normally. The other task observes the scope's shutdown signal (interrupt) and emits a {@code
+   * TaskCancelled} event. {@link TracedScope#join()} returns the winner's result directly.
+   */
+  @Test
+  void racingJoinerReturnsFirstSuccessAndCancelsLoser() throws Exception {
+    var scopeName = "racing-joiner";
+    // loserBlocking is counted down when the loser task is inside its indefinite await(),
+    // guaranteeing the scope will interrupt a live thread when the winner returns.
+    var loserBlocking = new CountDownLatch(1);
+    Object[] resultHolder = new Object[1];
+
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, Joiner.anySuccessfulOrThrow(), Thread.ofPlatform().factory())) {
+                // Loser parks first; winner waits for loser to be blocking before returning.
+                scope.fork(
+                    () -> {
+                      loserBlocking.countDown();
+                      new CountDownLatch(1).await(); // blocked until scope shuts down
+                      return "loser";
+                    });
+                scope.fork(
+                    () -> {
+                      loserBlocking.await(); // ensure loser is live and blocked
+                      return "winner";
+                    });
+                resultHolder[0] = scope.join(); // returns the winner's result
+              }
+            });
+
+    assertThat(resultHolder[0]).isEqualTo("winner");
+    assertThat(eventsOfType(events, "dev.scopetracer.TaskSucceeded")).hasSize(1);
+    assertThat(eventsOfType(events, "dev.scopetracer.TaskCancelled")).hasSize(1);
+    assertThat(eventsOfType(events, "dev.scopetracer.ScopeClosed")).hasSize(1);
+  }
+
+  /**
+   * With {@code awaitAll()}, the scope waits for all tasks regardless of outcome. A failed task
+   * emits {@code TaskFailed} but does not cause {@link TracedScope#join()} to throw — the caller
+   * inspects subtask results directly. All events for both tasks must be present.
+   */
+  @Test
+  void awaitAllJoinerCollectsAllOutcomes() throws Exception {
+    var scopeName = "await-all-joiner";
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope =
+                  TracedScope.open(scopeName, Joiner.awaitAll(), Thread.ofPlatform().factory())) {
+                scope.fork(() -> "ok");
+                scope.fork(
+                    () -> {
+                      throw new RuntimeException("partial failure");
+                    });
+                scope.join(); // does NOT throw even though one task failed
+              }
+            });
+
+    // Both tasks ran to completion (one success, one failure); no cancellations.
+    assertThat(eventsOfType(events, "dev.scopetracer.TaskSucceeded")).hasSize(1);
+    assertThat(eventsOfType(events, "dev.scopetracer.TaskFailed")).hasSize(1);
+    assertThat(eventsOfType(events, "dev.scopetracer.TaskCancelled")).isEmpty();
     assertThat(eventsOfType(events, "dev.scopetracer.ScopeClosed")).hasSize(1);
   }
 

@@ -24,7 +24,7 @@ public final class FailFastDemo {
     DemoRunner.run(
         "fail-fast",
         () -> {
-          try (var scope = new TracedScope("fail-fast")) {
+          try (var scope = TracedScope.open("fail-fast")) {
             scope.fork(FailFastDemo::checkInventory);
             scope.fork(FailFastDemo::slowEnrichment);
             try {

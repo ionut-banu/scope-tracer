@@ -26,7 +26,7 @@ public final class NestedScopesDemo {
     DemoRunner.run(
         "nested-scopes",
         () -> {
-          try (var outer = new TracedScope("order-processing")) {
+          try (var outer = TracedScope.open("order-processing")) {
             var payment = outer.fork(NestedScopesDemo::processPayment);
             var notification = outer.fork(NestedScopesDemo::sendNotification);
             outer.join();
@@ -38,7 +38,7 @@ public final class NestedScopesDemo {
 
   private static String processPayment() throws Exception {
     // Inner scope: authorise and capture run in parallel within the payment task.
-    try (var inner = new TracedScope("payment-steps")) {
+    try (var inner = TracedScope.open("payment-steps")) {
       var authorise = inner.fork(NestedScopesDemo::authorise);
       var capture = inner.fork(NestedScopesDemo::capture);
       inner.join();

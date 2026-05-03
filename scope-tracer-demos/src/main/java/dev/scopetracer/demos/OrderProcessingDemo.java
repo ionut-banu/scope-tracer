@@ -102,7 +102,7 @@ public final class OrderProcessingDemo {
    */
   private static boolean runFulfillment(Order order, RandomGenerator rng)
       throws InterruptedException {
-    try (var scope = new TracedScope("order-processing-" + order.id())) {
+    try (var scope = TracedScope.open("order-processing-" + order.id())) {
       var validation = scope.fork(() -> validateOrder(order, rng));
       var payment = scope.fork(() -> runPaymentPipeline(order, rng));
       var inventory = scope.fork(() -> runInventoryReservation(order, rng));
@@ -123,7 +123,7 @@ public final class OrderProcessingDemo {
 
   /** Dispatch stage: courier, label, and notification run in parallel after fulfillment. */
   private static void runDispatch(Order order, RandomGenerator rng) throws InterruptedException {
-    try (var scope = new TracedScope("order-dispatch-" + order.id())) {
+    try (var scope = TracedScope.open("order-dispatch-" + order.id())) {
       scope.fork(() -> assignCourier(order, rng));
       scope.fork(() -> generateLabel(order, rng));
       scope.fork(() -> notifyCustomer(order, rng));
@@ -148,7 +148,7 @@ public final class OrderProcessingDemo {
    * payment-pipeline-*} scopes under a single "payment-pipeline" group heading.
    */
   private static String runPaymentPipeline(Order order, RandomGenerator rng) throws Exception {
-    try (var scope = new TracedScope("payment-pipeline-" + numericId(order))) {
+    try (var scope = TracedScope.open("payment-pipeline-" + numericId(order))) {
       var fraud = scope.fork(() -> checkFraud(order, rng));
       var auth = scope.fork(() -> authorizeCard(order, rng));
       scope.join(); // throws FailedException if fraud check rejects
@@ -167,7 +167,7 @@ public final class OrderProcessingDemo {
    * it the critical-path task in this scope.
    */
   private static String runInventoryReservation(Order order, RandomGenerator rng) throws Exception {
-    try (var scope = new TracedScope("inventory-reservation-" + numericId(order))) {
+    try (var scope = TracedScope.open("inventory-reservation-" + numericId(order))) {
       var warehouseA = scope.fork(() -> checkWarehouse("warehouse-A", order, rng));
       var warehouseB = scope.fork(() -> checkWarehouse("warehouse-B", order, rng));
       scope.join();

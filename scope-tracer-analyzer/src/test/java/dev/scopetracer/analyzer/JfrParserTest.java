@@ -48,7 +48,7 @@ class JfrParserTest {
         capture(
             "single-success",
             () -> {
-              try (var scope = new TracedScope("single-success", Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open("single-success", Thread.ofPlatform().factory())) {
                 scope.fork(() -> "result");
                 scope.join();
               }
@@ -77,7 +77,7 @@ class JfrParserTest {
         capture(
             "three-success",
             () -> {
-              try (var scope = new TracedScope("three-success", Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open("three-success", Thread.ofPlatform().factory())) {
                 scope.fork(() -> 1);
                 scope.fork(() -> 2);
                 scope.fork(() -> 3);
@@ -98,7 +98,7 @@ class JfrParserTest {
         capture(
             "fork-order",
             () -> {
-              try (var scope = new TracedScope("fork-order", Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open("fork-order", Thread.ofPlatform().factory())) {
                 scope.fork(() -> 1);
                 scope.fork(() -> 2);
                 scope.fork(() -> 3);
@@ -120,7 +120,7 @@ class JfrParserTest {
         capture(
             "task-failed",
             () -> {
-              try (var scope = new TracedScope("task-failed", Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open("task-failed", Thread.ofPlatform().factory())) {
                 scope.fork(
                     () -> {
                       throw new IllegalStateException("boom");
@@ -147,7 +147,7 @@ class JfrParserTest {
         capture(
             "cancellation",
             () -> {
-              try (var scope = new TracedScope("cancellation", Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open("cancellation", Thread.ofPlatform().factory())) {
                 scope.fork(
                     () -> {
                       taskStarted.countDown();
@@ -179,11 +179,11 @@ class JfrParserTest {
         capture(
             "multi-scope",
             () -> {
-              try (var s1 = new TracedScope("scope-alpha", Thread.ofPlatform().factory())) {
+              try (var s1 = TracedScope.open("scope-alpha", Thread.ofPlatform().factory())) {
                 s1.fork(() -> "a");
                 s1.join();
               }
-              try (var s2 = new TracedScope("scope-beta", Thread.ofPlatform().factory())) {
+              try (var s2 = TracedScope.open("scope-beta", Thread.ofPlatform().factory())) {
                 s2.fork(() -> "b");
                 s2.join();
               }
@@ -204,7 +204,7 @@ class JfrParserTest {
         capture(
             "owner-thread",
             () -> {
-              try (var scope = new TracedScope("owner-thread", Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open("owner-thread", Thread.ofPlatform().factory())) {
                 scope.fork(() -> 1);
                 scope.join();
               }
@@ -219,7 +219,7 @@ class JfrParserTest {
         capture(
             "time-bounds",
             () -> {
-              try (var scope = new TracedScope("time-bounds", Thread.ofPlatform().factory())) {
+              try (var scope = TracedScope.open("time-bounds", Thread.ofPlatform().factory())) {
                 scope.fork(() -> "x");
                 scope.join();
               }
@@ -242,11 +242,12 @@ class JfrParserTest {
         capture(
             "nested-scope-detection",
             () -> {
-              try (var outer = new TracedScope("order-processing", Thread.ofPlatform().factory())) {
+              try (var outer =
+                  TracedScope.open("order-processing", Thread.ofPlatform().factory())) {
                 outer.fork(
                     () -> {
                       try (var inner =
-                          new TracedScope("payment-steps", Thread.ofPlatform().factory())) {
+                          TracedScope.open("payment-steps", Thread.ofPlatform().factory())) {
                         inner.fork(() -> "authorise");
                         inner.join();
                       }

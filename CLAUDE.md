@@ -26,9 +26,12 @@ End-to-end pipeline: user code wrapped in `TracedScope` → run under JFR record
 
 **`scope-tracer-core`**
 
-`TracedScope` (`dev.scopetracer.core`) wraps `StructuredTaskScope` using
-`Joiner.awaitAllSuccessfulOrThrow()` (fail-fast on first subtask failure). It emits six
-JFR events at every lifecycle moment:
+`TracedScope<R>` (`dev.scopetracer.core`) wraps `StructuredTaskScope` and supports any
+`Joiner<Object, R>`. The default (via `TracedScope.open(name)`) uses
+`Joiner.awaitAllSuccessfulOrThrow()` (fail-fast). Custom joiners are supplied via
+`TracedScope.open(name, joiner)` — e.g. `Joiner.anySuccessfulOrThrow()` for racing or
+`Joiner.allSuccessfulOrThrow()` for collect-all. `join()` returns `R` (the joiner result).
+It emits six JFR events at every lifecycle moment:
 
 | Event | When | `taskId` |
 |---|---|---|
@@ -161,8 +164,8 @@ directory, then prints the absolute paths.
 
 **Test locations:** `scope-tracer-{module}/src/test/java/dev/scopetracer/{module}/`. Core tests use the JFR recording pattern above. Analyzer tests split into `JfrParserTest` (integration, requires a live JFR recording) and `HtmlRendererTest` (unit, constructs model objects directly).
 
-**Test counts:** 44 unit tests run by `mvn test` (surefire) + 7 agent integration tests run
-by `mvn verify` (failsafe, requires the fat-jar to be built first). All 51 must be green
+**Test counts:** 47 unit tests run by `mvn test` (surefire) + 7 agent integration tests run
+by `mvn verify` (failsafe, requires the fat-jar to be built first). All 54 must be green
 under `mvn verify`. Running `-pl scope-tracer-analyzer test` without a prior install will
 resolve `scope-tracer-core` from the local Maven repo — if that jar is stale the tests
 will fail with `UnsupportedOperationException`. Always run `mvn clean install -DskipTests`
