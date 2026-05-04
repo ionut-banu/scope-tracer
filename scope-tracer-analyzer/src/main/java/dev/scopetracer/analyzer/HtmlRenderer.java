@@ -125,14 +125,15 @@ public final class HtmlRenderer {
 
     var rootScopes = model.scopes().stream().filter(s -> s.parent() == null).toList();
 
-    // Build children / nested-scope lookup maps
-    var children = new HashMap<String, List<ScopeRecord>>();
-    var nestedScopes = new HashMap<String, Map<Long, String>>();
+    // Build children / nested-scope lookup maps, keyed by the parent's scopeId (not name) so
+    // same-named sibling scopes are never conflated.
+    var children = new HashMap<Long, List<ScopeRecord>>();
+    var nestedScopes = new HashMap<Long, Map<Long, String>>();
     for (var scope : model.scopes()) {
       if (scope.parent() != null) {
-        children.computeIfAbsent(scope.parent().scopeName(), k -> new ArrayList<>()).add(scope);
+        children.computeIfAbsent(scope.parent().parentScopeId(), k -> new ArrayList<>()).add(scope);
         nestedScopes
-            .computeIfAbsent(scope.parent().scopeName(), k -> new HashMap<>())
+            .computeIfAbsent(scope.parent().parentScopeId(), k -> new HashMap<>())
             .put(scope.parent().taskId(), scope.name());
       }
     }
@@ -326,8 +327,8 @@ public final class HtmlRenderer {
       ScopeRecord scope,
       String sectionId,
       int depth,
-      Map<String, List<ScopeRecord>> children,
-      Map<String, Map<Long, String>> nestedScopes) {
+      Map<Long, List<ScopeRecord>> children,
+      Map<Long, Map<Long, String>> nestedScopes) {
 
     var openTime = scope.openTime();
     var closeTime = scope.closeTime() != null ? scope.closeTime() : openTime;
@@ -390,7 +391,7 @@ public final class HtmlRenderer {
     // ── Task table ─────────────────────────────────────────────────────────────
     sb.append(
         "<table>\n<tr><th>#</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>\n");
-    var scopeNestedScopes = nestedScopes.getOrDefault(scope.name(), Map.of());
+    var scopeNestedScopes = nestedScopes.getOrDefault(scope.scopeId(), Map.of());
     for (var task : scope.tasks()) {
       var forkOffset = Duration.between(openTime, task.forkTime());
       var taskDuration =
@@ -538,7 +539,7 @@ public final class HtmlRenderer {
     sb.append("</svg>\n</div>\n</section>\n");
 
     // Child scopes (rendered inside the parent section, below the timeline)
-    for (var child : children.getOrDefault(scope.name(), List.of())) {
+    for (var child : children.getOrDefault(scope.scopeId(), List.of())) {
       renderScope(sb, child, null, depth + 1, children, nestedScopes);
     }
     if (depth > 0) sb.append("</div>\n");
@@ -782,10 +783,6 @@ public final class HtmlRenderer {
     if (ns < 1_000_000L) return String.format(Locale.ROOT, "%.2fµs", ns / 1_000.0);
     if (ns < 1_000_000_000L) return String.format(Locale.ROOT, "%.2fms", ns / 1_000_000.0);
     return String.format(Locale.ROOT, "%.3fs", ns / 1_000_000_000.0);
-  }
-
-  private static String displayThread(String threadName) {
-    return displayThread(threadName, -1L);
   }
 
   private static String displayThread(String threadName, long threadId) {

@@ -187,6 +187,7 @@ public final class JfrParser {
 
       scopes.add(
           new ScopeRecord(
+              scopeId,
               scopeNames.get(scopeId),
               scopeOwners.get(scopeId),
               scopeOwnerThreadIds.getOrDefault(scopeId, -1L),
@@ -264,7 +265,7 @@ public final class JfrParser {
 
           if (openedAfterFork && closedBeforeCompletion) {
             String parentName = scopeNames.getOrDefault(scopeAId, "<unknown>");
-            parentRefs.put(scopeBId, new ScopeRecord.ParentRef(parentName, taskId));
+            parentRefs.put(scopeBId, new ScopeRecord.ParentRef(scopeAId, parentName, taskId));
             break outer;
           }
         }
