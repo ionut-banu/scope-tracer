@@ -48,7 +48,7 @@ pattern-match over event types with a `switch` without a JFR consumer dependency
 
 **JFR event fields** (on every event): `scopeId` (long, globally unique per scope instance —
 primary parser key), `scopeName`, `taskId` (long), `threadName`.
-`TaskFailedEvent` adds `exceptionType`.
+`TaskFailedEvent` adds `exceptionType` and `exceptionMessage` (nullable — value of `Throwable.getMessage()`).
 
 **JFR testing pattern**
 

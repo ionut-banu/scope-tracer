@@ -22,8 +22,10 @@ public sealed interface TaskOutcome
    * The subtask threw an exception.
    *
    * @param exceptionType fully-qualified class name of the thrown exception.
+   * @param exceptionMessage value of {@link Throwable#getMessage()}; {@code null} when the
+   *     exception carries no message.
    */
-  record Failed(String exceptionType) implements TaskOutcome {}
+  record Failed(String exceptionType, String exceptionMessage) implements TaskOutcome {}
 
   /** The subtask was interrupted by scope shutdown before completing on its own. */
   record Cancelled() implements TaskOutcome {}

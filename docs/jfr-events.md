@@ -24,7 +24,7 @@ JFR records the timestamp itself via `Event.startTime` — no explicit field.
 | `dev.scopetracer.ScopeOpened`     | `ScopeOpenedEvent`   | —                      | Once, at scope construction. `taskId = 0`.                      |
 | `dev.scopetracer.TaskForked`      | `TaskForkedEvent`    | —                      | When a subtask is submitted via `fork`.                          |
 | `dev.scopetracer.TaskSucceeded`   | `TaskSucceededEvent` | —                      | When a subtask returns normally.                                 |
-| `dev.scopetracer.TaskFailed`      | `TaskFailedEvent`    | `String exceptionType` | When a subtask escapes by throwing. `exceptionType` is the FQN.  |
+| `dev.scopetracer.TaskFailed`      | `TaskFailedEvent`    | `String exceptionType`, `String exceptionMessage` | When a subtask escapes by throwing. `exceptionType` is the FQN; `exceptionMessage` is `Throwable.getMessage()`, nullable. |
 | `dev.scopetracer.TaskCancelled`   | `TaskCancelledEvent` | —                      | When a subtask observes scope shutdown before completing.        |
 | `dev.scopetracer.ScopeClosed`     | `ScopeClosedEvent`   | —                      | Once, after all subtasks terminate. `taskId = 0`.               |
 

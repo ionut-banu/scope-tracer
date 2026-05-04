@@ -134,8 +134,9 @@ class JfrParserTest {
     assertThat(tasks).hasSize(1);
     var outcome = tasks.get(0).outcome();
     assertThat(outcome).isInstanceOf(TaskOutcome.Failed.class);
-    assertThat(((TaskOutcome.Failed) outcome).exceptionType())
-        .isEqualTo(IllegalStateException.class.getName());
+    var failed = (TaskOutcome.Failed) outcome;
+    assertThat(failed.exceptionType()).isEqualTo(IllegalStateException.class.getName());
+    assertThat(failed.exceptionMessage()).isEqualTo("boom");
   }
 
   // --- cancellation ---

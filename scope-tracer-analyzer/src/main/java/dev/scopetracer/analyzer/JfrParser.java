@@ -127,13 +127,15 @@ public final class JfrParser {
                   new CompletionData(time, new TaskOutcome.Success(), threadName, javaThreadId));
           case TASK_FAILED -> {
             var exType = event.getString("exceptionType");
+            var exMessage = event.getString("exceptionMessage");
             storeCompletion(
                 scopeOpens,
                 pendingCompletions,
                 completions,
                 scopeId,
                 taskId,
-                new CompletionData(time, new TaskOutcome.Failed(exType), threadName, javaThreadId));
+                new CompletionData(
+                    time, new TaskOutcome.Failed(exType, exMessage), threadName, javaThreadId));
           }
           case TASK_CANCELLED ->
               storeCompletion(

@@ -69,7 +69,7 @@ class HtmlRendererTest {
   void failedTaskRendersRedColor() {
     var html =
         HtmlRenderer.render(
-            modelWithSingleTask(new TaskOutcome.Failed("java.lang.RuntimeException")));
+            modelWithSingleTask(new TaskOutcome.Failed("java.lang.RuntimeException", null)));
     assertThat(html).contains("#e53935");
   }
 
@@ -79,14 +79,38 @@ class HtmlRendererTest {
     assertThat(html).contains("#fb8c00");
   }
 
-  // --- exception type in failed tooltip ---
+  // --- exception type and message in failed output ---
 
   @Test
   void failedTaskExceptionTypeAppearsInOutput() {
     var html =
         HtmlRenderer.render(
-            modelWithSingleTask(new TaskOutcome.Failed("java.lang.IllegalStateException")));
+            modelWithSingleTask(new TaskOutcome.Failed("java.lang.IllegalStateException", null)));
     assertThat(html).contains("java.lang.IllegalStateException");
+  }
+
+  @Test
+  void failedTaskExceptionMessageAppearsInOutput() {
+    var html =
+        HtmlRenderer.render(
+            modelWithSingleTask(
+                new TaskOutcome.Failed(
+                    "java.lang.IllegalStateException", "userId must not be null")));
+    assertThat(html).contains("java.lang.IllegalStateException");
+    assertThat(html).contains("userId must not be null");
+  }
+
+  @Test
+  void failedTaskNullMessageShowsOnlyType() {
+    var withMessage =
+        HtmlRenderer.render(
+            modelWithSingleTask(new TaskOutcome.Failed("java.lang.RuntimeException", null)));
+    var withoutMessage =
+        HtmlRenderer.render(
+            modelWithSingleTask(new TaskOutcome.Failed("java.lang.RuntimeException", "")));
+    // Neither null nor blank message should add a colon separator after the type
+    assertThat(withMessage).doesNotContain("RuntimeException:");
+    assertThat(withoutMessage).doesNotContain("RuntimeException:");
   }
 
   // --- HTML structure ---
@@ -279,7 +303,7 @@ class HtmlRendererTest {
     var tasks =
         List.of(
             task(1, T1, T2, new TaskOutcome.Success()),
-            task(2, T1, T3, new TaskOutcome.Failed("java.lang.RuntimeException")));
+            task(2, T1, T3, new TaskOutcome.Failed("java.lang.RuntimeException", null)));
     var scope = new ScopeRecord(1L, "fail-scope", "main", -1L, T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     // No gold stroke on any task bar (the CSS class definition is always present, but not the attr)

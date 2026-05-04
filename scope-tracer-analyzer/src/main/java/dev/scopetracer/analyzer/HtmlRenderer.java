@@ -673,7 +673,7 @@ public final class HtmlRenderer {
             : switch (outcome) {
               case TaskOutcome.Success s -> "<span class=\"outcome-success\">success</span>";
               case TaskOutcome.Failed f ->
-                  "<span class=\"outcome-failed\">failed: " + escape(f.exceptionType()) + "</span>";
+                  "<span class=\"outcome-failed\">failed: " + escape(failedLabel(f)) + "</span>";
               case TaskOutcome.Cancelled c ->
                   triggerId >= 0
                       ? "<span class=\"outcome-cancelled\">cancelled ← #" + triggerId + "</span>"
@@ -704,12 +704,22 @@ public final class HtmlRenderer {
     String base =
         switch (outcome) {
           case TaskOutcome.Success s -> "success";
-          case TaskOutcome.Failed f -> "failed: " + f.exceptionType();
+          case TaskOutcome.Failed f -> "failed: " + failedLabel(f);
           case TaskOutcome.Cancelled c ->
               triggerId >= 0 ? "cancelled ← #" + triggerId : "cancelled";
         };
     if (isCritical && criticalDelta != null) base += " · critical path +" + criticalDelta;
     return base;
+  }
+
+  /**
+   * Returns the display label for a failed outcome: {@code "ClassName"} when no message is present,
+   * or {@code "ClassName: message"} when one is available. Both parts are returned unescaped;
+   * callers that embed the result in HTML must pass it through {@link #escape(String)}.
+   */
+  private static String failedLabel(TaskOutcome.Failed f) {
+    var msg = f.exceptionMessage();
+    return (msg != null && !msg.isBlank()) ? f.exceptionType() + ": " + msg : f.exceptionType();
   }
 
   // ── Tick / formatting helpers ─────────────────────────────────────────────────

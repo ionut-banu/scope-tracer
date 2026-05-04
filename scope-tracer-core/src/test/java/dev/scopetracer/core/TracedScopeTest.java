@@ -213,6 +213,29 @@ class TracedScopeTest {
     assertThat(failedEvents).hasSize(1);
     assertThat(failedEvents.get(0).getString("exceptionType"))
         .isEqualTo(IllegalStateException.class.getName());
+    assertThat(failedEvents.get(0).getString("exceptionMessage")).isEqualTo("boom");
+  }
+
+  @Test
+  void taskFailureWithNoMessageEmitsNullExceptionMessage() throws Exception {
+    var scopeName = "task-failed-no-message";
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+                scope.fork(
+                    () -> {
+                      throw new IllegalStateException(); // no message
+                    });
+                assertThatThrownBy(scope::join)
+                    .isInstanceOf(StructuredTaskScope.FailedException.class);
+              }
+            });
+
+    var failedEvents = eventsOfType(events, "dev.scopetracer.TaskFailed");
+    assertThat(failedEvents).hasSize(1);
+    assertThat(failedEvents.get(0).getString("exceptionMessage")).isNull();
   }
 
   @Test

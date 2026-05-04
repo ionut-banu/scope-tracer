@@ -256,6 +256,7 @@ public final class TracedScope<R> implements AutoCloseable {
             ev.taskId = id;
             ev.threadName = Thread.currentThread().getName();
             ev.exceptionType = e.getClass().getName();
+            ev.exceptionMessage = e.getMessage();
             ev.commit();
             throw e;
           }

@@ -7,7 +7,8 @@ import jdk.jfr.Name;
 
 /**
  * Emitted when a forked subtask terminates by throwing. {@code exceptionType} is the fully
- * qualified class name of the throwable that escaped the subtask.
+ * qualified class name of the throwable; {@code exceptionMessage} is the value of {@link
+ * Throwable#getMessage()}, which may be {@code null} when the exception carries no message.
  */
 @Name("dev.scopetracer.TaskFailed")
 @Label("Task failed")
@@ -28,4 +29,7 @@ public final class TaskFailedEvent extends Event implements TracedScopeEvent {
 
   @Label("Exception type")
   public String exceptionType;
+
+  @Label("Exception message")
+  public String exceptionMessage;
 }
