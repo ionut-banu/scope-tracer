@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.StructuredTaskScope;
@@ -383,6 +384,90 @@ class TracedScopeTest {
     assertThat(eventsOfType(events, "dev.scopetracer.TaskFailed")).hasSize(1);
     assertThat(eventsOfType(events, "dev.scopetracer.TaskCancelled")).isEmpty();
     assertThat(eventsOfType(events, "dev.scopetracer.ScopeClosed")).hasSize(1);
+  }
+
+  // --- scopeId uniqueness ---
+
+  /**
+   * The static {@code SCOPE_ID_COUNTER} is the primary parser key; two concurrent instances must
+   * receive distinct ids regardless of scheduling order.
+   */
+  @Test
+  void scopeIdIsDistinctAcrossConcurrentInstances() throws Exception {
+    var jfr = tempDir.resolve("concurrent-scopes.jfr");
+    int count = 8;
+    var allReady = new CountDownLatch(count);
+    var start = new CountDownLatch(1);
+
+    try (var recording = new Recording()) {
+      recording.enable("dev.scopetracer.*");
+      recording.start();
+
+      // Launch N scopes concurrently, each on its own thread, all released at the same instant.
+      var threads = new ArrayList<Thread>();
+      for (int i = 0; i < count; i++) {
+        final int idx = i;
+        threads.add(
+            Thread.ofPlatform()
+                .start(
+                    () -> {
+                      allReady.countDown();
+                      try {
+                        start.await();
+                        try (var scope =
+                            TracedScope.open("concurrent-" + idx, Thread.ofPlatform().factory())) {
+                          scope.fork(() -> idx);
+                          scope.join();
+                        }
+                      } catch (Exception e) {
+                        throw new RuntimeException(e);
+                      }
+                    }));
+      }
+      allReady.await(); // wait until all threads are ready
+      start.countDown(); // release all at once
+      for (var t : threads) t.join();
+
+      recording.stop();
+      recording.dump(jfr);
+    }
+
+    var scopeIds = new HashSet<Long>();
+    try (var file = new RecordingFile(jfr)) {
+      while (file.hasMoreEvents()) {
+        var ev = file.readEvent();
+        if ("dev.scopetracer.ScopeOpened".equals(ev.getEventType().getName())) {
+          scopeIds.add(ev.getLong("scopeId"));
+        }
+      }
+    }
+    assertThat(scopeIds).hasSize(count);
+  }
+
+  // --- join() interruption ---
+
+  /**
+   * {@link TracedScope#join()} must propagate {@link InterruptedException} immediately when the
+   * owner thread is interrupted, without swallowing or wrapping it.
+   */
+  @Test
+  void joinThrowsInterruptedExceptionWhenOwnerIsInterrupted() throws Exception {
+    var taskRunning = new CountDownLatch(1);
+    var unblock = new CountDownLatch(1);
+
+    try (var scope = TracedScope.open("join-interrupted", Thread.ofPlatform().factory())) {
+      scope.fork(
+          () -> {
+            taskRunning.countDown();
+            unblock.await(); // holds until we unblock after the assertion
+            return null;
+          });
+      taskRunning.await();
+      Thread.currentThread().interrupt(); // set interrupt flag before join
+      assertThatThrownBy(scope::join).isInstanceOf(InterruptedException.class);
+      Thread.interrupted(); // clear flag so close() + task cleanup work correctly
+      unblock.countDown();
+    }
   }
 
   // --- helpers ---

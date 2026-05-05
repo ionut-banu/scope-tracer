@@ -1,6 +1,7 @@
 package dev.scopetracer.agent;
 
 import java.nio.file.Path;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
 import jdk.jfr.Recording;
@@ -22,6 +23,10 @@ import jdk.jfr.Recording;
 public final class AgentTestSubject {
 
   static final String NAMED_SCOPE = "agent-it-scope";
+  static final String FAIL_SCOPE = "agent-fail-scope";
+  static final String CANCEL_SCOPE = "agent-cancel-scope";
+  static final String OUTER_SCOPE = "agent-outer-scope";
+  static final String INNER_SCOPE = "agent-inner-scope";
 
   private AgentTestSubject() {}
 
@@ -63,6 +68,69 @@ public final class AgentTestSubject {
               return "result-a";
             });
         scope.join();
+      }
+
+      // Failing scope: one task throws; catch FailedException so the process exits normally.
+      try (var scope =
+          StructuredTaskScope.open(
+              Joiner.awaitAllSuccessfulOrThrow(),
+              c -> c.withName(FAIL_SCOPE).withThreadFactory(Thread.ofVirtual().factory()))) {
+        scope.fork(
+            () -> {
+              throw new IllegalStateException("intentional failure");
+            });
+        try {
+          scope.join();
+        } catch (StructuredTaskScope.FailedException ignored) {
+          // expected — one task failed
+        }
+      }
+
+      // Cancellation scope: one task blocks, a sibling failure shuts the scope down,
+      // causing the blocked task to be cancelled via InterruptedException.
+      var taskLive = new CountDownLatch(1);
+      try (var scope =
+          StructuredTaskScope.open(
+              Joiner.awaitAllSuccessfulOrThrow(),
+              c -> c.withName(CANCEL_SCOPE).withThreadFactory(Thread.ofVirtual().factory()))) {
+        scope.fork(
+            () -> {
+              taskLive.countDown();
+              Thread.sleep(Long.MAX_VALUE); // blocks until scope shuts down
+              return null;
+            });
+        scope.fork(
+            () -> {
+              taskLive.await(); // ensure the other task is live before we fail
+              throw new RuntimeException("trigger cancellation");
+            });
+        try {
+          scope.join();
+        } catch (StructuredTaskScope.FailedException ignored) {
+          // expected
+        }
+      }
+
+      // Nested scope: outer task opens an inner StructuredTaskScope — the agent must detect
+      // the parent-child relationship via thread-ID matching.
+      try (var outer =
+          StructuredTaskScope.open(
+              Joiner.awaitAllSuccessfulOrThrow(),
+              c -> c.withName(OUTER_SCOPE).withThreadFactory(Thread.ofVirtual().factory()))) {
+        outer.fork(
+            () -> {
+              try (var inner =
+                  StructuredTaskScope.open(
+                      Joiner.awaitAllSuccessfulOrThrow(),
+                      c ->
+                          c.withName(INNER_SCOPE)
+                              .withThreadFactory(Thread.ofVirtual().factory()))) {
+                inner.fork(() -> "inner-result");
+                inner.join();
+              }
+              return "outer-result";
+            });
+        outer.join();
       }
 
       recording.stop();

@@ -312,6 +312,60 @@ class HtmlRendererTest {
     assertThat(html).doesNotContain("← critical path");
   }
 
+  // --- groupScopes correlated-suffix path ---
+
+  /**
+   * When a numeric suffix (e.g. {@code "001"}) appears across ≥2 distinct base names (e.g. {@code
+   * "payment"} and {@code "dispatch"}), all scopes sharing that suffix are placed in one group
+   * keyed by the suffix. The rendered HTML must contain a single {@code <details>} block for the
+   * suffix rather than separate per-name groups.
+   *
+   * <p>Setup: four scopes — {@code payment-001}, {@code dispatch-001}, {@code payment-002}, {@code
+   * dispatch-002}. The suffix {@code "001"} and {@code "002"} each appear across two base names, so
+   * both are correlated. The output should contain exactly two group headers (one per suffix) and
+   * all four scope names inside them.
+   */
+  @Test
+  void correlatedSuffixScopesAreGroupedBySuffix() {
+    var t5 = T0.plusMillis(50);
+    List<ScopeRecord> scopes =
+        List.of(
+            scopeWithSuccess(1L, "payment-001", T0, T2),
+            scopeWithSuccess(2L, "dispatch-001", T0, T2),
+            scopeWithSuccess(3L, "payment-002", T2, T4),
+            scopeWithSuccess(4L, "dispatch-002", T2, t5));
+    var html = HtmlRenderer.render(new TraceModel(scopes));
+
+    // All four scope names must appear in the output.
+    assertThat(html).contains("payment-001");
+    assertThat(html).contains("dispatch-001");
+    assertThat(html).contains("payment-002");
+    assertThat(html).contains("dispatch-002");
+
+    // The correlated suffixes become group keys — two <details> blocks, one per suffix.
+    // Each suffix group contains two scopes, so the summary stat shows "2/" counts.
+    assertThat(countOccurrences(html, "<details")).isEqualTo(2);
+  }
+
+  // --- scopeOutcome "incomplete" data-outcome attribute ---
+
+  /**
+   * A {@link ScopeRecord} whose tasks have {@code null} outcome (e.g. truncated recording) must
+   * produce {@code data-outcome="incomplete"} on its {@code <section>} element. This drives the JS
+   * filter and must not fall through to {@code "success"} or {@code "failed"}.
+   */
+  @Test
+  void scopeWithNullOutcomeTaskHasIncompleteDataOutcomeAttribute() {
+    // TaskRecord with null outcome simulates a truncated recording (no completion event).
+    var tasks = List.of(new TaskRecord(1, "worker-1", -1L, T1, null, null));
+    var scope = new ScopeRecord(1L, "incomplete-scope", "main", -1L, T0, null, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+
+    assertThat(html).contains("data-outcome=\"incomplete\"");
+    assertThat(html).doesNotContain("data-outcome=\"success\"");
+    assertThat(html).doesNotContain("data-outcome=\"failed\"");
+  }
+
   // --- XSS safety ---
 
   @Test
@@ -339,6 +393,13 @@ class HtmlRendererTest {
 
   private static TaskRecord task(long id, Instant fork, Instant completion, TaskOutcome outcome) {
     return new TaskRecord(id, "worker-" + id, -1L, fork, completion, outcome);
+  }
+
+  private static ScopeRecord scopeWithSuccess(
+      long scopeId, String name, Instant open, Instant close) {
+    var tasks =
+        List.of(task(1, open.plusMillis(1), close.minusMillis(1), new TaskOutcome.Success()));
+    return new ScopeRecord(scopeId, name, "main", -1L, open, close, tasks, null);
   }
 
   private static int countOccurrences(String text, String sub) {

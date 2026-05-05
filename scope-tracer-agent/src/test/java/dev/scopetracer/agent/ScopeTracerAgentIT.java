@@ -94,29 +94,59 @@ class ScopeTracerAgentIT {
 
   @Test
   void unnamedScopeNameDerivedFromCallSite() {
-    // The unnamed scope must NOT appear as "agent-it-scope".
-    // Its name must follow the SimpleClassName#methodName format produced by ScopeNameDeriver.
+    // Unnamed scopes derive their name from the call-site via ScopeNameDeriver and always
+    // follow the SimpleClassName#methodName format. Named scopes use configured names that
+    // never contain '#'. Filter by the presence of '#' to isolate unnamed scopes.
     List<ScopeRecord> unnamed =
-        model.scopes().stream()
-            .filter(s -> !AgentTestSubject.NAMED_SCOPE.equals(s.name()))
-            .toList();
+        model.scopes().stream().filter(s -> s.name().contains("#")).toList();
 
     assertThat(unnamed).isNotEmpty();
-    assertThat(unnamed)
-        .allSatisfy(s -> assertThat(s.name()).contains("#"))
-        .allSatisfy(s -> assertThat(s.name()).doesNotContain("lambda$"));
+    assertThat(unnamed).allSatisfy(s -> assertThat(s.name()).doesNotContain("lambda$"));
   }
 
   @Test
   void unnamedScopeHasOneTask() {
     List<ScopeRecord> unnamed =
-        model.scopes().stream()
-            .filter(s -> !AgentTestSubject.NAMED_SCOPE.equals(s.name()))
-            .toList();
+        model.scopes().stream().filter(s -> s.name().contains("#")).toList();
 
     assertThat(unnamed).hasSize(1);
     assertThat(unnamed.get(0).tasks()).hasSize(1);
     assertThat(unnamed.get(0).tasks().get(0).outcome()).isInstanceOf(TaskOutcome.Success.class);
+  }
+
+  // --- task failure ---
+
+  @Test
+  void failedTaskIsRecordedByAgent() {
+    var failScope = scopeNamed(AgentTestSubject.FAIL_SCOPE);
+    assertThat(failScope).isPresent();
+    var tasks = failScope.get().tasks();
+    assertThat(tasks).hasSize(1);
+    assertThat(tasks.get(0).outcome()).isInstanceOf(TaskOutcome.Failed.class);
+    var failed = (TaskOutcome.Failed) tasks.get(0).outcome();
+    assertThat(failed.exceptionType()).isEqualTo(IllegalStateException.class.getName());
+    assertThat(failed.exceptionMessage()).isEqualTo("intentional failure");
+  }
+
+  // --- task cancellation ---
+
+  @Test
+  void cancelledTaskIsRecordedByAgent() {
+    var cancelScope = scopeNamed(AgentTestSubject.CANCEL_SCOPE);
+    assertThat(cancelScope).isPresent();
+    var outcomes = cancelScope.get().tasks().stream().map(t -> t.outcome()).toList();
+    assertThat(outcomes).anySatisfy(o -> assertThat(o).isInstanceOf(TaskOutcome.Failed.class));
+    assertThat(outcomes).anySatisfy(o -> assertThat(o).isInstanceOf(TaskOutcome.Cancelled.class));
+  }
+
+  // --- nested scope ---
+
+  @Test
+  void nestedScopeParentRefIsDetectedByAgent() {
+    var innerScope = scopeNamed(AgentTestSubject.INNER_SCOPE);
+    assertThat(innerScope).isPresent();
+    assertThat(innerScope.get().parent()).isNotNull();
+    assertThat(innerScope.get().parent().scopeName()).isEqualTo(AgentTestSubject.OUTER_SCOPE);
   }
 
   // --- scope lifecycle ---

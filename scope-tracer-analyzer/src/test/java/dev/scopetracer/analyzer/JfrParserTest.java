@@ -312,4 +312,117 @@ class JfrParserTest {
     var model = JfrParser.parse(jfr);
     assertThat(model.scopes()).isEmpty();
   }
+
+  // --- out-of-order JFR event buffering (pendingCompletions / pendingCloses) ---
+
+  /**
+   * JFR flushes virtual-thread buffers independently; task-completion events can appear in the file
+   * before {@code ScopeOpened}. The parser buffers such events and applies them once the open event
+   * is seen. This test uses virtual threads with many concurrent tasks — where such reordering is
+   * empirically likely — and verifies the reconstructed model is always correct.
+   */
+  @Test
+  void virtualThreadScopeWithManyConcurrentTasksProducesCorrectModel() throws Exception {
+    var model =
+        capture(
+            "vt-concurrent",
+            () -> {
+              // Default factory is virtual threads — JFR buffer flush ordering is not guaranteed.
+              try (var scope = TracedScope.open("vt-concurrent")) {
+                for (int i = 0; i < 20; i++) {
+                  final int id = i;
+                  scope.fork(() -> id * id);
+                }
+                scope.join();
+              }
+            });
+
+    assertThat(model.scopes()).hasSize(1);
+    var scope = model.scopes().get(0);
+    assertThat(scope.tasks()).hasSize(20);
+    assertThat(scope.closeTime()).isNotNull();
+    assertThat(scope.tasks())
+        .allSatisfy(t -> assertThat(t.outcome()).isInstanceOf(TaskOutcome.Success.class))
+        .allSatisfy(t -> assertThat(t.completionTime()).isNotNull());
+  }
+
+  // --- truncated recording ---
+
+  /**
+   * When a recording is stopped while a task is still running, the file contains {@code
+   * ScopeOpened} and {@code TaskForked} but no completion or close events. The parser must produce
+   * a {@code ScopeRecord} with {@code null} {@code closeTime} and a {@code TaskRecord} with {@code
+   * null} {@code completionTime} and {@code null} {@code outcome}.
+   */
+  @Test
+  void truncatedRecordingYieldsNullCompletionTimeAndOutcome() throws Exception {
+    var jfr = tempDir.resolve("truncated.jfr");
+    var taskStarted = new CountDownLatch(1);
+    var unblock = new CountDownLatch(1);
+
+    try (var recording = new Recording()) {
+      recording.enable("dev.scopetracer.*");
+      recording.start();
+
+      // fork() must be called from the owner thread — the task callable runs concurrently.
+      var scope = TracedScope.open("truncated-scope", Thread.ofPlatform().factory());
+      scope.fork(
+          () -> {
+            taskStarted.countDown();
+            unblock.await(); // blocks until we let it go
+            return "done";
+          });
+
+      taskStarted.await(); // task is running; TaskForked emitted, no completion yet
+
+      // Dump while the task is still blocked — TaskSucceeded and ScopeClosed are NOT in the file.
+      recording.stop();
+      recording.dump(jfr);
+
+      // Clean up: unblock task, let scope close normally (events go nowhere, recording is stopped).
+      unblock.countDown();
+      scope.join();
+      scope.close();
+    }
+
+    var model = JfrParser.parse(jfr);
+    assertThat(model.scopes()).hasSize(1);
+    var scope = model.scopes().get(0);
+    assertThat(scope.name()).isEqualTo("truncated-scope");
+    assertThat(scope.closeTime()).isNull();
+    assertThat(scope.tasks()).hasSize(1);
+    assertThat(scope.tasks().get(0).completionTime()).isNull();
+    assertThat(scope.tasks().get(0).outcome()).isNull();
+  }
+
+  // --- null exceptionMessage round-trip ---
+
+  /**
+   * When a task throws an exception with no message ({@code getMessage()} returns {@code null}),
+   * {@code TaskFailedEvent.exceptionMessage} is {@code null} in the recording. The parser must
+   * preserve this as {@code null} in {@code TaskOutcome.Failed.exceptionMessage()} — not convert it
+   * to an empty string or a default value.
+   */
+  @Test
+  void nullExceptionMessageIsPreservedThroughParser() throws Exception {
+    var model =
+        capture(
+            "null-ex-message",
+            () -> {
+              try (var scope = TracedScope.open("null-ex-message", Thread.ofPlatform().factory())) {
+                scope.fork(
+                    () -> {
+                      throw new IllegalStateException(); // no message — getMessage() returns null
+                    });
+                assertThatThrownBy(scope::join)
+                    .isInstanceOf(StructuredTaskScope.FailedException.class);
+              }
+            });
+
+    var tasks = model.scopes().get(0).tasks();
+    assertThat(tasks).hasSize(1);
+    var outcome = (TaskOutcome.Failed) tasks.get(0).outcome();
+    assertThat(outcome.exceptionType()).isEqualTo(IllegalStateException.class.getName());
+    assertThat(outcome.exceptionMessage()).isNull();
+  }
 }
