@@ -1,6 +1,7 @@
 package dev.scopetracer.agent;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
@@ -27,6 +28,8 @@ public final class AgentTestSubject {
   static final String CANCEL_SCOPE = "agent-cancel-scope";
   static final String OUTER_SCOPE = "agent-outer-scope";
   static final String INNER_SCOPE = "agent-inner-scope";
+  static final String CONCURRENT_SCOPE_BASE = "agent-concurrent-scope";
+  static final int CONCURRENT_SCOPE_COUNT = 4;
 
   private AgentTestSubject() {}
 
@@ -132,6 +135,38 @@ public final class AgentTestSubject {
             });
         outer.join();
       }
+
+      // Concurrent scopes: N threads each open a scope simultaneously.
+      // The agent must assign distinct scopeIds despite concurrent SCOPE_ID_COUNTER increments.
+      var cReady = new CountDownLatch(CONCURRENT_SCOPE_COUNT);
+      var cRelease = new CountDownLatch(1);
+      var cThreads = new ArrayList<Thread>();
+      for (int i = 0; i < CONCURRENT_SCOPE_COUNT; i++) {
+        final int idx = i;
+        cThreads.add(
+            Thread.ofPlatform()
+                .start(
+                    () -> {
+                      try {
+                        cReady.countDown();
+                        cRelease.await();
+                        try (var s =
+                            StructuredTaskScope.open(
+                                Joiner.awaitAllSuccessfulOrThrow(),
+                                c ->
+                                    c.withName(CONCURRENT_SCOPE_BASE + "-" + idx)
+                                        .withThreadFactory(Thread.ofVirtual().factory()))) {
+                          s.fork(() -> "c" + idx);
+                          s.join();
+                        }
+                      } catch (Exception e) {
+                        throw new RuntimeException(e);
+                      }
+                    }));
+      }
+      cReady.await();
+      cRelease.countDown();
+      for (var t : cThreads) t.join();
 
       recording.stop();
       recording.dump(jfrOut);

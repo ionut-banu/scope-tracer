@@ -268,6 +268,119 @@ class JfrParserTest {
     assertThat(paymentSteps.parent().scopeName()).isEqualTo("order-processing");
   }
 
+  // --- two-level nesting ---
+
+  /**
+   * Exercises {@code detectNesting} with three levels of scope containment (grandparent → parent →
+   * child). Each level must resolve its direct parent only — not any ancestor further up the chain.
+   */
+  @Test
+  void twoLevelNestedScopeDetectsGrandparentRef() throws Exception {
+    var model =
+        capture(
+            "two-level-nesting",
+            () -> {
+              try (var grandparent =
+                  TracedScope.open("grandparent-scope", Thread.ofPlatform().factory())) {
+                grandparent.fork(
+                    () -> {
+                      try (var parent =
+                          TracedScope.open("parent-scope", Thread.ofPlatform().factory())) {
+                        parent.fork(
+                            () -> {
+                              try (var child =
+                                  TracedScope.open("child-scope", Thread.ofPlatform().factory())) {
+                                child.fork(() -> "leaf");
+                                child.join();
+                              }
+                              return "child-done";
+                            });
+                        parent.join();
+                      }
+                      return "parent-done";
+                    });
+                grandparent.join();
+              }
+            });
+
+    var parentScope =
+        model.scopes().stream()
+            .filter(s -> s.name().equals("parent-scope"))
+            .findFirst()
+            .orElseThrow();
+    var childScope =
+        model.scopes().stream()
+            .filter(s -> s.name().equals("child-scope"))
+            .findFirst()
+            .orElseThrow();
+
+    assertThat(parentScope.parent()).isNotNull();
+    assertThat(parentScope.parent().scopeName()).isEqualTo("grandparent-scope");
+    assertThat(childScope.parent()).isNotNull();
+    assertThat(childScope.parent().scopeName()).isEqualTo("parent-scope");
+  }
+
+  // --- concurrent same-name scope isolation ---
+
+  /**
+   * Two same-named scopes running simultaneously on separate threads must not be erroneously linked
+   * as parent/child. {@code detectNesting} uses thread-ID + time containment; concurrent scopes on
+   * different threads with non-overlapping thread IDs must both have {@code null} parent.
+   */
+  @Test
+  void concurrentSameNameScopesAreNotMutuallyAssignedAsParent() throws Exception {
+    var model =
+        capture(
+            "concurrent-same-name",
+            () -> {
+              var ready = new CountDownLatch(2);
+              var release = new CountDownLatch(1);
+              var t1 =
+                  Thread.ofPlatform()
+                      .start(
+                          () -> {
+                            try {
+                              ready.countDown();
+                              release.await();
+                              try (var scope =
+                                  TracedScope.open(
+                                      "parallel-scope", Thread.ofPlatform().factory())) {
+                                scope.fork(() -> "t1");
+                                scope.join();
+                              }
+                            } catch (Exception e) {
+                              throw new RuntimeException(e);
+                            }
+                          });
+              var t2 =
+                  Thread.ofPlatform()
+                      .start(
+                          () -> {
+                            try {
+                              ready.countDown();
+                              release.await();
+                              try (var scope =
+                                  TracedScope.open(
+                                      "parallel-scope", Thread.ofPlatform().factory())) {
+                                scope.fork(() -> "t2");
+                                scope.join();
+                              }
+                            } catch (Exception e) {
+                              throw new RuntimeException(e);
+                            }
+                          });
+              ready.await();
+              release.countDown();
+              t1.join();
+              t2.join();
+            });
+
+    var records = model.scopes().stream().filter(s -> "parallel-scope".equals(s.name())).toList();
+    assertThat(records).hasSize(2);
+    // Concurrent scopes on separate threads must not be linked as parent/child.
+    assertThat(records).allSatisfy(s -> assertThat(s.parent()).isNull());
+  }
+
   // --- scopeId uniqueness for same-named scopes ---
 
   /**

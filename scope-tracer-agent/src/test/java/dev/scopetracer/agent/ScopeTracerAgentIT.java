@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -147,6 +148,39 @@ class ScopeTracerAgentIT {
     assertThat(innerScope).isPresent();
     assertThat(innerScope.get().parent()).isNotNull();
     assertThat(innerScope.get().parent().scopeName()).isEqualTo(AgentTestSubject.OUTER_SCOPE);
+  }
+
+  // --- no duplicate instrumentation ---
+
+  /**
+   * Each call to {@code StructuredTaskScope.open()} must produce exactly one scope in the model. If
+   * the ByteBuddy advice were wired twice (double-instrumentation regression), the model would
+   * contain more scopes than expected.
+   */
+  @Test
+  void modelContainsExactlyExpectedNumberOfScopes() {
+    // named + unnamed + fail + cancel + outer + inner + CONCURRENT_SCOPE_COUNT = 10
+    int expected = 6 + AgentTestSubject.CONCURRENT_SCOPE_COUNT;
+    assertThat(model.scopes()).hasSize(expected);
+  }
+
+  // --- concurrent scope scopeId distinctness ---
+
+  /**
+   * {@code N} threads each open a {@code StructuredTaskScope} simultaneously. The agent's {@code
+   * SCOPE_ID_COUNTER.incrementAndGet()} must be race-free — all {@code N} scopes must receive
+   * distinct {@code scopeId} values in the parsed model.
+   */
+  @Test
+  void concurrentScopesGetDistinctScopeIds() {
+    List<ScopeRecord> concurrent =
+        model.scopes().stream()
+            .filter(s -> s.name().startsWith(AgentTestSubject.CONCURRENT_SCOPE_BASE))
+            .toList();
+
+    assertThat(concurrent).hasSize(AgentTestSubject.CONCURRENT_SCOPE_COUNT);
+    var scopeIds = concurrent.stream().map(ScopeRecord::scopeId).collect(Collectors.toSet());
+    assertThat(scopeIds).hasSize(AgentTestSubject.CONCURRENT_SCOPE_COUNT);
   }
 
   // --- scope lifecycle ---

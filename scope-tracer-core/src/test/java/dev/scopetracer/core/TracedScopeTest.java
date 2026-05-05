@@ -386,7 +386,29 @@ class TracedScopeTest {
     assertThat(eventsOfType(events, "dev.scopetracer.ScopeClosed")).hasSize(1);
   }
 
-  // --- scopeId uniqueness ---
+  // --- scopeId consistency and uniqueness ---
+
+  /**
+   * Every JFR event emitted for a single scope must carry the same {@code scopeId} value. The
+   * parser uses {@code scopeId} as its primary key to associate task events with their scope;
+   * inconsistency here would silently corrupt the parsed model.
+   */
+  @Test
+  void scopeIdIsConsistentAcrossAllEventsOfOneScope() throws Exception {
+    var scopeName = "scopeid-consistency";
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+                scope.fork(() -> "x");
+                scope.join();
+              }
+            });
+
+    var scopeIds = events.stream().map(e -> e.getLong("scopeId")).distinct().toList();
+    assertThat(scopeIds).as("all events for a single scope must carry the same scopeId").hasSize(1);
+  }
 
   /**
    * The static {@code SCOPE_ID_COUNTER} is the primary parser key; two concurrent instances must
