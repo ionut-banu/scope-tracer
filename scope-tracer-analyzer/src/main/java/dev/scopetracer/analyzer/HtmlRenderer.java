@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -159,29 +158,42 @@ public final class HtmlRenderer {
     // ── Global wall-clock overview ─────────────────────────────────────────────
     renderGlobalOverview(sb, rootScopes, globalMin, totalNs);
 
-    // ── Scope sections, grouped by base name ──────────────────────────────────
-    var groups = groupScopes(rootScopes);
+    // ── Scope sections, strict chronological order ────────────────────────────
+    // Scopes are iterated in open-time order (guaranteed by JfrParser). Consecutive scopes
+    // that share the same effective group key are wrapped in a <details class="scope-group">
+    // collapsible. Non-consecutive occurrences of the same name are NOT merged into one group,
+    // which ensures the rendered DOM order is always strictly chronological.
+    var correlatedSuffixes = findCorrelatedSuffixes(rootScopes);
     int sectionIndex = 0;
-    for (var entry : groups.entrySet()) {
-      var group = entry.getValue();
-      boolean isGroup = group.size() > 1;
+    int i = 0;
+    while (i < rootScopes.size()) {
+      String key = effectiveKey(rootScopes.get(i), correlatedSuffixes);
+      // Find the end of the consecutive run with this key.
+      int runEnd = i + 1;
+      while (runEnd < rootScopes.size()
+          && effectiveKey(rootScopes.get(runEnd), correlatedSuffixes).equals(key)) {
+        runEnd++;
+      }
+      var run = rootScopes.subList(i, runEnd);
+      boolean isGroup = run.size() > 1;
       if (isGroup) {
         sb.append("<details class=\"scope-group\" open>\n<summary>")
-            .append(escape(entry.getKey()))
+            .append(escape(key))
             .append(
                 " <span class=\"group-stats\">("
-                    + group.size()
+                    + run.size()
                     + " scopes &nbsp;·&nbsp; "
-                    + computeGroupStats(group)
+                    + computeGroupStats(run)
                     + ")</span></summary>\n");
       }
-      for (var scope : group) {
+      for (var scope : run) {
         renderScope(sb, scope, "scope-" + sectionIndex, 0, children, nestedScopes);
         sectionIndex++;
       }
       if (isGroup) {
         sb.append("</details>\n");
       }
+      i = runEnd;
     }
 
     // ── Inline filter JS ───────────────────────────────────────────────────────
@@ -577,23 +589,12 @@ public final class HtmlRenderer {
   }
 
   /**
-   * Groups root scopes for display, using one of two strategies:
-   *
-   * <ul>
-   *   <li><b>Per-instance grouping</b> (option 2): when a numeric suffix (e.g. {@code "001"})
-   *       appears across ≥ 2 distinct base names, all scopes sharing that suffix are placed in a
-   *       single group keyed by the suffix. This keeps pipeline stages of the same request (e.g.
-   *       {@code order-processing-001} + {@code order-dispatch-001}) together in the report.
-   *   <li><b>Per-name grouping</b> (fallback): scopes whose suffix is unique to a single base name
-   *       — or have no numeric suffix at all — are grouped by their base name prefix, exactly as
-   *       before.
-   * </ul>
-   *
-   * <p>Insertion order is preserved so scopes appear in the report sorted by their first open time.
+   * Returns the set of numeric suffixes that appear across ≥ 2 distinct base names in {@code
+   * rootScopes}. Such suffixes are "correlated" — they identify pipeline stages of the same request
+   * instance (e.g. {@code "001"} shared by {@code order-processing-001} and {@code
+   * order-dispatch-001}).
    */
-  private static LinkedHashMap<String, List<ScopeRecord>> groupScopes(
-      List<ScopeRecord> rootScopes) {
-    // Pass 1: discover which numeric suffixes appear across ≥2 distinct base names.
+  private static Set<String> findCorrelatedSuffixes(List<ScopeRecord> rootScopes) {
     var suffixToBaseNames = new HashMap<String, Set<String>>();
     for (var scope : rootScopes) {
       String suffix = numericSuffix(scope.name());
@@ -601,23 +602,22 @@ public final class HtmlRenderer {
         suffixToBaseNames.computeIfAbsent(suffix, k -> new HashSet<>()).add(groupKey(scope.name()));
       }
     }
-    // Suffixes with ≥2 distinct base names are "correlated" (pipeline stages of the same instance).
-    var correlatedSuffixes = new HashSet<String>();
+    var correlated = new HashSet<String>();
     for (var entry : suffixToBaseNames.entrySet()) {
-      if (entry.getValue().size() >= 2) correlatedSuffixes.add(entry.getKey());
+      if (entry.getValue().size() >= 2) correlated.add(entry.getKey());
     }
+    return correlated;
+  }
 
-    // Pass 2: assign each scope to its group key.
-    var groups = new LinkedHashMap<String, List<ScopeRecord>>();
-    for (var scope : rootScopes) {
-      String suffix = numericSuffix(scope.name());
-      String key =
-          (!suffix.isEmpty() && correlatedSuffixes.contains(suffix))
-              ? suffix
-              : groupKey(scope.name());
-      groups.computeIfAbsent(key, k -> new ArrayList<>()).add(scope);
-    }
-    return groups;
+  /**
+   * Returns the effective group key for {@code scope} given the pre-computed set of correlated
+   * suffixes. Correlated-suffix scopes are keyed by their suffix; all others by their base name.
+   */
+  private static String effectiveKey(ScopeRecord scope, Set<String> correlatedSuffixes) {
+    String suffix = numericSuffix(scope.name());
+    return (!suffix.isEmpty() && correlatedSuffixes.contains(suffix))
+        ? suffix
+        : groupKey(scope.name());
   }
 
   /** Returns a one-line stat summary for use in a group {@code <summary>} element. */

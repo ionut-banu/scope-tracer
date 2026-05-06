@@ -313,6 +313,55 @@ class HtmlRendererTest {
     assertThat(html).doesNotContain("← critical path");
   }
 
+  // --- chronological rendering order ---
+
+  /**
+   * When scopes of different names interleave in time, the rendered DOM must follow strict
+   * open-time order. The old group-all-same-name approach broke this by rendering every scope of
+   * group A before any scope of group B, even when B's scopes interleave with A's in time.
+   *
+   * <p>Setup: {@code checkout} and {@code payment} alternate — checkout(T0), payment(T1),
+   * checkout(T2), payment(T3). Under the old approach these would form two groups of 2 → {@code
+   * <details>} wrappers appear and checkout(T2) is rendered before payment(T1). Under the
+   * consecutive-run approach each scope is its own run of 1 → zero {@code <details>} wrappers, and
+   * the DOM order is strictly T0, T1, T2, T3.
+   */
+  @Test
+  void interleavedScopeNamesRenderInChronologicalOrder() {
+    List<ScopeRecord> scopes =
+        List.of(
+            scopeWithSuccess(1L, "checkout", T0, T1),
+            new ScopeRecord(
+                2L,
+                "payment",
+                "main",
+                -1L,
+                T1,
+                T2,
+                List.of(task(1, T1, T2, new TaskOutcome.Failed("E", "fail", null))),
+                null),
+            scopeWithSuccess(3L, "checkout", T2, T3),
+            new ScopeRecord(
+                4L,
+                "payment",
+                "main",
+                -1L,
+                T3,
+                T4,
+                List.of(task(1, T3, T4, new TaskOutcome.Failed("E", "fail", null))),
+                null));
+    var html = HtmlRenderer.render(new TraceModel(scopes));
+
+    // Four interleaved scopes → four runs of 1 each → no <details> grouping at all.
+    assertThat(countOccurrences(html, "<details")).isEqualTo(0);
+
+    // Strict DOM order: checkout(T0) before payment(T1) before checkout(T2) before payment(T3).
+    // We verify relative positions via indexOf on the unique scope-N anchor IDs.
+    assertThat(html.indexOf("scope-0")).isLessThan(html.indexOf("scope-1"));
+    assertThat(html.indexOf("scope-1")).isLessThan(html.indexOf("scope-2"));
+    assertThat(html.indexOf("scope-2")).isLessThan(html.indexOf("scope-3"));
+  }
+
   // --- groupScopes correlated-suffix path ---
 
   /**
