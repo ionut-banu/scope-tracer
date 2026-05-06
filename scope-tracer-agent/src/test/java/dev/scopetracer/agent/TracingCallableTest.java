@@ -98,8 +98,51 @@ class TracingCallableTest {
     assertThat(failed.get(0).getString("exceptionType"))
         .isEqualTo(IllegalStateException.class.getName());
     assertThat(failed.get(0).getString("exceptionMessage")).isEqualTo("bad state");
+    assertThat(failed.get(0).getString("exceptionStackTrace")).contains("IllegalStateException");
     assertThat(eventsOfType(events, "dev.scopetracer.TaskSucceeded")).isEmpty();
     assertThat(eventsOfType(events, "dev.scopetracer.TaskCancelled")).isEmpty();
+  }
+
+  /**
+   * Stack traces longer than 4 096 characters must be truncated: the field must end with {@code
+   * "... (truncated)"} and its total length must not exceed 4 096 + the suffix length.
+   */
+  @Test
+  void failureStackTraceIsTruncatedAtCharacterLimit() throws Exception {
+    var jfr = tempDir.resolve("truncated-stack.jfr");
+
+    // Build an exception with 500 synthetic frames — each "at a.b.C.m(C.java:1)" adds ~20 chars.
+    var ex = new IllegalStateException("big-stack");
+    var frames = new StackTraceElement[500];
+    for (int i = 0; i < frames.length; i++) {
+      frames[i] = new StackTraceElement("com.example.Cls" + i, "method", "Cls.java", i + 1);
+    }
+    ex.setStackTrace(frames);
+
+    try (var recording = new Recording()) {
+      recording.enable("dev.scopetracer.*");
+      recording.start();
+
+      var callable =
+          new TracingCallable<Object>(
+              () -> {
+                throw ex;
+              },
+              SCOPE_NAME,
+              SCOPE_ID,
+              TASK_ID);
+      assertThatThrownBy(callable::call).isInstanceOf(IllegalStateException.class);
+
+      recording.stop();
+      recording.dump(jfr);
+    }
+
+    var failed = eventsOfType(readEvents(jfr), "dev.scopetracer.TaskFailed");
+    assertThat(failed).hasSize(1);
+    var stackTrace = failed.get(0).getString("exceptionStackTrace");
+    assertThat(stackTrace).contains("(truncated)");
+    // 4096 cap + length of "\n... (truncated)" (16 chars)
+    assertThat(stackTrace.length()).isLessThanOrEqualTo(4096 + 16);
   }
 
   /**

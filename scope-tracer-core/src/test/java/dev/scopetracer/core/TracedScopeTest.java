@@ -215,6 +215,8 @@ class TracedScopeTest {
     assertThat(failedEvents.get(0).getString("exceptionType"))
         .isEqualTo(IllegalStateException.class.getName());
     assertThat(failedEvents.get(0).getString("exceptionMessage")).isEqualTo("boom");
+    assertThat(failedEvents.get(0).getString("exceptionStackTrace"))
+        .contains("IllegalStateException");
   }
 
   @Test

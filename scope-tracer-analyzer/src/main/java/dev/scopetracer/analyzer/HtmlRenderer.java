@@ -95,6 +95,9 @@ public final class HtmlRenderer {
         details.scope-group > summary::before { content: "▶ "; font-size: 0.65rem; color: #9e9e9e; }
         details.scope-group[open] > summary::before { content: "▼ "; }
         .group-stats { font-size: 0.75rem; font-weight: normal; color: #757575; margin-left: 0.5rem; }
+        details.stack-trace { margin-top: 0.25rem; }
+        details.stack-trace > summary { cursor: pointer; color: #6b7280; font-size: 0.75rem; }
+        pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto; white-space: pre; color: #374151; background: #f9fafb; padding: 0.4rem; border-radius: 3px; }
         </style>
         </head>
         <body>
@@ -673,7 +676,10 @@ public final class HtmlRenderer {
             : switch (outcome) {
               case TaskOutcome.Success s -> "<span class=\"outcome-success\">success</span>";
               case TaskOutcome.Failed f ->
-                  "<span class=\"outcome-failed\">failed: " + escape(failedLabel(f)) + "</span>";
+                  "<span class=\"outcome-failed\">failed: "
+                      + escape(failedLabel(f))
+                      + "</span>"
+                      + renderStackTrace(f);
               case TaskOutcome.Cancelled c ->
                   triggerId >= 0
                       ? "<span class=\"outcome-cancelled\">cancelled ← #" + triggerId + "</span>"
@@ -720,6 +726,15 @@ public final class HtmlRenderer {
   private static String failedLabel(TaskOutcome.Failed f) {
     var msg = f.exceptionMessage();
     return (msg != null && !msg.isBlank()) ? f.exceptionType() + ": " + msg : f.exceptionType();
+  }
+
+  private static String renderStackTrace(TaskOutcome.Failed f) {
+    var st = f.stackTrace();
+    if (st == null || st.isBlank()) return "";
+    return "<details class=\"stack-trace\"><summary>stack trace</summary>"
+        + "<pre class=\"stack-trace-body\">"
+        + escape(st)
+        + "</pre></details>";
   }
 
   // ── Tick / formatting helpers ─────────────────────────────────────────────────

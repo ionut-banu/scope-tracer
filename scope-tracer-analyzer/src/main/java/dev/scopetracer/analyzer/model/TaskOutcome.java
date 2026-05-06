@@ -24,8 +24,11 @@ public sealed interface TaskOutcome
    * @param exceptionType fully-qualified class name of the thrown exception.
    * @param exceptionMessage value of {@link Throwable#getMessage()}; {@code null} when the
    *     exception carries no message.
+   * @param stackTrace formatted stack trace string; {@code null} when absent (e.g. recordings
+   *     produced before this field was added).
    */
-  record Failed(String exceptionType, String exceptionMessage) implements TaskOutcome {}
+  record Failed(String exceptionType, String exceptionMessage, String stackTrace)
+      implements TaskOutcome {}
 
   /** The subtask was interrupted by scope shutdown before completing on its own. */
   record Cancelled() implements TaskOutcome {}

@@ -128,6 +128,10 @@ public final class JfrParser {
           case TASK_FAILED -> {
             var exType = event.getString("exceptionType");
             var exMessage = event.getString("exceptionMessage");
+            var stackTrace =
+                event.hasField("exceptionStackTrace")
+                    ? event.getString("exceptionStackTrace")
+                    : null;
             storeCompletion(
                 scopeOpens,
                 pendingCompletions,
@@ -135,7 +139,10 @@ public final class JfrParser {
                 scopeId,
                 taskId,
                 new CompletionData(
-                    time, new TaskOutcome.Failed(exType, exMessage), threadName, javaThreadId));
+                    time,
+                    new TaskOutcome.Failed(exType, exMessage, stackTrace),
+                    threadName,
+                    javaThreadId));
           }
           case TASK_CANCELLED ->
               storeCompletion(

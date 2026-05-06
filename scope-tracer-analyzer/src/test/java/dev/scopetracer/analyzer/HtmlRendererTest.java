@@ -69,7 +69,7 @@ class HtmlRendererTest {
   void failedTaskRendersRedColor() {
     var html =
         HtmlRenderer.render(
-            modelWithSingleTask(new TaskOutcome.Failed("java.lang.RuntimeException", null)));
+            modelWithSingleTask(new TaskOutcome.Failed("java.lang.RuntimeException", null, null)));
     assertThat(html).contains("#e53935");
   }
 
@@ -85,7 +85,8 @@ class HtmlRendererTest {
   void failedTaskExceptionTypeAppearsInOutput() {
     var html =
         HtmlRenderer.render(
-            modelWithSingleTask(new TaskOutcome.Failed("java.lang.IllegalStateException", null)));
+            modelWithSingleTask(
+                new TaskOutcome.Failed("java.lang.IllegalStateException", null, null)));
     assertThat(html).contains("java.lang.IllegalStateException");
   }
 
@@ -95,7 +96,7 @@ class HtmlRendererTest {
         HtmlRenderer.render(
             modelWithSingleTask(
                 new TaskOutcome.Failed(
-                    "java.lang.IllegalStateException", "userId must not be null")));
+                    "java.lang.IllegalStateException", "userId must not be null", null)));
     assertThat(html).contains("java.lang.IllegalStateException");
     assertThat(html).contains("userId must not be null");
   }
@@ -104,10 +105,10 @@ class HtmlRendererTest {
   void failedTaskNullMessageShowsOnlyType() {
     var withMessage =
         HtmlRenderer.render(
-            modelWithSingleTask(new TaskOutcome.Failed("java.lang.RuntimeException", null)));
+            modelWithSingleTask(new TaskOutcome.Failed("java.lang.RuntimeException", null, null)));
     var withoutMessage =
         HtmlRenderer.render(
-            modelWithSingleTask(new TaskOutcome.Failed("java.lang.RuntimeException", "")));
+            modelWithSingleTask(new TaskOutcome.Failed("java.lang.RuntimeException", "", null)));
     // Neither null nor blank message should add a colon separator after the type
     assertThat(withMessage).doesNotContain("RuntimeException:");
     assertThat(withoutMessage).doesNotContain("RuntimeException:");
@@ -303,7 +304,7 @@ class HtmlRendererTest {
     var tasks =
         List.of(
             task(1, T1, T2, new TaskOutcome.Success()),
-            task(2, T1, T3, new TaskOutcome.Failed("java.lang.RuntimeException", null)));
+            task(2, T1, T3, new TaskOutcome.Failed("java.lang.RuntimeException", null, null)));
     var scope = new ScopeRecord(1L, "fail-scope", "main", -1L, T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     // No gold stroke on any task bar (the CSS class definition is always present, but not the attr)
@@ -364,6 +365,50 @@ class HtmlRendererTest {
     assertThat(html).contains("data-outcome=\"incomplete\"");
     assertThat(html).doesNotContain("data-outcome=\"success\"");
     assertThat(html).doesNotContain("data-outcome=\"failed\"");
+  }
+
+  // --- stack trace rendering ---
+
+  @Test
+  void stackTraceIsRenderedWhenNonNull() {
+    var trace = "java.lang.IllegalStateException: boom\n\tat com.example.Foo.bar(Foo.java:42)\n";
+    var html =
+        HtmlRenderer.render(
+            modelWithSingleTask(
+                new TaskOutcome.Failed("java.lang.IllegalStateException", "boom", trace)));
+    // The <pre> element with class "stack-trace-body" must be present in the body, not just in CSS.
+    assertThat(html).contains("<pre class=\"stack-trace-body\">");
+    assertThat(html).contains("Foo.java:42");
+  }
+
+  @Test
+  void stackTraceIsNotRenderedWhenNull() {
+    var html =
+        HtmlRenderer.render(
+            modelWithSingleTask(
+                new TaskOutcome.Failed("java.lang.RuntimeException", "oops", null)));
+    assertThat(html).doesNotContain("<pre class=\"stack-trace-body\">");
+  }
+
+  @Test
+  void stackTraceIsNotRenderedWhenBlank() {
+    var html =
+        HtmlRenderer.render(
+            modelWithSingleTask(
+                new TaskOutcome.Failed("java.lang.RuntimeException", "oops", "   ")));
+    assertThat(html).doesNotContain("<pre class=\"stack-trace-body\">");
+  }
+
+  @Test
+  void stackTraceContentIsHtmlEscaped() {
+    var trace = "<script>alert(1)</script>";
+    var html =
+        HtmlRenderer.render(
+            modelWithSingleTask(
+                new TaskOutcome.Failed("java.lang.RuntimeException", "oops", trace)));
+    // The injected payload must not appear verbatim — it must be escaped.
+    assertThat(html).doesNotContain("<script>alert(1)</script>");
+    assertThat(html).contains("&lt;script&gt;alert(1)&lt;/script&gt;");
   }
 
   // --- XSS safety ---

@@ -127,6 +127,7 @@ class ScopeTracerAgentIT {
     var failed = (TaskOutcome.Failed) tasks.get(0).outcome();
     assertThat(failed.exceptionType()).isEqualTo(IllegalStateException.class.getName());
     assertThat(failed.exceptionMessage()).isEqualTo("intentional failure");
+    assertThat(failed.stackTrace()).isNotBlank();
   }
 
   // --- task cancellation ---

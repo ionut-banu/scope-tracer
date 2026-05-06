@@ -72,6 +72,7 @@ public final class TracingCallable<T> implements Callable<T> {
       ev.threadName = Thread.currentThread().getName();
       ev.exceptionType = e.getClass().getName();
       ev.exceptionMessage = e.getMessage();
+      ev.exceptionStackTrace = TaskFailedEvent.formatStackTrace(e);
       ev.commit();
       throw e;
     }

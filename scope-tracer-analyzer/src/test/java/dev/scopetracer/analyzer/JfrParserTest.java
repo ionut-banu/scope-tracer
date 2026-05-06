@@ -137,6 +137,30 @@ class JfrParserTest {
     var failed = (TaskOutcome.Failed) outcome;
     assertThat(failed.exceptionType()).isEqualTo(IllegalStateException.class.getName());
     assertThat(failed.exceptionMessage()).isEqualTo("boom");
+    assertThat(failed.stackTrace()).isNotBlank();
+  }
+
+  @Test
+  void stackTraceIsPreservedThroughParser() throws Exception {
+    var model =
+        capture(
+            "stack-trace-round-trip",
+            () -> {
+              try (var scope =
+                  TracedScope.open("stack-trace-round-trip", Thread.ofPlatform().factory())) {
+                scope.fork(
+                    () -> {
+                      throw new IllegalStateException("trace-test");
+                    });
+                assertThatThrownBy(scope::join)
+                    .isInstanceOf(StructuredTaskScope.FailedException.class);
+              }
+            });
+
+    var outcome = (TaskOutcome.Failed) model.scopes().get(0).tasks().get(0).outcome();
+    assertThat(outcome.stackTrace()).isNotBlank();
+    assertThat(outcome.stackTrace()).contains("IllegalStateException");
+    assertThat(outcome.stackTrace()).doesNotContain("(truncated)");
   }
 
   // --- cancellation ---
