@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Integration tests for {@link ScopeTracerAgent}. Forks a JVM with the agent fat-jar attached via
@@ -192,6 +193,45 @@ class ScopeTracerAgentIT {
     assertThat(model.scopes())
         .allSatisfy(s -> assertThat(s.openTime()).isNotNull())
         .allSatisfy(s -> assertThat(s.closeTime()).isNotNull());
+  }
+
+  // --- auto-HTML generation ---
+
+  /**
+   * When a JFR recording is stopped with a destination file set (mirroring {@code jcmd JFR.start
+   * filename=...}), the agent's {@link jdk.jfr.FlightRecorderListener} must automatically write an
+   * HTML report alongside the {@code .jfr} file.
+   */
+  @Test
+  void autoHtmlIsWrittenAlongsideJfrOnRecordingStop(@TempDir Path tempDir) throws Exception {
+    String agentJar = System.getProperty("agentJar", "");
+    assumeTrue(
+        !agentJar.isBlank() && Files.exists(Path.of(agentJar)),
+        "Skipping: run 'mvn verify' to build the fat-jar.");
+    String testClassesDir = System.getProperty("testClassesDir", "");
+    assumeTrue(!testClassesDir.isBlank(), "Skipping: testClassesDir system property not set.");
+
+    Path jfr = tempDir.resolve("auto.jfr");
+    Path html = tempDir.resolve("auto.html");
+
+    String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+    int exit =
+        new ProcessBuilder(
+                java,
+                "--enable-preview",
+                "-javaagent:" + agentJar,
+                "-cp",
+                testClassesDir,
+                "dev.scopetracer.agent.AutoHtmlTestSubject",
+                jfr.toString())
+            .redirectErrorStream(true)
+            .start()
+            .waitFor();
+
+    assertThat(exit).isZero();
+    assertThat(jfr).exists();
+    assertThat(html).exists();
+    assertThat(Files.readString(html)).contains("checkout-flow");
   }
 
   // --- helpers ---

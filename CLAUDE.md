@@ -153,6 +153,12 @@ java --enable-preview \
 Each demo writes `<name>.jfr` and `<name>.html` to `target/` relative to the working
 directory, then prints the absolute paths.
 
+**Auto-HTML for live services:** When the agent is attached to a long-running service, any
+JFR recording started with `filename=` (via `jcmd JFR.start filename=...` or
+`-XX:StartFlightRecording=filename=...`) automatically produces an HTML report alongside
+the `.jfr` file the moment `JFR.stop` is called. Pass `html=false` as an agent argument
+to disable this behaviour: `-javaagent:...jar=html=false`.
+
 ## Build & test
 
 - `mvn -q verify` — full build, tests, and Spotless style check
