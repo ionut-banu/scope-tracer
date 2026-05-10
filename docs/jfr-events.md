@@ -1,8 +1,8 @@
 # JFR events emitted by `scope-tracer-core`
 
-All events are emitted by [`TracedScope`](../scope-tracer-core/src/main/java/dev/scopetracer/core/TracedScope.java)
-and live in [`dev.scopetracer.core.events`](../scope-tracer-core/src/main/java/dev/scopetracer/core/events/).
-They share the JFR category `scope-tracer` and the prefix `dev.scopetracer.*`.
+All events are emitted by [`TracedScope`](../scope-tracer-core/src/main/java/com/ionutbanu/scopetracer/core/TracedScope.java)
+and live in [`com.ionutbanu.scopetracer.core.events`](../scope-tracer-core/src/main/java/com/ionutbanu/scopetracer/core/events/).
+They share the JFR category `scope-tracer` and the prefix `com.ionutbanu.scopetracer.*`.
 
 ## Common fields
 
@@ -21,17 +21,17 @@ JFR records the timestamp itself via `Event.startTime` — no explicit field.
 
 | JFR name                          | Class                | Extra fields           | When emitted                                                     |
 |-----------------------------------|----------------------|------------------------|------------------------------------------------------------------|
-| `dev.scopetracer.ScopeOpened`     | `ScopeOpenedEvent`   | —                      | Once, at scope construction. `taskId = 0`.                      |
-| `dev.scopetracer.TaskForked`      | `TaskForkedEvent`    | —                      | When a subtask is submitted via `fork`.                          |
-| `dev.scopetracer.TaskSucceeded`   | `TaskSucceededEvent` | —                      | When a subtask returns normally.                                 |
-| `dev.scopetracer.TaskFailed`      | `TaskFailedEvent`    | `String exceptionType`, `String exceptionMessage`, `String exceptionStackTrace` | When a subtask escapes by throwing. `exceptionType` is the FQN; `exceptionMessage` is `Throwable.getMessage()`, nullable. `exceptionStackTrace` is the formatted stack trace (capped at 4 096 characters); nullable and absent in recordings made before this field was added — use `event.hasField("exceptionStackTrace")` before reading. |
-| `dev.scopetracer.TaskCancelled`   | `TaskCancelledEvent` | —                      | When a subtask observes scope shutdown before completing.        |
-| `dev.scopetracer.ScopeClosed`     | `ScopeClosedEvent`   | —                      | Once, after all subtasks terminate. `taskId = 0`.               |
+| `com.ionutbanu.scopetracer.ScopeOpened`     | `ScopeOpenedEvent`   | —                      | Once, at scope construction. `taskId = 0`.                      |
+| `com.ionutbanu.scopetracer.TaskForked`      | `TaskForkedEvent`    | —                      | When a subtask is submitted via `fork`.                          |
+| `com.ionutbanu.scopetracer.TaskSucceeded`   | `TaskSucceededEvent` | —                      | When a subtask returns normally.                                 |
+| `com.ionutbanu.scopetracer.TaskFailed`      | `TaskFailedEvent`    | `String exceptionType`, `String exceptionMessage`, `String exceptionStackTrace` | When a subtask escapes by throwing. `exceptionType` is the FQN; `exceptionMessage` is `Throwable.getMessage()`, nullable. `exceptionStackTrace` is the formatted stack trace (capped at 4 096 characters); nullable and absent in recordings made before this field was added — use `event.hasField("exceptionStackTrace")` before reading. |
+| `com.ionutbanu.scopetracer.TaskCancelled`   | `TaskCancelledEvent` | —                      | When a subtask observes scope shutdown before completing.        |
+| `com.ionutbanu.scopetracer.ScopeClosed`     | `ScopeClosedEvent`   | —                      | Once, after all subtasks terminate. `taskId = 0`.               |
 
 ## Sealed hierarchy
 
 All event classes implement the sealed marker interface
-[`TracedScopeEvent`](../scope-tracer-core/src/main/java/dev/scopetracer/core/events/TracedScopeEvent.java),
+[`TracedScopeEvent`](../scope-tracer-core/src/main/java/com/ionutbanu/scopetracer/core/events/TracedScopeEvent.java),
 so the analyzer can pattern-match exhaustively:
 
 ```java

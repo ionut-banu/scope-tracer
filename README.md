@@ -26,7 +26,7 @@ Targets JDK 26+ with `--enable-preview` (`StructuredTaskScope` is a preview API)
 
 ```xml
 <dependency>
-  <groupId>dev.scopetracer</groupId>
+  <groupId>com.ionutbanu.scopetracer</groupId>
   <artifactId>scope-tracer-core</artifactId>
   <version>0.1.0-SNAPSHOT</version>
 </dependency>
@@ -41,7 +41,7 @@ Replace `StructuredTaskScope` with `TracedScope`. The API is the same: `fork()`,
 try-with-resources.
 
 ```java
-import dev.scopetracer.core.TracedScope;
+import com.ionutbanu.scopetracer.core.TracedScope;
 
 try (var scope = new TracedScope("checkout-flow")) {
     Subtask<Quote>       pricing   = scope.fork(() -> pricingService.quote(cart));
@@ -77,8 +77,8 @@ all runtime dependencies so no classpath assembly is needed.
 Or use the programmatic API:
 
 ```java
-import dev.scopetracer.analyzer.JfrParser;
-import dev.scopetracer.analyzer.HtmlRenderer;
+import com.ionutbanu.scopetracer.analyzer.JfrParser;
+import com.ionutbanu.scopetracer.analyzer.HtmlRenderer;
 
 var model = JfrParser.parse(Path.of("myapp.jfr"));
 String html = HtmlRenderer.render(model);
@@ -161,25 +161,25 @@ JARS="scope-tracer-core/target/scope-tracer-core-0.1.0-SNAPSHOT.jar:\
 scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT.jar:\
 scope-tracer-demos/target/scope-tracer-demos-0.1.0-SNAPSHOT.jar:$CP"
 
-java --enable-preview -cp "$JARS" dev.scopetracer.demos.ParallelFetchDemo
-java --enable-preview -cp "$JARS" dev.scopetracer.demos.FailFastDemo
-java --enable-preview -cp "$JARS" dev.scopetracer.demos.NestedScopesDemo
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.ParallelFetchDemo
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.FailFastDemo
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.NestedScopesDemo
 
 # AgentDemo uses the agent — no TracedScope in source
 java --enable-preview \
      -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
-     -cp "$JARS" dev.scopetracer.demos.AgentDemo
+     -cp "$JARS" com.ionutbanu.scopetracer.demos.AgentDemo
 
 # OrderProcessingDemo — multi-level nesting; writes .jfr and .html then exits
-java --enable-preview -cp "$JARS" dev.scopetracer.demos.OrderProcessingDemo
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.OrderProcessingDemo
 
 # LiveServiceDemo — long-running; copy the jcmd commands it prints, then Ctrl+C to stop
 java --enable-preview \
      -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
-     -cp "$JARS" dev.scopetracer.demos.LiveServiceDemo
+     -cp "$JARS" com.ionutbanu.scopetracer.demos.LiveServiceDemo
 
 # LiveOrderProcessingDemo — live nested pipeline; copy the jcmd commands it prints, then Ctrl+C to stop
-java --enable-preview -cp "$JARS" dev.scopetracer.demos.LiveOrderProcessingDemo
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.LiveOrderProcessingDemo
 ```
 
 **Using LiveServiceDemo** (in a second terminal while the service is running):
@@ -223,10 +223,10 @@ guidelines.
 
 | Module | Artifact | Purpose |
 |--------|----------|---------|
-| `scope-tracer-core` | `dev.scopetracer:scope-tracer-core` | `TracedScope` wrapper; emits JFR events |
-| `scope-tracer-analyzer` | `dev.scopetracer:scope-tracer-analyzer` | Parses `.jfr` files; renders HTML/SVG reports |
-| `scope-tracer-agent` | `dev.scopetracer:scope-tracer-agent` | Java agent; instruments `StructuredTaskScope` at bytecode level |
-| `scope-tracer-demos` | `dev.scopetracer:scope-tracer-demos` | Runnable example programs |
+| `scope-tracer-core` | `com.ionutbanu.scopetracer:scope-tracer-core` | `TracedScope` wrapper; emits JFR events |
+| `scope-tracer-analyzer` | `com.ionutbanu.scopetracer:scope-tracer-analyzer` | Parses `.jfr` files; renders HTML/SVG reports |
+| `scope-tracer-agent` | `com.ionutbanu.scopetracer:scope-tracer-agent` | Java agent; instruments `StructuredTaskScope` at bytecode level |
+| `scope-tracer-demos` | `com.ionutbanu.scopetracer:scope-tracer-demos` | Runnable example programs |
 
 ---
 
