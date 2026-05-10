@@ -16,8 +16,8 @@ threads on JDK 26+.
 - `scope-tracer-agent` — Java agent; instruments `StructuredTaskScope` at bytecode level
 - `scope-tracer-demos` — example programs (correct + buggy)
 
-Code lives under `dev.scopetracer.{core,analyzer,agent,demos}`. Maven coordinates:
-`dev.scopetracer:scope-tracer-*:0.1.0-SNAPSHOT`.
+Code lives under `com.ionutbanu.scopetracer.{core,analyzer,agent,demos}`. Maven coordinates:
+`com.ionutbanu:scope-tracer-*:0.1.0-SNAPSHOT`.
 
 ## Architecture
 
@@ -26,7 +26,7 @@ End-to-end pipeline: user code wrapped in `TracedScope` → run under JFR record
 
 **`scope-tracer-core`**
 
-`TracedScope<R>` (`dev.scopetracer.core`) wraps `StructuredTaskScope` and supports any
+`TracedScope<R>` (`com.ionutbanu.scopetracer.core`) wraps `StructuredTaskScope` and supports any
 `Joiner<Object, R>`. The default (via `TracedScope.open(name)`) uses
 `Joiner.awaitAllSuccessfulOrThrow()` (fail-fast). Custom joiners are supplied via
 `TracedScope.open(name, joiner)` — e.g. `Joiner.anySuccessfulOrThrow()` for racing or
@@ -43,7 +43,7 @@ It emits six JFR events at every lifecycle moment:
 | `ScopeClosedEvent` | `close()`, after all task threads finish | 0 |
 
 All six event classes extend `jdk.jfr.Event` and implement the `TracedScopeEvent` sealed
-interface (`dev.scopetracer.core.events`). This lets the analyzer exhaustively
+interface (`com.ionutbanu.scopetracer.core.events`). This lets the analyzer exhaustively
 pattern-match over event types with a `switch` without a JFR consumer dependency in core.
 
 **JFR event fields** (on every event): `scopeId` (long, globally unique per scope instance —
@@ -56,7 +56,7 @@ The only way to assert emitted JFR events in tests is:
 
 ```java
 try (var recording = new Recording()) {
-    recording.enable("dev.scopetracer.*");
+    recording.enable("com.ionutbanu.scopetracer.*");
     recording.start();
     // ... run TracedScope ...
     recording.stop();
@@ -76,7 +76,7 @@ ordering assertions within the same thread.
 
 **`scope-tracer-analyzer`**
 
-`JfrParser` (`dev.scopetracer.analyzer`) reads a `.jfr` file and builds a `TraceModel`:
+`JfrParser` (`com.ionutbanu.scopetracer.analyzer`) reads a `.jfr` file and builds a `TraceModel`:
 
 - `TraceModel` — root container; holds `List<ScopeRecord>` sorted by open time.
 - `ScopeRecord` — one `TracedScope` lifetime: `name`, `ownerThreadName`, `openTime`,
@@ -126,7 +126,7 @@ Key implementation details:
 - `TracingCallable<T>` wraps the user's callable and emits task-completion events.
 - `ScopeNameDeriver` uses `StackWalker` to produce `SimpleClassName#methodName` scope names.
   The filter excludes only `java.util.concurrent.StructuredTaskScope*`, `net.bytebuddy.*`,
-  and `ScopeNameDeriver` itself — not the whole `dev.scopetracer.agent` package (user code,
+  and `ScopeNameDeriver` itself — not the whole `com.ionutbanu.scopetracer.agent` package (user code,
   including test subjects, may live there).
 - Do not combine with `TracedScope` — duplicate events would be emitted.
 
@@ -141,13 +141,13 @@ CP=$(mvn -pl scope-tracer-demos -q dependency:build-classpath -DforceStdout)
 JARS="scope-tracer-core/target/scope-tracer-core-0.1.0-SNAPSHOT.jar:\
 scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT.jar:\
 scope-tracer-demos/target/scope-tracer-demos-0.1.0-SNAPSHOT.jar:$CP"
-java --enable-preview -cp "$JARS" dev.scopetracer.demos.ParallelFetchDemo
-java --enable-preview -cp "$JARS" dev.scopetracer.demos.FailFastDemo
-java --enable-preview -cp "$JARS" dev.scopetracer.demos.NestedScopesDemo
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.ParallelFetchDemo
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.FailFastDemo
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.NestedScopesDemo
 # AgentDemo uses plain StructuredTaskScope — no TracedScope in source
 java --enable-preview \
      -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
-     -cp "$JARS" dev.scopetracer.demos.AgentDemo
+     -cp "$JARS" com.ionutbanu.scopetracer.demos.AgentDemo
 ```
 
 Each demo writes `<name>.jfr` and `<name>.html` to `target/` relative to the working
@@ -168,7 +168,7 @@ to disable this behaviour: `-javaagent:...jar=html=false`.
 - `mvn -pl scope-tracer-core spotless:apply` — format a single module without touching other poms
 - Java 26+, Maven 3.9+ (enforced by maven-enforcer-plugin). `--enable-preview` is intentionally enabled project-wide — `StructuredTaskScope` is a preview API. Do not disable it.
 
-**Test locations:** `scope-tracer-{module}/src/test/java/dev/scopetracer/{module}/`. Core tests use the JFR recording pattern above. Analyzer tests split into `JfrParserTest` (integration, requires a live JFR recording) and `HtmlRendererTest` (unit, constructs model objects directly).
+**Test locations:** `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`. Core tests use the JFR recording pattern above. Analyzer tests split into `JfrParserTest` (integration, requires a live JFR recording) and `HtmlRendererTest` (unit, constructs model objects directly).
 
 **Test counts:** 70 unit tests run by `mvn test` (surefire: 22 core + 16 JfrParser + 24 HtmlRenderer + 4 TracingCallable + 4 ScopeNameDeriver)
 + 12 agent integration tests run by `mvn verify` (failsafe, requires the fat-jar to be built first).
