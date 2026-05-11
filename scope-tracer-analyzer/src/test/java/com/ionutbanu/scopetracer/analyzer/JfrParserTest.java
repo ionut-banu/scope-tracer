@@ -562,4 +562,49 @@ class JfrParserTest {
     assertThat(outcome.exceptionType()).isEqualTo(IllegalStateException.class.getName());
     assertThat(outcome.exceptionMessage()).isNull();
   }
+
+  // --- taskName round-trip ---
+
+  /**
+   * Explicit task names from {@link TracedScope#fork(String, java.util.concurrent.Callable)} round-
+   * trip through the JFR file into {@link
+   * com.ionutbanu.scopetracer.analyzer.model.TaskRecord#taskName()}.
+   */
+  @Test
+  void explicitTaskNameSurvivesRoundTrip() throws Exception {
+    var model =
+        capture(
+            "task-name-roundtrip",
+            () -> {
+              try (var scope =
+                  TracedScope.open("task-name-roundtrip", Thread.ofPlatform().factory())) {
+                scope.fork("findUser", () -> 1);
+                scope.fork("loadCart", () -> 2);
+                scope.join();
+              }
+            });
+
+    var tasks = model.scopes().get(0).tasks();
+    assertThat(tasks).hasSize(2);
+    assertThat(tasks.stream().map(t -> t.taskName()).sorted().toList())
+        .containsExactly("findUser", "loadCart");
+  }
+
+  /** Auto-derived task names also survive the round-trip and are non-blank for lambdas. */
+  @Test
+  void autoDerivedTaskNameSurvivesRoundTrip() throws Exception {
+    var model =
+        capture(
+            "task-name-auto",
+            () -> {
+              try (var scope = TracedScope.open("task-name-auto", Thread.ofPlatform().factory())) {
+                scope.fork(() -> 1);
+                scope.join();
+              }
+            });
+
+    var task = model.scopes().get(0).tasks().get(0);
+    // Caller-frame fallback for lambdas — must reference this test class.
+    assertThat(task.taskName()).startsWith("JfrParserTest#");
+  }
 }

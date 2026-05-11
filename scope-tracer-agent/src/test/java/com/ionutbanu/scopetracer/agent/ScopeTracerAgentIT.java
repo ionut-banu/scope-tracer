@@ -185,6 +185,44 @@ class ScopeTracerAgentIT {
     assertThat(scopeIds).hasSize(AgentTestSubject.CONCURRENT_SCOPE_COUNT);
   }
 
+  // --- task names ---
+
+  /**
+   * Every task forked through the instrumented {@code StructuredTaskScope} carries a non-null
+   * {@code taskName} stamped by the agent's {@code TaskNameDeriver}. Lambdas fall back to the
+   * caller call-site format {@code SimpleClassName#methodName:line}.
+   */
+  @Test
+  void agentStampsNonNullTaskNameOnForkedEvents() {
+    assertThat(scopeNamed(AgentTestSubject.NAMED_SCOPE))
+        .isPresent()
+        .hasValueSatisfying(
+            s -> {
+              assertThat(s.tasks()).isNotEmpty();
+              assertThat(s.tasks())
+                  .allSatisfy(
+                      t -> {
+                        assertThat(t.taskName()).isNotNull();
+                        assertThat(t.taskName()).isNotBlank();
+                      });
+            });
+  }
+
+  /**
+   * For lambda-forked tasks, the agent's caller-frame derivation produces {@code
+   * SimpleClassName#methodName:line}. The named scope's tasks are all forked from {@code
+   * AgentTestSubject#main}, so their {@code taskName} must start with {@code AgentTestSubject#}.
+   */
+  @Test
+  void agentDerivesTaskNameFromCallerFrameForLambdas() {
+    assertThat(scopeNamed(AgentTestSubject.NAMED_SCOPE))
+        .isPresent()
+        .hasValueSatisfying(
+            s ->
+                assertThat(s.tasks())
+                    .allSatisfy(t -> assertThat(t.taskName()).startsWith("AgentTestSubject#")));
+  }
+
   // --- scope lifecycle ---
 
   @Test

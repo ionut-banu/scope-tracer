@@ -147,7 +147,7 @@ class HtmlRendererTest {
 
   @Test
   void blankThreadNameRendersAsVirtual() {
-    var tasks = List.of(new TaskRecord(1, "", -1L, T1, T2, new TaskOutcome.Success()));
+    var tasks = List.of(new TaskRecord(1, null, "", -1L, T1, T2, new TaskOutcome.Success()));
     var scope = new ScopeRecord(1L, "s", "main", -1L, T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     assertThat(html).contains("&lt;virtual&gt;");
@@ -155,7 +155,7 @@ class HtmlRendererTest {
 
   @Test
   void nullThreadNameRendersAsVirtual() {
-    var tasks = List.of(new TaskRecord(1, null, -1L, T1, T2, new TaskOutcome.Success()));
+    var tasks = List.of(new TaskRecord(1, null, null, -1L, T1, T2, new TaskOutcome.Success()));
     var scope = new ScopeRecord(1L, "s", "main", -1L, T0, T3, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     assertThat(html).contains("&lt;virtual&gt;");
@@ -407,7 +407,7 @@ class HtmlRendererTest {
   @Test
   void scopeWithNullOutcomeTaskHasIncompleteDataOutcomeAttribute() {
     // TaskRecord with null outcome simulates a truncated recording (no completion event).
-    var tasks = List.of(new TaskRecord(1, "worker-1", -1L, T1, null, null));
+    var tasks = List.of(new TaskRecord(1, null, "worker-1", -1L, T1, null, null));
     var scope = new ScopeRecord(1L, "incomplete-scope", "main", -1L, T0, null, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
 
@@ -486,7 +486,55 @@ class HtmlRendererTest {
   }
 
   private static TaskRecord task(long id, Instant fork, Instant completion, TaskOutcome outcome) {
-    return new TaskRecord(id, "worker-" + id, -1L, fork, completion, outcome);
+    return new TaskRecord(id, null, "worker-" + id, -1L, fork, completion, outcome);
+  }
+
+  // --- task name rendering ---
+
+  /** A non-null taskName appears in the table cell, and the SVG bar label includes it. */
+  @Test
+  void namedTaskAppearsInTableAndBarLabel() {
+    var tasks =
+        List.of(new TaskRecord(1, "findUser", "worker-1", -1L, T1, T2, new TaskOutcome.Success()));
+    // Long enough scope window so the bar gets ≥ 80px and the inline SVG label includes the name.
+    var scope = new ScopeRecord(1L, "s", "main", -1L, T0, T3, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+
+    assertThat(html).contains("findUser");
+    // Both the table cell ("findUser") and the SVG label ("#1 findUser") should be present.
+    assertThat(countOccurrences(html, "findUser")).isGreaterThanOrEqualTo(2);
+  }
+
+  /** A null taskName falls back to a placeholder em-dash in the table; the bar shows just "#N". */
+  @Test
+  void nullTaskNameFallsBackToPlaceholder() {
+    var tasks =
+        List.of(new TaskRecord(1, null, "worker-1", -1L, T1, T2, new TaskOutcome.Success()));
+    var scope = new ScopeRecord(1L, "s", "main", -1L, T0, T3, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+
+    // The bar label must still render the index.
+    assertThat(html).contains(">#1<");
+  }
+
+  /** Task name with HTML metacharacters is escaped, never injected raw into the document. */
+  @Test
+  void taskNameIsHtmlEscaped() {
+    var tasks =
+        List.of(
+            new TaskRecord(
+                1,
+                "<script>alert(1)</script>",
+                "worker-1",
+                -1L,
+                T1,
+                T2,
+                new TaskOutcome.Success()));
+    var scope = new ScopeRecord(1L, "s", "main", -1L, T0, T3, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+
+    assertThat(html).doesNotContain("<script>alert(1)</script>");
+    assertThat(html).contains("&lt;script&gt;alert(1)&lt;/script&gt;");
   }
 
   private static ScopeRecord scopeWithSuccess(

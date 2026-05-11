@@ -212,6 +212,11 @@ public final class TracedScope<R> implements AutoCloseable {
    * thread, and exactly one of "task succeeded", "task failed", or "task cancelled" on the task's
    * own thread when it terminates.
    *
+   * <p>The forked event is stamped with an auto-derived task label: the {@link Callable}'s simple
+   * class name when {@code task} is a real user class, or {@code SimpleClass#method} of the call
+   * site otherwise (e.g. {@code "OrderService#checkout"} for a lambda forked inside that method).
+   * For full control over the label use {@link #fork(String, Callable)}.
+   *
    * <p>Cancellation is reported when the task observes scope shutdown (e.g. a sibling failed or the
    * winning joiner shut down the scope) before completing on its own.
    *
@@ -220,12 +225,39 @@ public final class TracedScope<R> implements AutoCloseable {
    * @return a {@link Subtask} handle whose value is observable after {@link #join()}.
    */
   public <T> Subtask<T> fork(Callable<? extends T> task) {
+    return fork(TaskNameDeriver.derive(task), task);
+  }
+
+  /**
+   * Forks a value-returning task into the scope with an explicit human-readable label.
+   *
+   * <p>The label appears in the rendered HTML report next to the per-scope task index. Use this
+   * overload when the auto-derived label from {@link #fork(Callable)} (the lambda's enclosing
+   * method name, e.g. {@code OrderService#checkout}) is less informative than the operation name
+   * the task represents (e.g. {@code "findUser"}).
+   *
+   * <pre>{@code
+   * try (var scope = TracedScope.open("checkout")) {
+   *     scope.fork("findUser",  () -> userService.findById(id));
+   *     scope.fork("loadCart",  () -> cartService.load(id));
+   *     scope.join();
+   * }
+   * }</pre>
+   *
+   * @param taskName label for the task; may be {@code null} or blank, in which case the report
+   *     falls back to the per-scope index.
+   * @param task the callable to run as a structured subtask; must be non-null.
+   * @param <T> result type of the subtask.
+   * @return a {@link Subtask} handle whose value is observable after {@link #join()}.
+   */
+  public <T> Subtask<T> fork(String taskName, Callable<? extends T> task) {
     long id = taskIdCounter.incrementAndGet();
 
     var forked = new TaskForkedEvent();
     forked.scopeId = this.scopeId;
     forked.scopeName = name;
     forked.taskId = id;
+    forked.taskName = taskName;
     forked.threadName = Thread.currentThread().getName();
     forked.commit();
 

@@ -22,4 +22,15 @@ public final class TaskForkedEvent extends Event implements TracedScopeEvent {
 
   @Label("Thread name")
   public String threadName;
+
+  /**
+   * Human-readable label for the forked task (e.g. {@code "findUser"} or {@code
+   * "OrderService#checkout"}).
+   *
+   * <p>Nullable: callers that cannot derive a label (or recordings produced before this field was
+   * added) leave this {@code null}. Parsers must use {@code event.hasField("taskName")} before
+   * reading.
+   */
+  @Label("Task name")
+  public String taskName;
 }

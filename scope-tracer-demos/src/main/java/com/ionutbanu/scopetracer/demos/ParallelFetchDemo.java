@@ -24,8 +24,12 @@ public final class ParallelFetchDemo {
         "parallel-fetch",
         () -> {
           try (var scope = TracedScope.open("parallel-fetch")) {
-            var pricing = scope.fork(ParallelFetchDemo::fetchPrice);
-            var inventory = scope.fork(ParallelFetchDemo::fetchInventory);
+            // Two forks with explicit names — these surface verbatim in the report.
+            var pricing = scope.fork("fetchPrice", ParallelFetchDemo::fetchPrice);
+            var inventory = scope.fork("fetchInventory", ParallelFetchDemo::fetchInventory);
+            // One fork with no explicit name — the report falls back to the auto-derived
+            // call-site label (e.g. "ParallelFetchDemo#main"). Compare the two columns in the
+            // generated HTML to see the difference.
             var shipping = scope.fork(ParallelFetchDemo::fetchShipping);
             scope.join();
             System.out.println("price     : " + pricing.get());

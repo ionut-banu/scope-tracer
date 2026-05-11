@@ -96,13 +96,16 @@ Open `report.html` in any browser. No server required — the file is fully self
 Each `TracedScope` gets its own section containing:
 
 - **Metadata line** — owner thread, open time (UTC), total duration, task count.
-- **Task table** — one row per forked task: task ID, thread name, fork offset from scope
-  open, duration, and outcome. Failed tasks show the exception type. Tasks that opened a
-  nested scope show the child scope name. In all-success scopes the slowest task is
+- **Task table** — one row per forked task: task ID, task name (explicit, derived from
+  the `Callable` class, or `SimpleClass#method:line` from the call site), thread name,
+  fork offset from scope open, duration, and outcome. Failed tasks show the exception
+  type. Tasks that opened a nested scope show the child scope name. In all-success scopes
+  the slowest task is
   annotated `← critical path +Xms`.
 - **SVG Gantt timeline** — a blue bar for the scope lifetime, colour-coded bars for each
   task (green = success, amber = critical path, red = failed, orange = cancelled, grey =
-  incomplete), with the task ID labelled inside each bar. Hover for details. The amber
+  incomplete), with the task ID and name labelled inside each bar (the bar shows just the
+  ID when too narrow to fit the name). Hover for details. The amber
   critical-path bar is the task that determined the scope's total duration.
 
 Nested scopes are rendered indented beneath the parent task that opened them, with a

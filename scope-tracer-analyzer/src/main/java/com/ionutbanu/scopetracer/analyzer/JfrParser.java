@@ -111,9 +111,11 @@ public final class JfrParser {
           }
           case TASK_FORKED -> {
             if (scopeOpens.containsKey(scopeId)) {
+              // taskName was added later — older recordings won't have it. hasField is required.
+              String taskName = event.hasField("taskName") ? event.getString("taskName") : null;
               forks
                   .computeIfAbsent(scopeId, k -> new HashMap<>())
-                  .put(taskId, new ForkData(time, threadName));
+                  .put(taskId, new ForkData(time, threadName, taskName));
             }
             // else: fork before open should not occur in practice; silently drop.
           }
@@ -186,6 +188,7 @@ public final class JfrParser {
         tasks.add(
             new TaskRecord(
                 id,
+                fork.taskName(),
                 completion != null ? completion.threadName() : fork.threadName(),
                 completion != null ? completion.executingThreadId() : -1L,
                 fork.forkTime(),
@@ -284,7 +287,7 @@ public final class JfrParser {
     return parentRefs;
   }
 
-  private record ForkData(Instant forkTime, String threadName) {}
+  private record ForkData(Instant forkTime, String threadName, String taskName) {}
 
   private record CompletionData(
       Instant completionTime, TaskOutcome outcome, String threadName, long executingThreadId) {}

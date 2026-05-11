@@ -494,6 +494,105 @@ class TracedScopeTest {
     }
   }
 
+  // --- task naming ---
+
+  /** Explicit name overload stamps the supplied label verbatim on the TaskForkedEvent. */
+  @Test
+  void forkWithExplicitNameStampsTaskName() throws Exception {
+    var scopeName = "explicit-task-name";
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+                scope.fork("findUser", () -> "u");
+                scope.join();
+              }
+            });
+
+    var forked = eventsOfType(events, "com.ionutbanu.scopetracer.TaskForked");
+    assertThat(forked).hasSize(1);
+    assertThat(forked.get(0).getString("taskName")).isEqualTo("findUser");
+  }
+
+  /**
+   * When the user-supplied {@link java.util.concurrent.Callable} is a real (non-lambda) class, the
+   * deriver returns its simple class name.
+   */
+  @Test
+  void forkWithCallableClassDerivesSimpleName() throws Exception {
+    var scopeName = "callable-class-name";
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+                scope.fork(new NamedTask());
+                scope.join();
+              }
+            });
+
+    var forked = eventsOfType(events, "com.ionutbanu.scopetracer.TaskForked");
+    assertThat(forked).hasSize(1);
+    assertThat(forked.get(0).getString("taskName")).isEqualTo("NamedTask");
+  }
+
+  /**
+   * For a lambda, the class-name shortcut returns null (synthetic class) and the deriver falls back
+   * to the caller frame — formatted as {@code SimpleClass#method}. The test method name is what we
+   * expect because the fork happens inline here.
+   */
+  @Test
+  void forkWithLambdaDerivesCallerFrame() throws Exception {
+    var scopeName = "lambda-caller-frame";
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+                scope.fork(() -> "v");
+                scope.join();
+              }
+            });
+
+    var forked = eventsOfType(events, "com.ionutbanu.scopetracer.TaskForked");
+    assertThat(forked).hasSize(1);
+    var name = forked.get(0).getString("taskName");
+    // Caller frame — must reference the test class. Method may collapse to the enclosing test
+    // method name (lambda$forkWithLambdaDerivesCallerFrame$N → forkWithLambdaDerivesCallerFrame).
+    assertThat(name).startsWith("TracedScopeTest#");
+  }
+
+  /**
+   * Null-safe: an explicit null taskName is allowed (the renderer falls back to the index).
+   * Verifies the field is preserved as null on the event.
+   */
+  @Test
+  void forkWithNullExplicitNameStampsNullTaskName() throws Exception {
+    var scopeName = "null-task-name";
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+                scope.fork((String) null, () -> "v");
+                scope.join();
+              }
+            });
+
+    var forked = eventsOfType(events, "com.ionutbanu.scopetracer.TaskForked");
+    assertThat(forked).hasSize(1);
+    assertThat(forked.get(0).getString("taskName")).isNull();
+  }
+
+  /** Non-lambda Callable used as test fixture for the class-name derivation tier. */
+  private static final class NamedTask implements java.util.concurrent.Callable<String> {
+    @Override
+    public String call() {
+      return "named";
+    }
+  }
+
   // --- helpers ---
 
   private List<RecordedEvent> capture(String scopeName, ThrowingRunnable action) throws Exception {

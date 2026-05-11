@@ -405,7 +405,7 @@ public final class HtmlRenderer {
 
     // ── Task table ─────────────────────────────────────────────────────────────
     sb.append(
-        "<table>\n<tr><th>#</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>\n");
+        "<table>\n<tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>\n");
     var scopeNestedScopes = nestedScopes.getOrDefault(scope.scopeId(), Map.of());
     for (var task : scope.tasks()) {
       var forkOffset = Duration.between(openTime, task.forkTime());
@@ -422,6 +422,9 @@ public final class HtmlRenderer {
       sb.append("<tr>")
           .append("<td>")
           .append(task.taskId())
+          .append("</td>")
+          .append("<td>")
+          .append(displayTaskName(task.taskName()))
           .append("</td>")
           .append("<td>")
           .append(escape(displayThread(task.threadName(), task.threadId())))
@@ -483,6 +486,10 @@ public final class HtmlRenderer {
               ? formatDuration(Duration.between(openTime, task.completionTime()))
               : null;
 
+      String tooltipName =
+          (task.taskName() != null && !task.taskName().isBlank())
+              ? " | " + escape(task.taskName())
+              : "";
       sb.append("<svg x=\"")
           .append(f(taskX))
           .append("\" y=\"")
@@ -496,6 +503,7 @@ public final class HtmlRenderer {
           .append(color)
           .append("\" rx=\"2\">\n<title>task ")
           .append(task.taskId())
+          .append(tooltipName)
           .append(" | ")
           .append(escape(displayThread(task.threadName(), task.threadId())))
           .append(" | ")
@@ -511,10 +519,16 @@ public final class HtmlRenderer {
             .append("\" stroke-width=\"2\" rx=\"2\"/>\n");
       }
 
+      // Bar label: "#N name" when there's room (≥80px), else just "#N".
+      // The bar's nested <svg> already clips overflow, so a long label is harmless visually,
+      // but at narrow widths the name is unreadable and just clutters the rect.
+      String barLabel = "#" + task.taskId();
+      if (task.taskName() != null && !task.taskName().isBlank() && taskW >= 80.0) {
+        barLabel += " " + task.taskName();
+      }
       sb.append("<text x=\"4\" y=\"13\" fill=\"white\" font-size=\"11\" ")
           .append("font-family=\"monospace\" pointer-events=\"none\">")
-          .append("#")
-          .append(task.taskId())
+          .append(escape(barLabel))
           .append("</text>\n</svg>\n");
       row++;
     }
@@ -808,6 +822,16 @@ public final class HtmlRenderer {
     if (ns < 1_000_000L) return String.format(Locale.ROOT, "%.2fµs", ns / 1_000.0);
     if (ns < 1_000_000_000L) return String.format(Locale.ROOT, "%.2fms", ns / 1_000_000.0);
     return String.format(Locale.ROOT, "%.3fs", ns / 1_000_000_000.0);
+  }
+
+  /**
+   * Renders the task-name table cell. Returns the escaped name when present, or an em-dash
+   * placeholder when the recording carries no label for this task (older recordings, or auto-
+   * derivation that returned {@code null}).
+   */
+  private static String displayTaskName(String taskName) {
+    if (taskName == null || taskName.isBlank()) return "<span class=\"outcome-unknown\">—</span>";
+    return escape(taskName);
   }
 
   private static String displayThread(String threadName, long threadId) {

@@ -3,6 +3,7 @@ package com.ionutbanu.scopetracer.agent.advice;
 import com.ionutbanu.scopetracer.agent.AgentState;
 import com.ionutbanu.scopetracer.agent.ScopeState;
 import com.ionutbanu.scopetracer.agent.TracingCallable;
+import com.ionutbanu.scopetracer.agent.util.TaskNameDeriver;
 import com.ionutbanu.scopetracer.core.events.TaskForkedEvent;
 import java.util.concurrent.Callable;
 import net.bytebuddy.asm.Advice;
@@ -42,11 +43,13 @@ public final class ForkAdvice {
     if (state == null) return;
 
     long taskId = state.nextTaskId();
+    String taskName = TaskNameDeriver.derive(task);
 
     TaskForkedEvent event = new TaskForkedEvent();
     event.scopeId = state.scopeId();
     event.scopeName = state.name();
     event.taskId = taskId;
+    event.taskName = taskName;
     event.threadName = Thread.currentThread().getName();
     event.commit();
 
