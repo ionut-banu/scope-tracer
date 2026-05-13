@@ -28,19 +28,19 @@
 
     <maven.compiler.release>26</maven.compiler.release>
 
-    <slf4j.version>2.0.13</slf4j.version>
-    <logback.version>1.5.6</logback.version>
+    <slf4j.version>2.0.18</slf4j.version>
+    <logback.version>1.5.32</logback.version>
     <junit.version>5.10.2</junit.version>
-    <assertj.version>3.25.3</assertj.version>
-    <awaitility.version>4.2.1</awaitility.version>
-    <bytebuddy.version>1.14.18</bytebuddy.version>
+    <assertj.version>3.27.7</assertj.version>
+    <awaitility.version>4.3.0</awaitility.version>
+    <bytebuddy.version>1.18.8</bytebuddy.version>
 
-    <surefire.version>3.2.5</surefire.version>
-    <compiler.plugin.version>3.13.0</compiler.plugin.version>
+    <surefire.version>3.5.5</surefire.version>
+    <compiler.plugin.version>3.15.0</compiler.plugin.version>
     <spotless.version>2.44.5</spotless.version>
     <google.java.format.version>1.27.0</google.java.format.version>
 
-    <enforcer.plugin.version>3.5.0</enforcer.plugin.version>
+    <enforcer.plugin.version>3.6.2</enforcer.plugin.version>
     <jacoco.version>0.8.14</jacoco.version>
     <spotbugs.plugin.version>4.9.8.3</spotbugs.plugin.version>
   </properties>
@@ -138,17 +138,17 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
-          <version>3.4.2</version>
+          <version>3.5.0</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
-          <version>3.6.0</version>
+          <version>3.6.2</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
-          <version>3.2.5</version>
+          <version>3.5.5</version>
         </plugin>
         <plugin>
           <groupId>org.jacoco</groupId>
