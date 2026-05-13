@@ -95,7 +95,11 @@ public final class HtmlRenderer {
         .filter-bar { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; color: #616161; }
         .filter-bar input[type="text"] { font-family: monospace; font-size: 0.85rem; padding: 0.3rem 0.6rem; border: 1px solid #bdbdbd; border-radius: 3px; width: 200px; background: #fff; }
         .filter-bar label { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+        .filter-bar button { font-family: monospace; font-size: 0.8rem; padding: 0.3rem 0.6rem; border: 1px solid #bdbdbd; border-radius: 3px; background: #fff; cursor: pointer; color: #424242; }
+        .filter-bar button:hover { background: #f5f5f5; }
         .filter-sep { color: #bdbdbd; }
+        .anchor-link { font-size: 0.75rem; color: #bdbdbd; text-decoration: none; margin-left: 0.4rem; font-weight: normal; }
+        .anchor-link:hover { color: #1565c0; }
         .overview-label { font-size: 0.75rem; color: #9e9e9e; margin-bottom: 0.2rem; }
         details.scope-group { margin-bottom: 1.5rem; }
         details.scope-group > summary { cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 0.4rem 0; list-style: none; border-bottom: 2px solid #e0e0e0; margin-bottom: 1rem; color: #424242; }
@@ -119,6 +123,14 @@ public final class HtmlRenderer {
         <span class="legend-item"><span class="legend-swatch" style="background:#4caf50;box-shadow:0 0 0 2px #d97706"></span>critical path</span>
         </div>
         """);
+
+    // Embed the trace model as inline JSON so the "Export JSON" button can offer it as a
+    // download without requiring a server round-trip. The script tag is type="application/json"
+    // so the browser does not execute it; the forward slash in any nested "</script>" string is
+    // escaped by TraceModelJson to keep the parse safe.
+    sb.append("<script type=\"application/json\" id=\"trace-data\">")
+        .append(TraceModelJson.toJson(model))
+        .append("</script>\n");
 
     if (model.scopes().isEmpty()) {
       sb.append("<p class=\"summary\">No scopes found in recording.</p>\n</body>\n</html>\n");
@@ -161,6 +173,9 @@ public final class HtmlRenderer {
         <label><input type="checkbox" id="show-success" checked> success</label>
         <label><input type="checkbox" id="show-failed" checked> failed</label>
         <label><input type="checkbox" id="show-cancelled" checked> cancelled</label>
+        <span class="filter-sep">|</span>
+        <button type="button" id="errors-only" title="show only failed and cancelled scopes">errors only</button>
+        <button type="button" id="export-json" title="download the trace as JSON">export JSON</button>
         </div>
         """);
 
@@ -237,6 +252,29 @@ public final class HtmlRenderer {
           okSuccess.addEventListener('change', update);
           okFailed.addEventListener('change', update);
           okCancelled.addEventListener('change', update);
+
+          var errorsOnly = document.getElementById('errors-only');
+          if (errorsOnly) errorsOnly.addEventListener('click', function() {
+            okSuccess.checked = false;
+            okFailed.checked = true;
+            okCancelled.checked = true;
+            update();
+          });
+
+          var exportBtn = document.getElementById('export-json');
+          if (exportBtn) exportBtn.addEventListener('click', function() {
+            var data = document.getElementById('trace-data');
+            if (!data) return;
+            var blob = new Blob([data.textContent], {type: 'application/json'});
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'scope-tracer-trace.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          });
         })();
         </script>
         """);
@@ -368,6 +406,11 @@ public final class HtmlRenderer {
       sb.append(" data-outcome=\"").append(scopeOutcome(scope)).append("\"");
     }
     sb.append(">\n<h2>").append(escape(scope.name()));
+    if (sectionId != null) {
+      sb.append(" <a class=\"anchor-link\" href=\"#")
+          .append(sectionId)
+          .append("\" title=\"copy link to this scope\">#</a>");
+    }
     if (scope.parent() != null) {
       sb.append(" <span class=\"parent-ref\">↳ task ")
           .append(scope.parent().taskId())

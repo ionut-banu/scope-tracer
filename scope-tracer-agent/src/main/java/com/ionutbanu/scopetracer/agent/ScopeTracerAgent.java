@@ -31,7 +31,7 @@ import net.bytebuddy.matcher.ElementMatchers;
  * A message is printed to {@code stderr}:
  *
  * <pre>{@code
- * [scope-tracer] HTML → /tmp/orders.html
+ * [scope-tracer] HTML report written to /tmp/orders.html
  * }</pre>
  *
  * <p>If the recording contains no scope-tracer events the HTML step is skipped.
@@ -42,6 +42,13 @@ import net.bytebuddy.matcher.ElementMatchers;
  *   <li>{@code html=false} — disable auto-HTML generation.
  *   <li>{@code verbose} — print every instrumented class to {@code stderr} (same as {@code
  *       -Dscopetracer.agent.verbose=true}).
+ *   <li>{@code output.dir=<path>} — write the HTML report to this directory instead of alongside
+ *       the {@code .jfr} file. The directory is created if it does not exist; non-writable paths
+ *       cause the HTML step to be skipped with a warning.
+ *   <li>{@code output.suffix=<ext>} — filename suffix used when replacing {@code .jfr} (default
+ *       {@code .html}). Useful for namespacing reports (e.g. {@code output.suffix=.report.html}).
+ *   <li>{@code min.scopes=<N>} — skip auto-HTML generation if the recording contains fewer than N
+ *       scopes. Default is 1 (any non-empty recording produces a report).
  * </ul>
  *
  * <p><b>Scope naming:</b> When a scope is opened with {@code Config.withName("my-scope")}, that
@@ -81,19 +88,7 @@ public final class ScopeTracerAgent {
     // ByteBuddy officially supports up to Java 23. Remove once ByteBuddy adds Java 26 support.
     System.setProperty("net.bytebuddy.experimental", "true");
 
-    // Parse agent arguments.
-    boolean verbose = Boolean.getBoolean("scopetracer.agent.verbose");
-    boolean generateHtml = true;
-    if (args != null) {
-      for (String token : args.split(",")) {
-        String[] kv = token.split("=", 2);
-        switch (kv[0].trim()) {
-          case "verbose" -> verbose = true;
-          case "html" -> generateHtml = kv.length < 2 || !kv[1].trim().equalsIgnoreCase("false");
-          default -> {} // ignore unknown keys
-        }
-      }
-    }
+    AgentConfig config = AgentConfig.parse(args);
 
     // Fork/close are implemented in StructuredTaskScopeImpl (the non-public concrete class
     // returned by open()), not in the public StructuredTaskScope API class. We match the
@@ -111,7 +106,7 @@ public final class ScopeTracerAgent {
     var redefinable =
         new AgentBuilder.Default().with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION);
     AgentBuilder agentBuilder;
-    if (verbose) {
+    if (config.verbose()) {
       agentBuilder =
           redefinable
               .with(AgentBuilder.RedefinitionStrategy.Listener.StreamWriting.toSystemError())
@@ -174,13 +169,9 @@ public final class ScopeTracerAgent {
     // recording with a destination file transitions to STOPPED (e.g. after jcmd JFR.stop).
     // The listener fires for ALL recordings; the maybeWriteHtml guard skips any that contain
     // no scope-tracer events, so unrelated JFR recordings produce no spurious output.
-    // Register a FlightRecorderListener that auto-generates an HTML report whenever a
-    // recording with a destination file transitions to STOPPED (e.g. after jcmd JFR.stop).
-    // The listener fires for ALL recordings; the maybeWriteHtml guard skips any that contain
-    // no scope-tracer events, so unrelated JFR recordings produce no spurious output.
     // FlightRecorderListener has only default methods (not a functional interface), so we
     // use an anonymous class and override only recordingStateChanged.
-    if (generateHtml) {
+    if (config.generateHtml()) {
       FlightRecorder.addListener(
           new FlightRecorderListener() {
             @Override
@@ -189,24 +180,43 @@ public final class ScopeTracerAgent {
               Path dest = recording.getDestination();
               if (dest == null) return; // no destination → no-ops (e.g. programmatic dumps)
               // Run I/O on a separate thread to avoid blocking the JFR callback thread.
-              new Thread(() -> maybeWriteHtml(dest), "scope-tracer-html-gen").start();
+              new Thread(() -> maybeWriteHtml(dest, config), "scope-tracer-html-gen").start();
             }
           });
     }
   }
 
-  private static void maybeWriteHtml(Path dest) {
+  private static void maybeWriteHtml(Path dest, AgentConfig config) {
     try {
       var model = JfrParser.parse(dest);
-      if (model.scopes().isEmpty()) return; // not a scope-tracer recording — skip
-      String filename = dest.getFileName().toString();
-      Path html =
-          dest.resolveSibling(
-              filename.endsWith(".jfr") ? filename.replace(".jfr", ".html") : filename + ".html");
+      if (model.scopes().size() < config.minScopes()) {
+        AgentLog.debug(
+            "skipping auto-HTML: "
+                + model.scopes().size()
+                + " scope(s) is below min.scopes="
+                + config.minScopes());
+        return;
+      }
+      Path html = resolveHtmlPath(dest, config);
+      Path parent = html.getParent();
+      if (parent != null && !Files.exists(parent)) {
+        Files.createDirectories(parent);
+      }
       Files.writeString(html, HtmlRenderer.render(model));
-      System.err.println("[scope-tracer] HTML → " + html.toAbsolutePath());
+      AgentLog.info("HTML report written to " + html.toAbsolutePath());
     } catch (Exception e) {
-      System.err.println("[scope-tracer] auto-HTML error: " + e.getMessage());
+      AgentLog.warn("auto-HTML generation failed for " + dest, e);
     }
+  }
+
+  private static Path resolveHtmlPath(Path dest, AgentConfig config) {
+    String filename = dest.getFileName().toString();
+    String htmlFilename =
+        filename.endsWith(".jfr")
+            ? filename.substring(0, filename.length() - 4) + config.outputSuffix()
+            : filename + config.outputSuffix();
+    return config.outputDir() != null
+        ? config.outputDir().resolve(htmlFilename)
+        : dest.resolveSibling(htmlFilename);
   }
 }

@@ -14,6 +14,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import jdk.jfr.consumer.RecordingFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Parses a {@code .jfr} recording produced by {@code scope-tracer-core} into a {@link TraceModel}.
@@ -25,6 +27,8 @@ import jdk.jfr.consumer.RecordingFile;
  * }</pre>
  */
 public final class JfrParser {
+
+  private static final Logger log = LoggerFactory.getLogger(JfrParser.class);
 
   private static final String SCOPE_OPENED = "com.ionutbanu.scopetracer.ScopeOpened";
   private static final String TASK_FORKED = "com.ionutbanu.scopetracer.TaskForked";
@@ -210,6 +214,21 @@ public final class JfrParser {
     }
     scopes.sort(Comparator.comparing(ScopeRecord::openTime));
 
+    long truncatedScopes = scopes.stream().filter(s -> s.closeTime() == null).count();
+    long truncatedTasks =
+        scopes.stream()
+            .flatMap(s -> s.tasks().stream())
+            .filter(t -> t.completionTime() == null || t.outcome() == null)
+            .count();
+    if (truncatedScopes > 0 || truncatedTasks > 0) {
+      log.warn(
+          "recording {} contains {} truncated scope(s) and {} truncated task(s) — "
+              + "the .jfr file may have been cut short",
+          jfrFile,
+          truncatedScopes,
+          truncatedTasks);
+    }
+
     return new TraceModel(List.copyOf(scopes));
   }
 
@@ -229,6 +248,10 @@ public final class JfrParser {
       completions.computeIfAbsent(scopeId, k -> new HashMap<>()).put(taskId, data);
     } else {
       // Scope not yet opened — buffer until SCOPE_OPENED arrives.
+      log.debug(
+          "buffering completion for scopeId={} taskId={} (open event not yet seen)",
+          scopeId,
+          taskId);
       pendingCompletions.computeIfAbsent(scopeId, k -> new HashMap<>()).put(taskId, data);
     }
   }

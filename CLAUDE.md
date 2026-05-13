@@ -156,8 +156,14 @@ directory, then prints the absolute paths.
 **Auto-HTML for live services:** When the agent is attached to a long-running service, any
 JFR recording started with `filename=` (via `jcmd JFR.start filename=...` or
 `-XX:StartFlightRecording=filename=...`) automatically produces an HTML report alongside
-the `.jfr` file the moment `JFR.stop` is called. Pass `html=false` as an agent argument
-to disable this behaviour: `-javaagent:...jar=html=false`.
+the `.jfr` file the moment `JFR.stop` is called. Agent arguments
+(`-javaagent:...jar=key=value,...`, parsed by `AgentConfig`):
+
+- `html=false` — disable auto-HTML generation
+- `verbose` — print every instrumented class (same as `-Dscopetracer.agent.verbose=true`)
+- `output.dir=<path>` — write HTML to this directory instead of alongside the `.jfr`; created if missing
+- `output.suffix=<ext>` — filename suffix replacing `.jfr` (default `.html`)
+- `min.scopes=<N>` — skip HTML generation when the recording contains fewer than N scopes
 
 ## Build & test
 
@@ -170,9 +176,9 @@ to disable this behaviour: `-javaagent:...jar=html=false`.
 
 **Test locations:** `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`. Core tests use the JFR recording pattern above. Analyzer tests split into `JfrParserTest` (integration, requires a live JFR recording) and `HtmlRendererTest` (unit, constructs model objects directly).
 
-**Test counts:** 70 unit tests run by `mvn test` (surefire: 22 core + 16 JfrParser + 24 HtmlRenderer + 4 TracingCallable + 4 ScopeNameDeriver)
-+ 12 agent integration tests run by `mvn verify` (failsafe, requires the fat-jar to be built first).
-All 82 must be green under `mvn verify`. Running `-pl scope-tracer-analyzer test` without a prior install will
+**Test counts:** 122 unit tests run by `mvn test` (surefire: 29 core + 71 analyzer + 22 agent)
++ 17 agent integration tests run by `mvn verify` (failsafe, requires the fat-jar to be built first).
+All 139 must be green under `mvn verify`. Running `-pl scope-tracer-analyzer test` without a prior install will
 resolve `scope-tracer-core` from the local Maven repo — if that jar is stale the tests
 will fail with `UnsupportedOperationException`. Always run `mvn clean install -DskipTests`
 first when switching branches or after a `clean`.
@@ -183,7 +189,7 @@ first when switching branches or after a `clean`.
 - Public APIs in `core` need Javadoc with a usage example.
 - Tests: JUnit 5 + AssertJ. Use Awaitility for time-based waits.
 - Never use `Thread.sleep` outside the demos module.
-- Logging: SLF4J only. No `System.out.println` outside demos.
+- Logging: SLF4J only — except in `scope-tracer-agent`, which uses the internal `AgentLog` class (writes `[scope-tracer]`-prefixed messages to stderr). The agent runs on the bootstrap classloader; bundling an SLF4J binding there would collide with the host application's logging. CLI entry points (`AnalyzerMain`) may use `System.out`/`System.err` for human-facing output. No `System.out.println` anywhere else outside demos.
 - New dependencies go in the parent `<dependencyManagement>` first; modules
   declare `<groupId>/<artifactId>` without `<version>`.
 

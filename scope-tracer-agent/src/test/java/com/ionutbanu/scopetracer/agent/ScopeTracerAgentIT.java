@@ -272,6 +272,83 @@ class ScopeTracerAgentIT {
     assertThat(Files.readString(html)).contains("checkout-flow");
   }
 
+  // --- agent argument: output.dir ---
+
+  /**
+   * {@code output.dir=<path>} routes the generated HTML to that directory instead of placing it
+   * alongside the {@code .jfr} file. The directory is created on demand.
+   */
+  @Test
+  void outputDirAgentArgRoutesHtmlToCustomDirectory(@TempDir Path tempDir) throws Exception {
+    String agentJar = System.getProperty("agentJar", "");
+    assumeTrue(
+        !agentJar.isBlank() && Files.exists(Path.of(agentJar)),
+        "Skipping: run 'mvn verify' to build the fat-jar.");
+    String testClassesDir = System.getProperty("testClassesDir", "");
+    assumeTrue(!testClassesDir.isBlank(), "Skipping: testClassesDir system property not set.");
+
+    Path jfr = tempDir.resolve("auto.jfr");
+    Path htmlDir = tempDir.resolve("reports");
+    Path htmlExpected = htmlDir.resolve("auto.html");
+
+    String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+    int exit =
+        new ProcessBuilder(
+                java,
+                "--enable-preview",
+                "-javaagent:" + agentJar + "=output.dir=" + htmlDir,
+                "-cp",
+                testClassesDir,
+                "com.ionutbanu.scopetracer.agent.AutoHtmlTestSubject",
+                jfr.toString())
+            .redirectErrorStream(true)
+            .start()
+            .waitFor();
+
+    assertThat(exit).isZero();
+    assertThat(jfr).exists();
+    assertThat(htmlExpected).exists();
+    // No HTML alongside the .jfr file when output.dir is used.
+    assertThat(jfr.resolveSibling("auto.html")).doesNotExist();
+  }
+
+  // --- agent argument: min.scopes ---
+
+  /**
+   * {@code min.scopes=N} skips HTML generation when the recording contains fewer than N scopes. The
+   * test subject opens one scope; {@code min.scopes=999} therefore suppresses the HTML.
+   */
+  @Test
+  void minScopesAgentArgSkipsHtmlWhenBelowThreshold(@TempDir Path tempDir) throws Exception {
+    String agentJar = System.getProperty("agentJar", "");
+    assumeTrue(
+        !agentJar.isBlank() && Files.exists(Path.of(agentJar)),
+        "Skipping: run 'mvn verify' to build the fat-jar.");
+    String testClassesDir = System.getProperty("testClassesDir", "");
+    assumeTrue(!testClassesDir.isBlank(), "Skipping: testClassesDir system property not set.");
+
+    Path jfr = tempDir.resolve("auto.jfr");
+    Path html = tempDir.resolve("auto.html");
+
+    String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+    int exit =
+        new ProcessBuilder(
+                java,
+                "--enable-preview",
+                "-javaagent:" + agentJar + "=min.scopes=999",
+                "-cp",
+                testClassesDir,
+                "com.ionutbanu.scopetracer.agent.AutoHtmlTestSubject",
+                jfr.toString())
+            .redirectErrorStream(true)
+            .start()
+            .waitFor();
+
+    assertThat(exit).isZero();
+    assertThat(jfr).exists();
+    assertThat(html).doesNotExist();
+  }
+
   // --- helpers ---
 
   private static java.util.Optional<ScopeRecord> scopeNamed(String name) {

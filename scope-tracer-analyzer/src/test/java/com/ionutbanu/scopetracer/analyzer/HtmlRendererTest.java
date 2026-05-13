@@ -683,4 +683,66 @@ class HtmlRendererTest {
     }
     return count;
   }
+
+  // --- JSON export embed ---
+
+  @Test
+  void traceDataScriptTagIsEmbedded() {
+    var html = HtmlRenderer.render(modelWithSingleSuccessTask("checkout-flow"));
+    assertThat(html).contains("<script type=\"application/json\" id=\"trace-data\">");
+  }
+
+  @Test
+  void embeddedJsonContainsScopeNames() {
+    var html = HtmlRenderer.render(modelWithSingleSuccessTask("my-unique-scope"));
+    // The escaped name appears both inside the JSON and inside the rendered DOM, so just
+    // verifying the substring appears in the JSON script body is enough.
+    int scriptStart = html.indexOf("id=\"trace-data\">");
+    int scriptEnd = html.indexOf("</script>", scriptStart);
+    var jsonBody = html.substring(scriptStart, scriptEnd);
+    assertThat(jsonBody).contains("\"name\":\"my-unique-scope\"");
+  }
+
+  @Test
+  void exportJsonButtonIsRendered() {
+    var html = HtmlRenderer.render(modelWithSingleSuccessTask("scope"));
+    assertThat(html).contains("id=\"export-json\"");
+  }
+
+  // --- errors-only filter button ---
+
+  @Test
+  void errorsOnlyButtonIsRendered() {
+    var html = HtmlRenderer.render(modelWithSingleSuccessTask("scope"));
+    assertThat(html).contains("id=\"errors-only\"");
+  }
+
+  // --- deep-link anchor ---
+
+  @Test
+  void rootScopeRendersDeepLinkAnchor() {
+    var html = HtmlRenderer.render(modelWithSingleSuccessTask("scope"));
+    // Each root scope gets an <a class="anchor-link" href="#scope-N">.
+    assertThat(html).contains("class=\"anchor-link\" href=\"#scope-0\"");
+  }
+
+  @Test
+  void anchorLinkOmittedForChildScope() {
+    // Build a parent scope and a child scope. The child has parent != null and should
+    // NOT receive an anchor link (only root scopes do).
+    var parentTasks = List.of(task(1, T1, T2, new TaskOutcome.Success()));
+    var parent = new ScopeRecord(1L, "parent", "main", -1L, T0, T3, parentTasks, null);
+    var childParent = new ScopeRecord.ParentRef(1L, "parent", 1L);
+    var child =
+        new ScopeRecord(
+            2L, "child", "vt-9", 9L, T1.plusMillis(1), T2.minusMillis(1), List.of(), childParent);
+    var html = HtmlRenderer.render(new TraceModel(List.of(parent, child)));
+    // anchor only for the root scope (scope-0); no anchor for child.
+    assertThat(html).contains("class=\"anchor-link\" href=\"#scope-0\"");
+    // The child renders inside the parent's section; its own <h2> must not include an anchor.
+    int childIdx = html.indexOf("<h2>child");
+    assertThat(childIdx).isPositive();
+    int childH2End = html.indexOf("</h2>", childIdx);
+    assertThat(html.substring(childIdx, childH2End)).doesNotContain("anchor-link");
+  }
 }
