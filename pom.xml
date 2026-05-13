@@ -121,12 +121,12 @@
               <googleJavaFormat>
                 <version>${google.java.format.version}</version>
               </googleJavaFormat>
-              <removeUnusedImports></removeUnusedImports>
-              <trimTrailingWhitespace></trimTrailingWhitespace>
-              <endWithNewline></endWithNewline>
+              <removeUnusedImports/>
+              <trimTrailingWhitespace/>
+              <endWithNewline/>
             </java>
             <pom>
-              <sortPom></sortPom>
+              <sortPom/>
             </pom>
           </configuration>
         </plugin>
