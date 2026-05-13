@@ -41,6 +41,8 @@
     <google.java.format.version>1.27.0</google.java.format.version>
 
     <enforcer.plugin.version>3.5.0</enforcer.plugin.version>
+    <jacoco.version>0.8.14</jacoco.version>
+    <spotbugs.plugin.version>4.9.8.3</spotbugs.plugin.version>
   </properties>
 
   <dependencyManagement>
@@ -105,7 +107,9 @@
           <version>${surefire.version}</version>
           <configuration>
             <useModulePath>false</useModulePath>
-            <argLine>--enable-preview</argLine>
+            <!-- @{argLine} is set by jacoco-maven-plugin's prepare-agent goal; resolves to
+                 empty if jacoco is skipped (e.g. modules without tests). -->
+            <argLine>@{argLine} --enable-preview</argLine>
           </configuration>
         </plugin>
         <plugin>
@@ -145,6 +149,46 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
           <version>3.2.5</version>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>${jacoco.version}</version>
+          <executions>
+            <execution>
+              <id>prepare-agent</id>
+              <goals>
+                <goal>prepare-agent</goal>
+              </goals>
+            </execution>
+            <execution>
+              <id>report</id>
+              <goals>
+                <goal>report</goal>
+              </goals>
+              <phase>verify</phase>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>com.github.spotbugs</groupId>
+          <artifactId>spotbugs-maven-plugin</artifactId>
+          <version>${spotbugs.plugin.version}</version>
+          <configuration>
+            <effort>Max</effort>
+            <threshold>High</threshold>
+            <failOnError>true</failOnError>
+            <excludeFilterFile>${maven.multiModuleProjectDirectory}/config/spotbugs-exclude.xml</excludeFilterFile>
+          </configuration>
+          <executions>
+            <execution>
+              <id>spotbugs-check</id>
+              <goals>
+                <goal>check</goal>
+              </goals>
+              <phase>verify</phase>
+            </execution>
+          </executions>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -192,6 +236,14 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
       </plugin>
     </plugins>
   </build>

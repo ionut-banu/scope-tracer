@@ -22,3 +22,12 @@ jobs:
 
       - name: Build, test, and style check
         run: mvn -q verify
+
+      - name: Upload Jacoco coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage
+          path: |
+            scope-tracer-*/target/site/jacoco/
+          if-no-files-found: ignore

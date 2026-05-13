@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter xmlns="https://github.com/spotbugs/filter/3.0.0"
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/master/spotbugs/etc/findbugsfilter.xsd">
+
+    <!-- ByteBuddy @Advice classes use static methods with @Argument/@This annotated
+         parameters. SpotBugs sees parameters that are assigned to but never read in
+         the source, since they are only meaningful to the bytecode-rewriting framework. -->
+    <Match>
+        <Package name="~com\.ionutbanu\.scopetracer\.agent\.advice.*"/>
+    </Match>
+
+    <!-- JFR Event subclasses must expose public mutable fields — that is the JFR
+         framework's contract for serializing event data. Flagging them as EI_EXPOSE_REP
+         or URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD is a false positive. -->
+    <Match>
+        <Package name="~com\.ionutbanu\.scopetracer\.core\.events.*"/>
+    </Match>
+
+</FindBugsFilter>
