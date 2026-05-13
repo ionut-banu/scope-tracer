@@ -537,6 +537,136 @@ class HtmlRendererTest {
     assertThat(html).contains("&lt;script&gt;alert(1)&lt;/script&gt;");
   }
 
+  // --- bar-label width-aware fitting ---
+  //
+  // Bar width = (task duration / scope duration) * 800px (TIMELINE_W). The bar-label fit
+  // logic uses a 7px/char monospace estimate with 8px of padding, so available chars =
+  // (barWidth - 8) / 7. The four tests below pin each of the four tiers.
+
+  /**
+   * Tier 2: when the full {@code Class#method:line} label doesn't fit but the class-dropped
+   * form ({@code method:line}) does, the bar text drops the class prefix.
+   */
+  @Test
+  void barLabelDropsClassPrefixWhenFullNameDoesNotFit() {
+    // scope = 100ms, task = 25ms → bar = 200px → ~27 chars budget.
+    // Full label "#1 LiveOrderProcessingDemo#runFulfillment:160" = 45 chars → no fit.
+    // Shortened "#1 runFulfillment:160" = 21 chars → fits.
+    var open = T0;
+    var close = T0.plusMillis(100);
+    var fork = T0.plusMillis(10);
+    var complete = fork.plusMillis(25);
+    var tasks =
+        List.of(
+            new TaskRecord(
+                1,
+                "LiveOrderProcessingDemo#runFulfillment:160",
+                "vt-95",
+                -1L,
+                fork,
+                complete,
+                new TaskOutcome.Success()));
+    var scope = new ScopeRecord(1L, "s", "main", -1L, open, close, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+
+    // Bar text shows the class-dropped form.
+    assertThat(html).contains(">#1 runFulfillment:160</text>");
+    // The full class-prefixed name is NOT in the bar text — but still appears in the
+    // table cell and the tooltip <title>.
+    assertThat(html).doesNotContain(">#1 LiveOrderProcessingDemo#runFulfillment:160</text>");
+    assertThat(html).contains("LiveOrderProcessingDemo#runFulfillment:160");
+  }
+
+  /**
+   * Tier 3: when even the class-dropped form is too wide, truncate with an ellipsis. The
+   * truncation point is deterministic given the 7px/char budget.
+   */
+  @Test
+  void barLabelTruncatesWithEllipsisWhenEvenShortenedFormDoesNotFit() {
+    // scope = 200ms, task = 25ms → bar = 100px → 13 chars budget.
+    // Shortened "#1 runFulfillment:160" (21 chars) does not fit.
+    // Truncated: substring(0,12) + "…" = "#1 runFulfil…" (13 chars).
+    var open = T0;
+    var close = T0.plusMillis(200);
+    var fork = T0.plusMillis(10);
+    var complete = fork.plusMillis(25);
+    var tasks =
+        List.of(
+            new TaskRecord(
+                1,
+                "LiveOrderProcessingDemo#runFulfillment:160",
+                "vt-95",
+                -1L,
+                fork,
+                complete,
+                new TaskOutcome.Success()));
+    var scope = new ScopeRecord(1L, "s", "main", -1L, open, close, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+
+    assertThat(html).contains(">#1 runFulfil…</text>");
+    // The mid-word hard-clip artefact (a bare letter-tail with no ellipsis) must not appear.
+    assertThat(html).doesNotContain(">#1 runFulfil</text>");
+  }
+
+  /**
+   * Tier 4: when the bar is so narrow that not even {@code "#N x…"} fits, the bar shows the
+   * index alone — never a fragment of the name.
+   */
+  @Test
+  void barLabelFallsBackToIndexWhenNoNameCharsFit() {
+    // scope = 320ms, task = 25ms → bar = 62.5px → 7 chars budget.
+    // Tier 3 minimum is "#N " + 4 chars + "…" = 8 chars → 7 < 8, so falls through to tier 4.
+    var open = T0;
+    var close = T0.plusMillis(320);
+    var fork = T0.plusMillis(10);
+    var complete = fork.plusMillis(25);
+    var tasks =
+        List.of(
+            new TaskRecord(
+                1,
+                "LiveOrderProcessingDemo#runFulfillment:160",
+                "vt-95",
+                -1L,
+                fork,
+                complete,
+                new TaskOutcome.Success()));
+    var scope = new ScopeRecord(1L, "s", "main", -1L, open, close, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+
+    assertThat(html).contains(">#1</text>");
+    // No name fragment leaks into the bar text.
+    assertThat(html).doesNotContain(">#1 run");
+    assertThat(html).doesNotContain(">#1 L");
+  }
+
+  /**
+   * Tier 1: a wide bar shows the complete {@code Class#method:line} label inline — no
+   * truncation, no class-prefix drop.
+   */
+  @Test
+  void barLabelKeepsFullNameWhenBarIsWide() {
+    // scope = 20ms, task = 18ms → bar = 720px → 101 chars budget.
+    // Full "#1 LiveOrderProcessingDemo#runFulfillment:160" (45 chars) fits comfortably.
+    var open = T0;
+    var close = T0.plusMillis(20);
+    var fork = T0.plusMillis(1);
+    var complete = T0.plusMillis(19);
+    var tasks =
+        List.of(
+            new TaskRecord(
+                1,
+                "LiveOrderProcessingDemo#runFulfillment:160",
+                "vt-95",
+                -1L,
+                fork,
+                complete,
+                new TaskOutcome.Success()));
+    var scope = new ScopeRecord(1L, "s", "main", -1L, open, close, tasks, null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
+
+    assertThat(html).contains(">#1 LiveOrderProcessingDemo#runFulfillment:160</text>");
+  }
+
   private static ScopeRecord scopeWithSuccess(
       long scopeId, String name, Instant open, Instant close) {
     var tasks =

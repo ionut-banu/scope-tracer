@@ -104,8 +104,9 @@ Each `TracedScope` gets its own section containing:
   annotated `← critical path +Xms`.
 - **SVG Gantt timeline** — a blue bar for the scope lifetime, colour-coded bars for each
   task (green = success, amber = critical path, red = failed, orange = cancelled, grey =
-  incomplete), with the task ID and name labelled inside each bar (the bar shows just the
-  ID when too narrow to fit the name). Hover for details. The amber
+  incomplete), with the task ID and name labelled inside each bar; narrow bars drop the
+  class-name prefix and, if still too narrow, truncate with an ellipsis — the full name
+  is always available in the hover tooltip. Hover for details. The amber
   critical-path bar is the task that determined the scope's total duration.
 
 Nested scopes are rendered indented beneath the parent task that opened them, with a

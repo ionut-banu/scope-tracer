@@ -32,6 +32,15 @@ public final class HtmlRenderer {
   // SVG coordinate width for per-scope timelines; task bars fill this space.
   private static final double TIMELINE_W = 800.0;
 
+  // Estimated rendered width of a single character at font-size="11" font-family="monospace".
+  // Conservative — real metrics vary by browser/font (~6.6px for SF Mono, ~6.8px for Consolas);
+  // 7.0 errs slightly toward truncation so we don't over-promise the fit.
+  private static final double LABEL_CHAR_WIDTH_PX = 7.0;
+
+  // Horizontal slack reserved inside each bar: 4px left padding (matches <text x="4">) plus
+  // 4px right breathing room so labels don't kiss the rounded-corner stroke.
+  private static final double LABEL_PADDING_PX = 8.0;
+
   private static final String COLOR_SUCCESS = "#4caf50";
   private static final String COLOR_CRITICAL_STROKE = "#d97706";
   private static final String COLOR_FAILED = "#e53935";
@@ -519,13 +528,10 @@ public final class HtmlRenderer {
             .append("\" stroke-width=\"2\" rx=\"2\"/>\n");
       }
 
-      // Bar label: "#N name" when there's room (≥80px), else just "#N".
-      // The bar's nested <svg> already clips overflow, so a long label is harmless visually,
-      // but at narrow widths the name is unreadable and just clutters the rect.
-      String barLabel = "#" + task.taskId();
-      if (task.taskName() != null && !task.taskName().isBlank() && taskW >= 80.0) {
-        barLabel += " " + task.taskName();
-      }
+      // Bar label: width-aware tiered fit — full "#N name", then drop class prefix
+      // (for Class#method:line names), then ellipsis-truncate, then "#N" alone.
+      // The SVG's overflow="hidden" still acts as a final clipping safety net.
+      String barLabel = fitBarLabel(task.taskId(), task.taskName(), taskW);
       sb.append("<text x=\"4\" y=\"13\" fill=\"white\" font-size=\"11\" ")
           .append("font-family=\"monospace\" pointer-events=\"none\">")
           .append(escape(barLabel))
@@ -850,5 +856,54 @@ public final class HtmlRenderer {
 
   private static String f(double v) {
     return String.format(Locale.ROOT, "%.2f", v);
+  }
+
+  /**
+   * Picks the longest task-bar label variant that fits inside {@code barWidthPx}, using a
+   * char-width approximation for the bar's monospace font. Tiers, in order of preference:
+   *
+   * <ol>
+   *   <li>{@code "#N taskName"} — full label
+   *   <li>{@code "#N method:line"} — when {@code taskName} contains {@code '#'}, drop the
+   *       class prefix. For our {@code Class#method:line} caller-frame format this preserves
+   *       the actionable half.
+   *   <li>Right-truncate the best surviving candidate (class-dropped form when available,
+   *       else the full name) with {@code "…"}. Skipped when fewer than 4 name chars +
+   *       ellipsis would fit after {@code "#N "}.
+   *   <li>{@code "#N"} alone — guaranteed final fallback.
+   * </ol>
+   *
+   * <p>The bar's nested {@code <svg overflow="hidden">} viewport still hard-clips the result
+   * as a safety net for char-width estimation drift across browsers/fonts.
+   */
+  static String fitBarLabel(long taskId, String taskName, double barWidthPx) {
+    String index = "#" + taskId;
+    int maxChars = (int) Math.floor((barWidthPx - LABEL_PADDING_PX) / LABEL_CHAR_WIDTH_PX);
+    if (maxChars <= 0) return index;
+    if (taskName == null || taskName.isBlank()) return index;
+
+    // Tier 1: full label
+    String full = index + " " + taskName;
+    if (full.length() <= maxChars) return full;
+
+    // Tier 2: drop class prefix (e.g. "LiveOrderProcessingDemo#runFulfillment:160" → "runFulfillment:160")
+    int hash = taskName.indexOf('#');
+    String shortened = null;
+    if (hash > 0 && hash < taskName.length() - 1) {
+      shortened = index + " " + taskName.substring(hash + 1);
+      if (shortened.length() <= maxChars) return shortened;
+    }
+
+    // Tier 3: ellipsis-truncate the best surviving candidate. Require at least
+    // "#N " + 4 name chars + "…" to bother.
+    String candidate = shortened != null ? shortened : full;
+    int minLen = index.length() + 1 + 4 + 1; // "#N " + 4 chars + "…"
+    if (maxChars >= minLen) {
+      // candidate.substring(0, maxChars - 1) keeps maxChars-1 chars, then "…" makes maxChars total
+      return candidate.substring(0, maxChars - 1) + "…";
+    }
+
+    // Tier 4: index alone
+    return index;
   }
 }
