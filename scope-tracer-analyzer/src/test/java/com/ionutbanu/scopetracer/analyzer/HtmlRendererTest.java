@@ -544,8 +544,8 @@ class HtmlRendererTest {
   // (barWidth - 8) / 7. The four tests below pin each of the four tiers.
 
   /**
-   * Tier 2: when the full {@code Class#method:line} label doesn't fit but the class-dropped
-   * form ({@code method:line}) does, the bar text drops the class prefix.
+   * Tier 2: when the full {@code Class#method:line} label doesn't fit but the class-dropped form
+   * ({@code method:line}) does, the bar text drops the class prefix.
    */
   @Test
   void barLabelDropsClassPrefixWhenFullNameDoesNotFit() {
@@ -578,8 +578,8 @@ class HtmlRendererTest {
   }
 
   /**
-   * Tier 3: when even the class-dropped form is too wide, truncate with an ellipsis. The
-   * truncation point is deterministic given the 7px/char budget.
+   * Tier 3: when even the class-dropped form is too wide, truncate with an ellipsis. The truncation
+   * point is deterministic given the 7px/char budget.
    */
   @Test
   void barLabelTruncatesWithEllipsisWhenEvenShortenedFormDoesNotFit() {
@@ -609,8 +609,8 @@ class HtmlRendererTest {
   }
 
   /**
-   * Tier 4: when the bar is so narrow that not even {@code "#N x…"} fits, the bar shows the
-   * index alone — never a fragment of the name.
+   * Tier 4: when the bar is so narrow that not even {@code "#N x…"} fits, the bar shows the index
+   * alone — never a fragment of the name.
    */
   @Test
   void barLabelFallsBackToIndexWhenNoNameCharsFit() {
@@ -640,8 +640,8 @@ class HtmlRendererTest {
   }
 
   /**
-   * Tier 1: a wide bar shows the complete {@code Class#method:line} label inline — no
-   * truncation, no class-prefix drop.
+   * Tier 1: a wide bar shows the complete {@code Class#method:line} label inline — no truncation,
+   * no class-prefix drop.
    */
   @Test
   void barLabelKeepsFullNameWhenBarIsWide() {

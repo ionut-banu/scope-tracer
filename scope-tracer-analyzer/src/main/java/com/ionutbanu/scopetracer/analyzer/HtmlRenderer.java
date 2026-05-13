@@ -864,17 +864,17 @@ public final class HtmlRenderer {
    *
    * <ol>
    *   <li>{@code "#N taskName"} — full label
-   *   <li>{@code "#N method:line"} — when {@code taskName} contains {@code '#'}, drop the
-   *       class prefix. For our {@code Class#method:line} caller-frame format this preserves
-   *       the actionable half.
-   *   <li>Right-truncate the best surviving candidate (class-dropped form when available,
-   *       else the full name) with {@code "…"}. Skipped when fewer than 4 name chars +
-   *       ellipsis would fit after {@code "#N "}.
+   *   <li>{@code "#N method:line"} — when {@code taskName} contains {@code '#'}, drop the class
+   *       prefix. For our {@code Class#method:line} caller-frame format this preserves the
+   *       actionable half.
+   *   <li>Right-truncate the best surviving candidate (class-dropped form when available, else the
+   *       full name) with {@code "…"}. Skipped when fewer than 4 name chars + ellipsis would fit
+   *       after {@code "#N "}.
    *   <li>{@code "#N"} alone — guaranteed final fallback.
    * </ol>
    *
-   * <p>The bar's nested {@code <svg overflow="hidden">} viewport still hard-clips the result
-   * as a safety net for char-width estimation drift across browsers/fonts.
+   * <p>The bar's nested {@code <svg overflow="hidden">} viewport still hard-clips the result as a
+   * safety net for char-width estimation drift across browsers/fonts.
    */
   static String fitBarLabel(long taskId, String taskName, double barWidthPx) {
     String index = "#" + taskId;
@@ -886,7 +886,8 @@ public final class HtmlRenderer {
     String full = index + " " + taskName;
     if (full.length() <= maxChars) return full;
 
-    // Tier 2: drop class prefix (e.g. "LiveOrderProcessingDemo#runFulfillment:160" → "runFulfillment:160")
+    // Tier 2: drop class prefix (e.g. "LiveOrderProcessingDemo#runFulfillment:160" →
+    // "runFulfillment:160")
     int hash = taskName.indexOf('#');
     String shortened = null;
     if (hash > 0 && hash < taskName.length() - 1) {
