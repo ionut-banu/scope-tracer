@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0                              https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.ionutbanu</groupId>
+    <artifactId>scope-tracer-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>scope-tracer-stress-tests</artifactId>
+
+  <name>scope-tracer-stress-tests</name>
+  <description>High-concurrency load tests for TracedScope and the scope-tracer agent. Opt-in via -Pstress; not part of the default build.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.ionutbanu</groupId>
+      <artifactId>scope-tracer-core</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.ionutbanu</groupId>
+      <artifactId>scope-tracer-analyzer</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <!-- JFR thread/global buffer sizes raised so high-burst event emission does not overflow
+               per-thread buffers and drop events on the way to disk. globalbuffersize must equal
+               globalbuffercount * threadbuffersize -->
+          <argLine>--enable-preview -XX:FlightRecorderOptions=stackdepth=64,threadbuffersize=1M,memorysize=64M,maxchunksize=128M</argLine>
+          <systemPropertyVariables>
+            <agentJar>${project.basedir}/../scope-tracer-agent/target/scope-tracer-agent-${project.version}-agent.jar</agentJar>
+            <testClassesDir>${project.build.testOutputDirectory}</testClassesDir>
+          </systemPropertyVariables>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

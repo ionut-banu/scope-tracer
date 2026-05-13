@@ -44,3 +44,28 @@ switch (event) {
     case ScopeClosedEvent e    -> ...;
 }
 ```
+
+## High-volume recordings: JFR buffer tuning
+
+JFR writes events to a per-thread buffer (default ~16 KB) which is flushed to a small set
+of global buffers and then to disk. When a single thread emits events faster than the
+buffer can drain — for example, a tight `fork(...)` loop emitting thousands of
+`TaskForkedEvent`s on the caller thread, or many virtual threads completing nearly
+simultaneously — the buffer fills and JFR **silently drops events**. Empirically this
+starts around ~5 000 events/second per thread on the default settings.
+
+If a recording is missing events that scope-tracer should have emitted, raise the buffer
+sizes via `-XX:FlightRecorderOptions` on the JVM that *produces* the recording:
+
+```bash
+java -XX:FlightRecorderOptions=threadbuffersize=1M,memorysize=64M,maxchunksize=128M \
+     -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
+     --enable-preview \
+     -cp <classpath> \
+     com.example.MyApp
+```
+
+These are JVM-level flags and must be set when the JVM starts — they cannot be changed
+from the `Recording` API at runtime. The scope-tracer-stress-tests module uses the same
+flags; see [scope-tracer-stress-tests/pom.xml](../scope-tracer-stress-tests/pom.xml) for
+the canonical values.

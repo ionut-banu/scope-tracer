@@ -1,0 +1,37 @@
+name: Stress tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *'
+
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 26
+        uses: actions/setup-java@v4
+        with:
+          java-version: '26'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build agent fat-jar (required by stress tests)
+        run: mvn -q -DskipTests install
+
+      - name: Run stress tests
+        run: mvn -q -Pstress verify
+
+      - name: Upload JFR dumps on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stress-jfr-dumps
+          path: |
+            /tmp/stress-*.jfr
+            scope-tracer-stress-tests/target/*.jfr
+          if-no-files-found: ignore

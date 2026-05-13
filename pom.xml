@@ -247,4 +247,13 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>stress</id>
+      <modules>
+        <module>scope-tracer-stress-tests</module>
+      </modules>
+    </profile>
+  </profiles>
 </project>
