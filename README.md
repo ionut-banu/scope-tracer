@@ -26,14 +26,14 @@ Targets JDK 26+ with `--enable-preview` (`StructuredTaskScope` is a preview API)
 
 ```xml
 <dependency>
-  <groupId>com.ionutbanu.scopetracer</groupId>
+  <groupId>com.ionutbanu</groupId>
   <artifactId>scope-tracer-core</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0</version>
 </dependency>
 ```
 
-> This is a snapshot release. Build from source (see below) to install it into your local
-> Maven repository before adding the dependency.
+> Until 0.1.0 lands on Maven Central, build from source (see below) and install into your
+> local Maven repository before adding the dependency.
 
 ### 2. Wrap your scope
 
@@ -227,10 +227,10 @@ guidelines.
 
 | Module | Artifact | Purpose |
 |--------|----------|---------|
-| `scope-tracer-core` | `com.ionutbanu.scopetracer:scope-tracer-core` | `TracedScope` wrapper; emits JFR events |
-| `scope-tracer-analyzer` | `com.ionutbanu.scopetracer:scope-tracer-analyzer` | Parses `.jfr` files; renders HTML/SVG reports |
-| `scope-tracer-agent` | `com.ionutbanu.scopetracer:scope-tracer-agent` | Java agent; instruments `StructuredTaskScope` at bytecode level |
-| `scope-tracer-demos` | `com.ionutbanu.scopetracer:scope-tracer-demos` | Runnable example programs |
+| `scope-tracer-core` | `com.ionutbanu:scope-tracer-core` | `TracedScope` wrapper; emits JFR events |
+| `scope-tracer-analyzer` | `com.ionutbanu:scope-tracer-analyzer` | Parses `.jfr` files; renders HTML/SVG reports |
+| `scope-tracer-agent` | `com.ionutbanu:scope-tracer-agent` | Java agent; instruments `StructuredTaskScope` at bytecode level |
+| `scope-tracer-demos` | `com.ionutbanu:scope-tracer-demos` | Runnable example programs |
 
 ---
 
@@ -244,6 +244,5 @@ when each event is emitted — useful when writing custom consumers of the raw `
 
 ## License
 
-[PolyForm Noncommercial License 1.0.0](LICENSE) — free for personal, educational, and
-non-profit use. Commercial use (direct or indirect benefit of a business) is not
-permitted without a separate agreement with the author.
+[Apache License 2.0](LICENSE). Free for any use, including commercial — see
+[NOTICE](NOTICE) for attribution requirements.

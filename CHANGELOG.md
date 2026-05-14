@@ -10,10 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - CI hardening: Jacoco code coverage, SpotBugs static analysis, and Dependabot
   weekly updates for Maven and GitHub Actions.
+- `NOTICE` file with attribution required by Apache 2.0.
+- Maven Central publishing infrastructure: `release` profile with sources,
+  javadoc, GPG signing, and `central-publishing-maven-plugin`.
+- `.github/workflows/release.yml` — tag-triggered automated publish to Maven
+  Central with a GitHub Release.
 
 ### Changed
 - Surefire `argLine` now prepends `@{argLine}` so the Jacoco agent is attached
   during unit tests.
+- **License changed from PolyForm Noncommercial 1.0.0 to Apache 2.0.** The
+  library is now free for any use, including commercial.
 
 ## [0.1.0-SNAPSHOT]
 

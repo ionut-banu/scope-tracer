@@ -96,8 +96,64 @@ If you add a new JFR event:
 For non-trivial changes that touch more than one module, please open an issue
 first to discuss the approach.
 
+## Releasing
+
+Releases are published to Maven Central by the `.github/workflows/release.yml`
+workflow, triggered when a `v*.*.*` tag is pushed.
+
+### Prerequisites (one-time, maintainer only)
+
+Full step-by-step instructions are in [docs/maven-central-setup.md](docs/maven-central-setup.md).
+Summary of what must be in place before the first release:
+
+- `com.ionutbanu` namespace verified on the [Sonatype Central Portal](https://central.sonatype.com/) via DNS TXT on `ionutbanu.com`.
+- GPG signing key generated; public key published to `keys.openpgp.org`.
+- Four repository secrets configured under Settings → Secrets and variables → Actions:
+  `CENTRAL_USERNAME`, `CENTRAL_TOKEN`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`.
+
+### Cutting a release
+
+```bash
+# 1. Bump from SNAPSHOT to release version on a branch off main
+git checkout -b release/0.1.0
+mvn versions:set -DnewVersion=0.1.0 -DgenerateBackupPoms=false
+# Update CHANGELOG.md: rename [Unreleased] to [0.1.0] with today's date
+mvn -q verify
+git commit -am "release: 0.1.0"
+
+# 2. Tag and push (the tag triggers the release workflow)
+git tag v0.1.0
+git push origin release/0.1.0 v0.1.0
+
+# 3. Open and merge the release PR to main
+
+# 4. Bump to next SNAPSHOT on main
+git checkout main && git pull
+mvn versions:set -DnewVersion=0.2.0-SNAPSHOT -DgenerateBackupPoms=false
+git commit -am "chore: bump to 0.2.0-SNAPSHOT"
+git push
+```
+
+The workflow validates that the tag matches the pom version, runs the full
+`mvn -P release deploy`, waits for Central to confirm publication, then creates
+a GitHub Release using the matching CHANGELOG section as the body.
+
+### Verifying a release locally
+
+Before pushing the tag, dry-run the release profile end-to-end:
+
+```bash
+export MAVEN_GPG_PASSPHRASE='...'
+mvn -P release verify
+# Expect: sources jar, javadoc jar, and .asc signatures under each module's target/
+```
+
+To do a real staging publish without the auto-release flag, temporarily set
+`<autoPublish>false</autoPublish>` in the parent pom's release profile, run
+`mvn -P release deploy`, then approve in the Central Portal UI.
+
 ## License
 
-This project is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
-By contributing, you agree that your contributions will be licensed under the
-same terms.
+This project is licensed under the [Apache License 2.0](LICENSE). By contributing,
+you agree that your contributions will be licensed under the same terms (per
+Apache 2.0 Section 5, contributions are inbound = outbound).

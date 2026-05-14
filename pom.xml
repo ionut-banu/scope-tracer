@@ -10,6 +10,30 @@
   <name>scope-tracer-parent</name>
   <description>Library and analyzer for visualizing Java structured concurrency
         (StructuredTaskScope) task trees, lifetimes, and cancellation propagation.</description>
+  <url>https://github.com/ionut-banu/scope-tracer</url>
+  <inceptionYear>2026</inceptionYear>
+
+  <organization>
+    <name>Ionut Banu</name>
+    <url>https://github.com/ionut-banu</url>
+  </organization>
+
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>ionut-banu</id>
+      <name>Ionut Banu</name>
+      <email>ionutba@protonmail.com</email>
+      <url>https://github.com/ionut-banu</url>
+    </developer>
+  </developers>
 
   <prerequisites>
     <maven>3.9.0</maven>
@@ -21,6 +45,18 @@
     <module>scope-tracer-agent</module>
     <module>scope-tracer-demos</module>
   </modules>
+
+  <scm>
+    <connection>scm:git:https://github.com/ionut-banu/scope-tracer.git</connection>
+    <developerConnection>scm:git:git@github.com:ionut-banu/scope-tracer.git</developerConnection>
+    <tag>HEAD</tag>
+    <url>https://github.com/ionut-banu/scope-tracer</url>
+  </scm>
+
+  <issueManagement>
+    <system>GitHub Issues</system>
+    <url>https://github.com/ionut-banu/scope-tracer/issues</url>
+  </issueManagement>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -43,6 +79,11 @@
     <enforcer.plugin.version>3.6.2</enforcer.plugin.version>
     <jacoco.version>0.8.14</jacoco.version>
     <spotbugs.plugin.version>4.9.8.3</spotbugs.plugin.version>
+
+    <maven.source.plugin.version>3.3.1</maven.source.plugin.version>
+    <maven.javadoc.plugin.version>3.11.2</maven.javadoc.plugin.version>
+    <maven.gpg.plugin.version>3.2.7</maven.gpg.plugin.version>
+    <central.publishing.plugin.version>0.9.0</central.publishing.plugin.version>
   </properties>
 
   <dependencyManagement>
@@ -254,6 +295,93 @@
       <modules>
         <module>scope-tracer-stress-tests</module>
       </modules>
+    </profile>
+
+    <!--
+      Maven Central publishing profile.
+
+      Activated by `mvn -P release deploy`. Produces sources + javadoc JARs,
+      GPG-signs all artifacts, and uploads via central-publishing-maven-plugin
+      to the Sonatype Central Portal.
+
+      Required environment / settings.xml:
+        - server id "central" with token-username + token-password
+        - GPG key available on the build host (env: MAVEN_GPG_PASSPHRASE)
+    -->
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>${maven.source.plugin.version}</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>${maven.javadoc.plugin.version}</version>
+            <configuration>
+              <source>${maven.compiler.release}</source>
+              <additionalJOption>--enable-preview</additionalJOption>
+              <doclint>none</doclint>
+              <quiet>true</quiet>
+              <detectJavaApiLink>false</detectJavaApiLink>
+            </configuration>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>${maven.gpg.plugin.version}</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+                <phase>verify</phase>
+                <configuration>
+                  <!-- non-interactive: passphrase via env var MAVEN_GPG_PASSPHRASE -->
+                  <gpgArguments>
+                    <arg>--pinentry-mode</arg>
+                    <arg>loopback</arg>
+                  </gpgArguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <version>${central.publishing.plugin.version}</version>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>central</publishingServerId>
+              <autoPublish>true</autoPublish>
+              <waitUntil>published</waitUntil>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
   </profiles>
 </project>

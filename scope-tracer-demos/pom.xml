@@ -13,6 +13,13 @@
   <name>scope-tracer-demos</name>
   <description>Example programs (correct and intentionally buggy) exercising scope-tracer-core.</description>
 
+  <properties>
+    <!-- Examples module: not published to Maven Central -->
+    <maven.deploy.skip>true</maven.deploy.skip>
+    <maven.install.skip>false</maven.install.skip>
+    <central.publishing.skip>true</central.publishing.skip>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>com.ionutbanu</groupId>
