@@ -313,7 +313,11 @@ public final class HtmlRenderer {
           .append(cancelled)
           .append(" cancelled</span>");
     if (!durations.isEmpty()) {
-      long median = durations.get(durations.size() / 2);
+      int mid = durations.size() / 2;
+      long median =
+          (durations.size() % 2 == 0)
+              ? (durations.get(mid - 1) + durations.get(mid)) / 2
+              : durations.get(mid);
       sb.append(" &nbsp;|&nbsp; median: ").append(formatDuration(Duration.ofNanos(median)));
       if (durations.size() >= 5) {
         int p95idx = Math.min((int) Math.ceil(durations.size() * 0.95) - 1, durations.size() - 1);
@@ -697,7 +701,11 @@ public final class HtmlRenderer {
     out.append(succeeded).append("/").append(group.size()).append(" success");
     if (failed > 0) out.append(", ").append(failed).append(" failed");
     if (!durations.isEmpty()) {
-      long median = durations.get(durations.size() / 2);
+      int mid = durations.size() / 2;
+      long median =
+          (durations.size() % 2 == 0)
+              ? (durations.get(mid - 1) + durations.get(mid)) / 2
+              : durations.get(mid);
       out.append(" · median ").append(formatDuration(Duration.ofNanos(median)));
     }
     return out.toString();
