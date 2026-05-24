@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-05-24
+
+### Fixed
+
+- Median task-duration calculation in HTML reports was incorrect for even-length
+  task lists (it always selected the upper-middle element instead of averaging
+  the two middle values). Both the per-scope summary bar and the repeating-scope
+  group row are corrected.
+
+### Dependencies
+
+- JUnit 6.0.3 → 6.1.0
+- Spotless maven-plugin 3.4.0 → 3.5.1
+- central-publishing-maven-plugin 0.9.0 → 0.10.0
+- maven-javadoc-plugin 3.11.2 → 3.12.0; maven-source-plugin 3.3.1 → 3.4.0;
+  maven-enforcer-plugin 3.6.2 → 3.6.3; maven-gpg-plugin 3.2.7 → 3.2.8
+- softprops/action-gh-release GitHub Action v2 → v3
+
 ## [0.1.0] - 2026-05-14
 
 ### Added
@@ -15,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   javadoc, GPG signing, and `central-publishing-maven-plugin`.
 - `.github/workflows/release.yml` — tag-triggered automated publish to Maven
   Central with a GitHub Release.
+- JPMS `module-info.java` descriptors for `scope-tracer-core` and
+  `scope-tracer-analyzer` — both modules now declare their `requires` and
+  `exports` and work on the module path.
+- New `scope-tracer-stress-tests` module with high-concurrency integration tests
+  (`HighConcurrencyTracedScopeIT`, `LongRunningScopeIT`, `AgentParallelStressIT`)
+  and a dedicated `.github/workflows/stress.yml` CI job.
+- `CONTRIBUTING.md` documenting the development workflow and coding conventions.
 
 ### Changed
 - Surefire `argLine` now prepends `@{argLine}` so the Jacoco agent is attached
