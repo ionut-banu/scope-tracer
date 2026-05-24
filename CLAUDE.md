@@ -17,7 +17,7 @@ threads on JDK 26+.
 - `scope-tracer-demos` — example programs (correct + buggy)
 
 Code lives under `com.ionutbanu.scopetracer.{core,analyzer,agent,demos}`. Maven coordinates:
-`com.ionutbanu:scope-tracer-*:0.1.0-SNAPSHOT`.
+`com.ionutbanu:scope-tracer-*` (version from parent POM).
 
 ## Architecture
 
@@ -136,17 +136,19 @@ Key implementation details:
 run with an explicit `java` invocation:
 
 ```bash
-mvn -q package -DskipTests   # build all jars first
-CP=$(mvn -pl scope-tracer-demos -q dependency:build-classpath -DforceStdout)
-JARS="scope-tracer-core/target/scope-tracer-core-0.1.0-SNAPSHOT.jar:\
-scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT.jar:\
-scope-tracer-demos/target/scope-tracer-demos-0.1.0-SNAPSHOT.jar:$CP"
+mvn install -DskipTests   # installs all modules into ~/.m2 so dependency resolution works
+VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+mvn -pl scope-tracer-demos -q dependency:build-classpath -Dmdep.outputFile=/tmp/scope-tracer-cp.txt
+CP=$(cat /tmp/scope-tracer-cp.txt)
+JARS="scope-tracer-core/target/scope-tracer-core-${VERSION}.jar:\
+scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}.jar:\
+scope-tracer-demos/target/scope-tracer-demos-${VERSION}.jar:$CP"
 java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.ParallelFetchDemo
 java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.FailFastDemo
 java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.NestedScopesDemo
 # AgentDemo uses plain StructuredTaskScope — no TracedScope in source
 java --enable-preview \
-     -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar \
      -cp "$JARS" com.ionutbanu.scopetracer.demos.AgentDemo
 ```
 

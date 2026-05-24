@@ -66,8 +66,9 @@ java -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
 ### 4. Run the analyzer
 
 ```bash
+VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 java --enable-preview \
-     -jar scope-tracer-analyzer-0.1.0-SNAPSHOT-executable.jar \
+     -jar scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}-executable.jar \
      myapp.jfr report.html
 ```
 
@@ -120,8 +121,9 @@ Don't want to change source code? Use the agent. It instruments `StructuredTaskS
 the bytecode level — any JDK 26+ application is traced without touching its source.
 
 ```bash
+VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 java --enable-preview \
-     -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar \
      -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
      -cp <your-classpath> \
      com.example.MyApp
@@ -159,11 +161,13 @@ run until Ctrl+C and print ready-to-paste `jcmd` commands at startup.
 **Run a demo:**
 
 ```bash
-mvn -q package -DskipTests
-CP=$(mvn -pl scope-tracer-demos -q dependency:build-classpath -DforceStdout)
-JARS="scope-tracer-core/target/scope-tracer-core-0.1.0-SNAPSHOT.jar:\
-scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT.jar:\
-scope-tracer-demos/target/scope-tracer-demos-0.1.0-SNAPSHOT.jar:$CP"
+mvn install -DskipTests
+VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+mvn -pl scope-tracer-demos -q dependency:build-classpath -Dmdep.outputFile=/tmp/scope-tracer-cp.txt
+CP=$(cat /tmp/scope-tracer-cp.txt)
+JARS="scope-tracer-core/target/scope-tracer-core-${VERSION}.jar:\
+scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}.jar:\
+scope-tracer-demos/target/scope-tracer-demos-${VERSION}.jar:$CP"
 
 java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.ParallelFetchDemo
 java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.FailFastDemo
@@ -171,7 +175,7 @@ java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.NestedScopesDe
 
 # AgentDemo uses the agent — no TracedScope in source
 java --enable-preview \
-     -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar \
      -cp "$JARS" com.ionutbanu.scopetracer.demos.AgentDemo
 
 # OrderProcessingDemo — multi-level nesting; writes .jfr and .html then exits
@@ -179,7 +183,7 @@ java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.OrderProcessin
 
 # LiveServiceDemo — long-running; copy the jcmd commands it prints, then Ctrl+C to stop
 java --enable-preview \
-     -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar \
      -cp "$JARS" com.ionutbanu.scopetracer.demos.LiveServiceDemo
 
 # LiveOrderProcessingDemo — live nested pipeline; copy the jcmd commands it prints, then Ctrl+C to stop
@@ -198,8 +202,9 @@ jcmd <pid> JFR.start name=trace filename=/tmp/scope-trace.jfr
 jcmd <pid> JFR.stop name=trace
 
 # analyze
+VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 java --enable-preview \
-     -jar scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT-executable.jar \
+     -jar scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}-executable.jar \
      /tmp/scope-trace.jfr /tmp/report.html
 open /tmp/report.html
 ```
