@@ -107,5 +107,6 @@ public API may change without notice until the first tagged release.
 - License: PolyForm Noncommercial 1.0.0.
 - `docs/jfr-events.md` documents the JFR event schema.
 
+[0.2.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.1.0-SNAPSHOT...v0.1.0
 [0.1.0-SNAPSHOT]: https://github.com/ionut-banu/scope-tracer/releases/tag/v0.1.0-SNAPSHOT
