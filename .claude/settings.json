@@ -24,12 +24,12 @@
       "Bash(mv *)",
       "Edit",
       "Write",
-      "Read"
-    ],
-    "deny": [
-      "Bash(git merge *)",
+      "Read",
       "Bash(git commit*)",
       "Bash(git push*)"
+    ],
+    "deny": [
+      "Bash(git merge *)"
     ]
   }
 }
