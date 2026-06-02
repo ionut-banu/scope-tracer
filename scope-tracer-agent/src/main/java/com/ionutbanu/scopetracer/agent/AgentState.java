@@ -40,4 +40,13 @@ public final class AgentState {
    * com.ionutbanu.scopetracer.agent.util.ScopeNameDeriver}.
    */
   public static final ThreadLocal<String> PENDING_SCOPE_NAME = new ThreadLocal<>();
+
+  /**
+   * Capture filter applied at scope-open time. Populated from parsed agent arguments by {@link
+   * ScopeTracerAgent#premain(String, java.lang.instrument.Instrumentation)}. Read once per scope
+   * opening by {@link com.ionutbanu.scopetracer.agent.advice.ScopeOpenAdvice}.
+   *
+   * <p>Default is {@link CaptureFilter#PASSTHROUGH} — every scope captured.
+   */
+  public static volatile CaptureFilter FILTER = CaptureFilter.PASSTHROUGH;
 }

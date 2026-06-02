@@ -136,6 +136,33 @@ The agent:
 - Emits the same six JFR events as `TracedScope`, so the analyzer pipeline is identical.
 - **Do not** combine with `TracedScope` — each scope would emit duplicate events.
 
+### Capture filters & sampling
+
+For production deployments where you don't want to capture every scope, the agent accepts
+filter and sampling arguments. Filtered or sampled-out scopes produce **zero** JFR events
+for their entire lifetime — no open, no fork, no completion, no close.
+
+| Argument | Meaning |
+|----------|---------|
+| `include.name=<glob>` | Only capture scopes whose name matches the glob. |
+| `exclude.name=<glob>` | Drop scopes whose name matches. Exclude wins over include. |
+| `include.package=<glob>` | Only capture scopes opened from a class in a matching package. Fails closed when the stack walk yields no user frame. |
+| `exclude.package=<glob>` | Drop scopes opened from a class in a matching package. |
+| `sample.rate=<0.0-1.0>` | Capture only this fraction of scopes that survive include/exclude. `1.0` (default) keeps all; `0.0` drops everything; `0.01` keeps ~1%. |
+
+Globs support `*`, `**` (both equivalent to `.*`), and `?`. Patterns are **not** path-segment
+aware: `com.acme.*` matches both `com.acme.foo` and `com.acme.foo.bar`. Use a literal pattern
+if you need a strict prefix.
+
+Example — trace only the checkout subsystem at a 10% sample rate:
+
+```bash
+java --enable-preview \
+     -javaagent:scope-tracer-agent.jar=include.package=com.acme.checkout.**,sample.rate=0.1 \
+     -XX:StartFlightRecording=filename=checkout.jfr,dumponexit=true \
+     -cp <your-classpath> com.acme.Main
+```
+
 > **Note:** The agent jar is self-bootstrapped via `Boot-Class-Path` in its manifest. No
 > extra JVM flags are needed for the bootstrap classloader setup.
 

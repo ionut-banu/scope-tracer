@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Agent capture filters & sampling.** Five new `-javaagent` arguments let operators
+  scope tracing to a subset of `StructuredTaskScope` instances at scope-open time:
+  `include.name=<glob>`, `exclude.name=<glob>`, `include.package=<glob>`,
+  `exclude.package=<glob>`, and `sample.rate=<0.0-1.0>`. Filtered or sampled-out scopes
+  emit **zero** JFR events for their entire lifetime (open, fork, completion, close);
+  the existing null-state short-circuits in `ForkAdvice`, `ScopeCloseAdvice`, and
+  `TracingCallable` make the hot fork/close paths cost-free for excluded scopes.
+  Exclude rules win over include rules; sampling is applied last so out-of-scope
+  traffic does not consume the sample budget. Glob dialect supports `*`, `**`, `?`
+  and is not path-segment aware. Unblocks production deployments at scale where
+  unconditional tracing would exhaust JFR per-thread buffers or balloon `.jfr` size.
+
 ## [0.2.0] - 2026-05-24
 
 ### Fixed

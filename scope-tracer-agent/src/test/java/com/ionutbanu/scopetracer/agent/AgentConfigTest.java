@@ -15,6 +15,85 @@ class AgentConfigTest {
     assertThat(cfg.outputDir()).isNull();
     assertThat(cfg.outputSuffix()).isEqualTo(".html");
     assertThat(cfg.minScopes()).isEqualTo(1);
+    assertThat(cfg.filter()).isSameAs(CaptureFilter.PASSTHROUGH);
+  }
+
+  @Test
+  void noFilterArgsYieldsPassthroughFilter() {
+    var cfg = AgentConfig.parse("verbose,html=false");
+    assertThat(cfg.filter()).isSameAs(CaptureFilter.PASSTHROUGH);
+  }
+
+  @Test
+  void includeNameCompilesGlob() {
+    var cfg = AgentConfig.parse("include.name=checkout-*");
+    assertThat(cfg.filter().includeName()).isNotNull();
+    assertThat(cfg.filter().includeName().matcher("checkout-pay").matches()).isTrue();
+    assertThat(cfg.filter().includeName().matcher("other").matches()).isFalse();
+  }
+
+  @Test
+  void excludeNameCompilesGlob() {
+    var cfg = AgentConfig.parse("exclude.name=*-debug");
+    assertThat(cfg.filter().excludeName()).isNotNull();
+    assertThat(cfg.filter().excludeName().matcher("scope-debug").matches()).isTrue();
+  }
+
+  @Test
+  void includePackageCompilesGlob() {
+    var cfg = AgentConfig.parse("include.package=com.acme.**");
+    assertThat(cfg.filter().includePackage()).isNotNull();
+    assertThat(cfg.filter().includePackage().matcher("com.acme.checkout").matches()).isTrue();
+    assertThat(cfg.filter().includePackage().matcher("com.other").matches()).isFalse();
+  }
+
+  @Test
+  void excludePackageCompilesGlob() {
+    var cfg = AgentConfig.parse("exclude.package=com.noisy.**");
+    assertThat(cfg.filter().excludePackage()).isNotNull();
+    assertThat(cfg.filter().excludePackage().matcher("com.noisy.lib").matches()).isTrue();
+  }
+
+  @Test
+  void sampleRateParsedAsDouble() {
+    var cfg = AgentConfig.parse("sample.rate=0.25");
+    assertThat(cfg.filter().sampleRate()).isEqualTo(0.25);
+  }
+
+  @Test
+  void sampleRateClampedToZeroOneRange() {
+    assertThat(AgentConfig.parse("sample.rate=-1.0").filter().sampleRate()).isEqualTo(0.0);
+    assertThat(AgentConfig.parse("sample.rate=2.0").filter().sampleRate()).isEqualTo(1.0);
+  }
+
+  @Test
+  void malformedSampleRateFallsBackToDefault() {
+    var cfg = AgentConfig.parse("sample.rate=abc");
+    assertThat(cfg.filter().sampleRate()).isEqualTo(1.0);
+    assertThat(cfg.filter()).isSameAs(CaptureFilter.PASSTHROUGH);
+  }
+
+  @Test
+  void emptyFilterValueIsIgnored() {
+    // include.name= with no value should be treated as "not set", not as a malformed pattern.
+    var cfg = AgentConfig.parse("include.name=");
+    assertThat(cfg.filter()).isSameAs(CaptureFilter.PASSTHROUGH);
+  }
+
+  @Test
+  void allFilterArgsCombined() {
+    var cfg =
+        AgentConfig.parse(
+            "include.name=checkout-*,exclude.name=*-debug,"
+                + "include.package=com.acme.**,exclude.package=com.noisy.**,sample.rate=0.5");
+    var f = cfg.filter();
+    assertThat(f.includeName()).isNotNull();
+    assertThat(f.excludeName()).isNotNull();
+    assertThat(f.includePackage()).isNotNull();
+    assertThat(f.excludePackage()).isNotNull();
+    assertThat(f.sampleRate()).isEqualTo(0.5);
+    assertThat(f.isPassthrough()).isFalse();
+    assertThat(f.hasPackageRules()).isTrue();
   }
 
   @Test
