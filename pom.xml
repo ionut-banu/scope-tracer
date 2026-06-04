@@ -65,15 +65,15 @@
     <maven.compiler.release>26</maven.compiler.release>
 
     <slf4j.version>2.0.18</slf4j.version>
-    <logback.version>1.5.32</logback.version>
+    <logback.version>1.5.34</logback.version>
     <junit.version>6.1.0</junit.version>
     <assertj.version>3.27.7</assertj.version>
     <awaitility.version>4.3.0</awaitility.version>
-    <bytebuddy.version>1.18.8</bytebuddy.version>
+    <bytebuddy.version>1.18.10</bytebuddy.version>
 
-    <surefire.version>3.5.5</surefire.version>
+    <surefire.version>3.5.6</surefire.version>
     <compiler.plugin.version>3.15.0</compiler.plugin.version>
-    <spotless.version>3.5.1</spotless.version>
+    <spotless.version>3.6.0</spotless.version>
     <google.java.format.version>1.27.0</google.java.format.version>
 
     <enforcer.plugin.version>3.6.3</enforcer.plugin.version>
@@ -189,7 +189,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
-          <version>3.5.5</version>
+          <version>3.5.6</version>
         </plugin>
         <plugin>
           <groupId>org.jacoco</groupId>
