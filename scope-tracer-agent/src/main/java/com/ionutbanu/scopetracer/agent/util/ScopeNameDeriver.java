@@ -42,8 +42,8 @@ public final class ScopeNameDeriver {
   }
 
   /**
-   * Walks the stack once and returns both the formatted display name AND the caller's package.
-   * Use this in preference to {@link #derive()} when package info is also needed (e.g. for
+   * Walks the stack once and returns both the formatted display name AND the caller's package. Use
+   * this in preference to {@link #derive()} when package info is also needed (e.g. for
    * capture-filter package rules), so the stack walk is paid for only once.
    */
   public static DerivedFrame deriveFrame() {

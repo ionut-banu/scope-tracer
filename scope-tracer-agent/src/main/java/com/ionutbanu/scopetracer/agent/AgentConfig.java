@@ -3,7 +3,6 @@ package com.ionutbanu.scopetracer.agent;
 import com.ionutbanu.scopetracer.agent.util.Glob;
 import java.nio.file.Path;
 import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 /**
  * Parsed agent arguments. Constructed via {@link #parse(String)} from the raw {@code -javaagent}
@@ -82,8 +81,7 @@ record AgentConfig(
       filter = CaptureFilter.PASSTHROUGH;
     } else {
       filter =
-          new CaptureFilter(
-              includeName, excludeName, includePackage, excludePackage, sampleRate);
+          new CaptureFilter(includeName, excludeName, includePackage, excludePackage, sampleRate);
     }
 
     return new AgentConfig(verbose, generateHtml, outputDir, outputSuffix, minScopes, filter);
@@ -93,7 +91,7 @@ record AgentConfig(
     if (value.isEmpty()) return current;
     try {
       return Glob.toRegex(value);
-    } catch (IllegalArgumentException | PatternSyntaxException e) {
+    } catch (IllegalArgumentException e) {
       AgentLog.warn("ignoring malformed " + key + " value: " + value);
       return current;
     }

@@ -33,8 +33,7 @@ class CaptureFilterTest {
   @Test
   void excludeWinsOverInclude() {
     // Both include and exclude match — exclude must win.
-    var f =
-        new CaptureFilter(Glob.toRegex("checkout-*"), Glob.toRegex("*-debug"), null, null, 1.0);
+    var f = new CaptureFilter(Glob.toRegex("checkout-*"), Glob.toRegex("*-debug"), null, null, 1.0);
     assertThat(f.shouldCapture("checkout-debug", "com.acme")).isFalse();
     assertThat(f.shouldCapture("checkout-pay", "com.acme")).isTrue();
   }
