@@ -55,21 +55,21 @@ import net.bytebuddy.matcher.ElementMatchers;
  *   <li>{@code exclude.name=<glob>} — drop scopes whose name matches the glob. Exclude wins over
  *       include.
  *   <li>{@code include.package=<glob>} — only capture scopes opened from a class whose
- *       fully-qualified package matches the glob (e.g. {@code include.package=com.acme.**}).
- *       Fails closed: scopes opened from frames the stack walker cannot identify are dropped.
+ *       fully-qualified package matches the glob (e.g. {@code include.package=com.acme.**}). Fails
+ *       closed: scopes opened from frames the stack walker cannot identify are dropped.
  *   <li>{@code exclude.package=<glob>} — drop scopes whose call-site package matches the glob.
  *   <li>{@code sample.rate=<0.0-1.0>} — sample only this fraction of scopes that survive
- *       include/exclude filtering. {@code 1.0} (default) captures every surviving scope;
- *       {@code 0.0} drops everything; {@code 0.01} keeps roughly 1%. Sampling is evaluated last
- *       so out-of-scope traffic does not consume the sample budget. Sampling is per-scope and
- *       independent — a sampled-in parent may have a sampled-out child, which renders as an
- *       orphan task in the parent's view.
+ *       include/exclude filtering. {@code 1.0} (default) captures every surviving scope; {@code
+ *       0.0} drops everything; {@code 0.01} keeps roughly 1%. Sampling is evaluated last so
+ *       out-of-scope traffic does not consume the sample budget. Sampling is per-scope and
+ *       independent — a sampled-in parent may have a sampled-out child, which renders as an orphan
+ *       task in the parent's view.
  * </ul>
  *
- * <p>Filtered or sampled-out scopes produce <b>zero</b> JFR events for their entire lifetime
- * (open, every fork, every completion, close). The filter decision is made once at scope-open
- * time and propagated through the rest of the pipeline by simply not registering the scope in
- * the agent's state map; downstream advice handlers short-circuit on the missing state.
+ * <p>Filtered or sampled-out scopes produce <b>zero</b> JFR events for their entire lifetime (open,
+ * every fork, every completion, close). The filter decision is made once at scope-open time and
+ * propagated through the rest of the pipeline by simply not registering the scope in the agent's
+ * state map; downstream advice handlers short-circuit on the missing state.
  *
  * <p><b>Scope naming:</b> When a scope is opened with {@code Config.withName("my-scope")}, that
  * name is used as-is. When no name is configured, the name is derived from the call-site stack

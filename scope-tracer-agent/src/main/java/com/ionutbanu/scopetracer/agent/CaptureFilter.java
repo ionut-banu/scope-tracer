@@ -16,16 +16,16 @@ import java.util.regex.Pattern;
  *   <li>{@code excludeName} matches the scope name ⇒ reject.
  *   <li>{@code excludePackage} matches the caller package ⇒ reject.
  *   <li>{@code includeName} is configured but does not match ⇒ reject.
- *   <li>{@code includePackage} is configured but there is no caller package, or it does not match
- *       ⇒ reject. Missing caller package fails closed by design.
+ *   <li>{@code includePackage} is configured but there is no caller package, or it does not match ⇒
+ *       reject. Missing caller package fails closed by design.
  *   <li>{@code sampleRate < 1.0} and {@link ThreadLocalRandom#nextDouble()} is at or above the rate
  *       ⇒ reject. Sampling is evaluated last so out-of-scope traffic does not consume the sample
  *       budget.
  * </ol>
  *
- * <p>{@link #PASSTHROUGH} is the no-op default used when no filter args were supplied; its
- * {@link #shouldCapture(String, String)} method always returns {@code true} via the short-circuit
- * checks below.
+ * <p>{@link #PASSTHROUGH} is the no-op default used when no filter args were supplied; its {@link
+ * #shouldCapture(String, String)} method always returns {@code true} via the short-circuit checks
+ * below.
  *
  * <p>This class must be accessible from the bootstrap classloader.
  */

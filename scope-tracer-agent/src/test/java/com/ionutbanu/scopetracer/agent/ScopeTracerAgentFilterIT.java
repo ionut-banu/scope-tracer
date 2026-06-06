@@ -145,8 +145,13 @@ class ScopeTracerAgentFilterIT {
     int exitCode = proc.waitFor();
 
     if (exitCode != 0) {
-      fail("AgentTestSubject process exited with code " + exitCode + " (args=" + agentArgs + "):\n"
-          + output);
+      fail(
+          "AgentTestSubject process exited with code "
+              + exitCode
+              + " (args="
+              + agentArgs
+              + "):\n"
+              + output);
     }
   }
 }
