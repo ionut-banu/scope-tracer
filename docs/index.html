@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>scope-tracer — visualize Java structured concurrency</title>
+<meta name="description" content="Visualize Java structured concurrency (StructuredTaskScope) task trees, lifetimes, and cancellation propagation. Zero-code-change Java agent, JFR-based, self-contained HTML reports."/>
+<style>
+  :root {
+    --bg: #fafafa; --fg: #212121; --muted: #616161; --accent: #1565c0;
+    --card: #ffffff; --border: #e0e0e0; --code-bg: #f5f5f5;
+    --amber: #f59e0b; --green: #2e7d32; --red: #c62828; --orange: #e65100;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14161a; --fg: #e8e8e8; --muted: #9aa0a6; --accent: #6ea8fe;
+             --card: #1c1f24; --border: #2c3036; --code-bg: #23262b; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--bg); color: var(--fg); margin: 0; padding: 0 1.25rem;
+  }
+  main { max-width: 780px; margin: 0 auto; padding: 3rem 0 4rem; }
+  h1 { font-size: 1.6rem; margin: 0 0 0.4rem; }
+  .tagline { color: var(--muted); font-size: 1rem; margin: 0 0 1.5rem; line-height: 1.5; }
+  .badges { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.75rem; }
+  .badges img { height: 20px; display: block; }
+  .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 2.25rem; }
+  .btn {
+    display: inline-block; padding: 0.65rem 1.1rem; border-radius: 6px; font-size: 0.9rem;
+    text-decoration: none; font-weight: 600; border: 1px solid transparent;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: transparent; color: var(--fg); border-color: var(--border); }
+  section { margin-bottom: 2.25rem; }
+  h2 { font-size: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em;
+       border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; margin-bottom: 0.9rem; }
+  ul.features { margin: 0; padding-left: 1.2rem; line-height: 1.7; font-size: 0.92rem; }
+  .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:0.3rem; vertical-align:middle; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.9rem 1rem; overflow-x: auto; font-size: 0.82rem; line-height: 1.5;
+  }
+  code { font-family: inherit; }
+  a { color: var(--accent); }
+  footer { color: var(--muted); font-size: 0.8rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<main>
+  <h1>scope-tracer</h1>
+  <p class="tagline">
+    Visualize Java structured concurrency (<code>StructuredTaskScope</code>) task trees,
+    lifetimes, and cancellation propagation. Zero-code-change with a Java agent, or a
+    thin wrapper — either way you get a self-contained HTML report with SVG Gantt
+    timelines, built from a JFR recording. Targets JDK 26+.
+  </p>
+
+  <div class="badges">
+    <img src="https://github.com/ionut-banu/scope-tracer/actions/workflows/ci.yml/badge.svg" alt="CI status"/>
+    <img src="https://img.shields.io/maven-central/v/com.ionutbanu/scope-tracer-core.svg?label=maven%20central" alt="Maven Central version"/>
+    <img src="https://img.shields.io/github/license/ionut-banu/scope-tracer" alt="License"/>
+  </div>
+
+  <div class="cta">
+    <a class="btn btn-primary" href="example/order-processing-report.html">View an example report →</a>
+    <a class="btn btn-secondary" href="https://github.com/ionut-banu/scope-tracer">Source on GitHub</a>
+  </div>
+
+  <section>
+    <h2>What you get</h2>
+    <ul class="features">
+      <li>Per-scope Gantt timeline — what ran in parallel, at a glance</li>
+      <li>Nested scopes rendered indented beneath the task that spawned them</li>
+      <li><span class="swatch" style="background:#f59e0b"></span>Critical-path highlighting — the task that determined total scope duration</li>
+      <li><span class="swatch" style="background:#c62828"></span>Failure and <span class="swatch" style="background:#e65100"></span>cancellation propagation, with exception details</li>
+      <li>No server required — the report is a single self-contained HTML file</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Zero-code-change tracing</h2>
+    <pre>java --enable-preview \
+     -javaagent:scope-tracer-agent-VERSION-agent.jar \
+     -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
+     -cp &lt;your-classpath&gt; com.example.MyApp</pre>
+    <p style="color:var(--muted);font-size:0.85rem;">
+      Any JDK 26+ application using <code>StructuredTaskScope</code> gets traced —
+      no source changes. See the
+      <a href="https://github.com/ionut-banu/scope-tracer#readme">README</a>
+      for the library wrapper (<code>TracedScope</code>), capture filters/sampling for
+      production use, and full setup instructions.
+    </p>
+  </section>
+
+  <footer>
+    Apache License 2.0 — free for any use, including commercial.
+    <a href="https://github.com/ionut-banu/scope-tracer">github.com/ionut-banu/scope-tracer</a>
+  </footer>
+</main>
+</body>
+</html>

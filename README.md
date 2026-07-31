@@ -1,6 +1,13 @@
 # scope-tracer
 
+[![CI](https://github.com/ionut-banu/scope-tracer/actions/workflows/ci.yml/badge.svg)](https://github.com/ionut-banu/scope-tracer/actions/workflows/ci.yml)
+[![Maven Central](https://img.shields.io/maven-central/v/com.ionutbanu/scope-tracer-core.svg?label=maven%20central)](https://central.sonatype.com/artifact/com.ionutbanu/scope-tracer-core)
+[![License](https://img.shields.io/github/license/ionut-banu/scope-tracer)](LICENSE)
+
 Visualise Java structured concurrency task trees, lifetimes, and cancellation propagation.
+
+**[View a live example report →](https://ionut-banu.github.io/scope-tracer/example/order-processing-report.html)**
+(no install needed — nested scopes, a cancelled task, and critical-path highlighting)
 
 Wrap your `StructuredTaskScope` code with `TracedScope`, run the program under a JFR
 recording, feed the `.jfr` file to the analyzer, and open the resulting self-contained HTML
