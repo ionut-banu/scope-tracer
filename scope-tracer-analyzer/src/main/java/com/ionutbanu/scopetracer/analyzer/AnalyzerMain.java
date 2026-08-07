@@ -9,7 +9,11 @@ import java.nio.file.Path;
 /**
  * CLI entry point for the scope-tracer analyzer.
  *
- * <p>Usage: {@code analyzer <input.jfr> <output.html>}
+ * <p>Usage: {@code analyzer <input.jfr> <output> [--format=json]}
+ *
+ * <p>By default the output is an HTML report. Passing {@code --format=json} writes the {@link
+ * TraceModelJson} representation instead — intended for external tools (e.g. an IDE plugin) that
+ * want the parsed trace without loading any scope-tracer classes in-process.
  *
  * <p>Exit codes:
  *
@@ -26,6 +30,8 @@ import java.nio.file.Path;
  */
 public final class AnalyzerMain {
 
+  private static final String USAGE = "Usage: analyzer <input.jfr> <output> [--format=json]";
+
   private AnalyzerMain() {}
 
   public static void main(String[] args) {
@@ -38,15 +44,25 @@ public final class AnalyzerMain {
    */
   static int run(String[] args, PrintStream out, PrintStream err) {
     if (args.length == 1 && (args[0].equals("-h") || args[0].equals("--help"))) {
-      out.println("Usage: analyzer <input.jfr> <output.html>");
+      out.println(USAGE);
       return 0;
     }
-    if (args.length != 2) {
-      err.println("Usage: analyzer <input.jfr> <output.html>");
+    if (args.length < 2 || args.length > 3) {
+      err.println(USAGE);
       return 1;
     }
+    boolean jsonFormat;
+    if (args.length == 3) {
+      if (!args[2].equals("--format=json")) {
+        err.println(USAGE);
+        return 1;
+      }
+      jsonFormat = true;
+    } else {
+      jsonFormat = false;
+    }
     var jfr = Path.of(args[0]);
-    var html = Path.of(args[1]);
+    var output = Path.of(args[1]);
 
     if (!Files.exists(jfr)) {
       err.println("analyzer: input.jfr not found: " + jfr);
@@ -55,8 +71,9 @@ public final class AnalyzerMain {
 
     try {
       var model = JfrParser.parse(jfr);
-      Files.writeString(html, HtmlRenderer.render(model));
-      out.println("Report written to " + html.toAbsolutePath());
+      var content = jsonFormat ? TraceModelJson.toJson(model) : HtmlRenderer.render(model);
+      Files.writeString(output, content);
+      out.println("Report written to " + output.toAbsolutePath());
       return 0;
     } catch (NoSuchFileException e) {
       err.println("analyzer: file not found: " + e.getFile());

@@ -6,3 +6,9 @@ target/
 *.log
 .vscode/settings.json
 .claude/settings.local.json
+
+# scope-tracer-plugin (Gradle, not part of the Maven reactor)
+scope-tracer-plugin/.gradle/
+scope-tracer-plugin/.intellijPlatform/
+scope-tracer-plugin/**/build/
+scope-tracer-plugin/src/main/resources/analyzer/*.jar

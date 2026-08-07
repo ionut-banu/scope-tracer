@@ -82,6 +82,17 @@ java --enable-preview \
 The `-executable` jar is a self-contained fat-jar produced by `mvn package`. It bundles
 all runtime dependencies so no classpath assembly is needed.
 
+Pass `--format=json` as a third argument to write the parsed trace as JSON instead of an
+HTML report (schema documented in `TraceModelJson`'s Javadoc) — intended for external
+tools, such as an IDE plugin, that want the parsed trace without loading any scope-tracer
+classes in-process:
+
+```bash
+java --enable-preview \
+     -jar scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}-executable.jar \
+     myapp.jfr trace.json --format=json
+```
+
 Or use the programmatic API:
 
 ```java

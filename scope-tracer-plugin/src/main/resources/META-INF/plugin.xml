@@ -1,0 +1,27 @@
+<idea-plugin>
+  <id>com.ionutbanu.scopetracer.plugin</id>
+  <name>Scope Tracer</name>
+  <vendor email="ionutba@protonmail.com" url="https://github.com/ionut-banu/scope-tracer">Ionut Banu</vendor>
+
+  <description><![CDATA[
+    Opens .jfr recordings produced by <a href="https://github.com/ionut-banu/scope-tracer">scope-tracer</a>
+    and renders java.util.concurrent.StructuredTaskScope task trees in a native tool window.
+  ]]></description>
+
+  <depends>com.intellij.modules.platform</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <toolWindow id="Scope Tracer" anchor="bottom"
+                factoryClass="com.ionutbanu.scopetracer.plugin.ScopeTracerToolWindowFactory"/>
+    <notificationGroup id="Scope Tracer" displayType="BALLOON"/>
+  </extensions>
+
+  <actions>
+    <action id="ScopeTracer.OpenTraceReport"
+            class="com.ionutbanu.scopetracer.plugin.OpenTraceReportAction"
+            text="Open .jfr Recording (Scope Tracer)..."
+            description="Analyze a scope-tracer JFR recording">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+    </action>
+  </actions>
+</idea-plugin>
