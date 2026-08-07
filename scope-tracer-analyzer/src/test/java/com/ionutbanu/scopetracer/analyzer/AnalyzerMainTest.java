@@ -2,10 +2,12 @@ package com.ionutbanu.scopetracer.analyzer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ionutbanu.scopetracer.core.TracedScope;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import jdk.jfr.Recording;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -56,6 +58,51 @@ class AnalyzerMainTest {
     int code = AnalyzerMain.run(new String[] {"--help"}, new PrintStream(out), nullStream());
     assertThat(code).isZero();
     assertThat(out.toString()).contains("Usage:");
+  }
+
+  @Test
+  void invalidFormatFlagExitsOne() throws Exception {
+    var jfr = tempDir.resolve("unused.jfr");
+    Files.writeString(jfr, "placeholder");
+    var output = tempDir.resolve("out.txt");
+    var err = new ByteArrayOutputStream();
+    int code =
+        AnalyzerMain.run(
+            new String[] {jfr.toString(), output.toString(), "--format=xml"},
+            nullStream(),
+            new PrintStream(err));
+    assertThat(code).isEqualTo(1);
+    assertThat(err.toString()).contains("Usage:");
+  }
+
+  @Test
+  void jsonFormatWritesTraceModelJson() throws Exception {
+    var jfr = tempDir.resolve("trace.jfr");
+    try (var recording = new Recording()) {
+      recording.enable("com.ionutbanu.scopetracer.*");
+      recording.start();
+      try (var scope = TracedScope.open("json-format-test", Thread.ofPlatform().factory())) {
+        scope.fork(() -> "result");
+        scope.join();
+      } finally {
+        recording.stop();
+      }
+      recording.dump(jfr);
+    }
+
+    var output = tempDir.resolve("out.json");
+    var out = new ByteArrayOutputStream();
+    int code =
+        AnalyzerMain.run(
+            new String[] {jfr.toString(), output.toString(), "--format=json"},
+            new PrintStream(out),
+            nullStream());
+
+    assertThat(code).isZero();
+    assertThat(out.toString()).contains("Report written to");
+    var json = Files.readString(output);
+    assertThat(json).startsWith("{\"scopes\":[");
+    assertThat(json).contains("\"json-format-test\"");
   }
 
   private static PrintStream nullStream() {
