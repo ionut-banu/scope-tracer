@@ -60,12 +60,23 @@ final class ScopeTracerPanel extends JPanel {
     }
     var jfrPath = Path.of(file.getPath());
 
+    // Resolved on the EDT (this method is only ever invoked from EDT event handlers) because
+    // it may pop a modal input dialog; Task.Backgroundable.run() executes on a pooled
+    // background thread, where showing UI throws "Access is allowed from EDT only".
+    Path javaPath;
+    try {
+      javaPath = AnalyzerJdkSettings.resolveJavaPath();
+    } catch (IllegalStateException e) {
+      showError(e);
+      return;
+    }
+    var resolvedJavaPath = javaPath;
+
     new Task.Backgroundable(project, "Analyzing scope-tracer recording", true) {
       @Override
       public void run(@NotNull ProgressIndicator indicator) {
         try {
-          var javaPath = AnalyzerJdkSettings.resolveJavaPath();
-          var model = AnalyzerProcessRunner.analyze(jfrPath, javaPath);
+          var model = AnalyzerProcessRunner.analyze(jfrPath, resolvedJavaPath);
           SwingUtilities.invokeLater(() -> populate(model));
         } catch (Exception e) {
           SwingUtilities.invokeLater(() -> showError(e));
