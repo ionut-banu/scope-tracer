@@ -5,6 +5,12 @@ import java.util.regex.Pattern;
 /**
  * Parses the {@code SimpleClassName[#methodName[:line]]} label convention shared by
  * scope-tracer-core's and scope-tracer-agent's {@code TaskNameDeriver}/{@code ScopeNameDeriver}.
+ *
+ * <p>Recordings produced after structured call-site capture was added carry a real {@link
+ * CallSite} directly on {@link PluginTaskRecord#callSite()} — prefer {@link
+ * #forTask(PluginTaskRecord)}, which uses that when present. {@link #parse(String)} remains the
+ * fallback for older recordings, where an explicitly-named fork's call site is unrecoverable from
+ * {@code taskName} alone (see the lowercase-rejection rule below).
  */
 public final class CallSiteParser {
 
@@ -12,6 +18,20 @@ public final class CallSiteParser {
       Pattern.compile("([A-Za-z_$][A-Za-z0-9_$]*)(?:#([A-Za-z_$][A-Za-z0-9_$]*))?(?::(\\d+))?");
 
   private CallSiteParser() {}
+
+  /**
+   * Resolves the navigable {@link CallSite} for {@code task}: the structured {@link
+   * PluginTaskRecord#callSite()} when present, otherwise a best-effort fallback that parses {@link
+   * PluginTaskRecord#taskName()} via {@link #parse(String)}.
+   *
+   * @return the resolved {@link CallSite}, or {@code null} if neither source yields one.
+   */
+  public static CallSite forTask(PluginTaskRecord task) {
+    if (task.callSite() != null) {
+      return task.callSite();
+    }
+    return parse(task.taskName());
+  }
 
   /** Returns the parsed {@link CallSite}, or {@code null} if {@code raw} doesn't match. */
   public static CallSite parse(String raw) {
