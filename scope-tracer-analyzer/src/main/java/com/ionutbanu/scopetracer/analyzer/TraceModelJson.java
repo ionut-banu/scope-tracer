@@ -1,5 +1,6 @@
 package com.ionutbanu.scopetracer.analyzer;
 
+import com.ionutbanu.scopetracer.analyzer.model.CallSite;
 import com.ionutbanu.scopetracer.analyzer.model.ScopeRecord;
 import com.ionutbanu.scopetracer.analyzer.model.TaskOutcome;
 import com.ionutbanu.scopetracer.analyzer.model.TaskRecord;
@@ -29,7 +30,8 @@ import java.time.Instant;
  *           "forkTime": "...", "completionTime": "..." | null,
  *           "outcome": { "type": "success" | "failed" | "cancelled" | null,
  *                         "exceptionType": "...", "exceptionMessage": "...",
- *                         "stackTrace": "..." }
+ *                         "stackTrace": "..." },
+ *           "callSite": { "className": "...", "methodName": "..." | null, "line": 42 | null } | null
  *         }
  *       ]
  *     }
@@ -109,6 +111,23 @@ public final class TraceModelJson {
     sb.append(',');
     sb.append("\"outcome\":");
     writeOutcome(sb, task.outcome());
+    sb.append(',');
+    sb.append("\"callSite\":");
+    writeCallSite(sb, task.callSite());
+    sb.append('}');
+  }
+
+  private static void writeCallSite(StringBuilder sb, CallSite callSite) {
+    if (callSite == null) {
+      sb.append("null");
+      return;
+    }
+    sb.append('{');
+    field(sb, "className", callSite.className());
+    sb.append(',');
+    field(sb, "methodName", callSite.methodName());
+    sb.append(',');
+    sb.append("\"line\":").append(callSite.line() == null ? "null" : callSite.line());
     sb.append('}');
   }
 

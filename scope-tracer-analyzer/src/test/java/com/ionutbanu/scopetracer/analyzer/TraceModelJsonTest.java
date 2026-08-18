@@ -2,6 +2,7 @@ package com.ionutbanu.scopetracer.analyzer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ionutbanu.scopetracer.analyzer.model.CallSite;
 import com.ionutbanu.scopetracer.analyzer.model.ScopeRecord;
 import com.ionutbanu.scopetracer.analyzer.model.TaskOutcome;
 import com.ionutbanu.scopetracer.analyzer.model.TaskRecord;
@@ -50,6 +51,27 @@ class TraceModelJsonTest {
     assertThat(json).contains("\"outcome\":null");
     assertThat(json).contains("\"closeTime\":null");
     assertThat(json).contains("\"parent\":null");
+    assertThat(json).contains("\"callSite\":null");
+  }
+
+  @Test
+  void callSiteSerialisedWhenPresent() {
+    var tasks =
+        List.of(
+            new TaskRecord(
+                1,
+                "findUser",
+                "worker",
+                -1L,
+                T1,
+                T2,
+                new TaskOutcome.Success(),
+                new CallSite("OrderService", "checkout", 42)));
+    var scope = new ScopeRecord(1L, "scope", "main", -1L, T0, T2, tasks, null);
+    var json = TraceModelJson.toJson(new TraceModel(List.of(scope)));
+    assertThat(json).contains("\"callSite\":{\"className\":\"OrderService\"");
+    assertThat(json).contains("\"methodName\":\"checkout\"");
+    assertThat(json).contains("\"line\":42");
   }
 
   @Test
