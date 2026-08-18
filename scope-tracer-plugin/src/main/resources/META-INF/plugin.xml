@@ -9,6 +9,8 @@
   ]]></description>
 
   <depends>com.intellij.modules.platform</depends>
+  <!-- Java PSI (PsiClass, PsiShortNamesCache) for click-to-source navigation. -->
+  <depends>com.intellij.modules.java</depends>
 
   <extensions defaultExtensionNs="com.intellij">
     <toolWindow id="Scope Tracer" anchor="bottom"
