@@ -29,6 +29,8 @@ dependencies {
   // listener, which requires a running platform sandbox.
   intellijPlatform {
     intellijIdea(platformVersion)
+    // Java PSI (PsiClass, PsiShortNamesCache) for click-to-source navigation.
+    bundledPlugin("com.intellij.java")
     pluginVerifier()
   }
 }

@@ -2,6 +2,7 @@ package com.ionutbanu.scopetracer.plugin;
 
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileChooser.FileChooser;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.progress.ProgressIndicator;
@@ -9,14 +10,19 @@ import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.table.JBTable;
+import com.ionutbanu.scopetracer.plugin.model.CallSiteParser;
 import com.ionutbanu.scopetracer.plugin.model.PluginScopeRecord;
 import com.ionutbanu.scopetracer.plugin.model.PluginTaskOutcome;
 import com.ionutbanu.scopetracer.plugin.model.PluginTaskRecord;
 import com.ionutbanu.scopetracer.plugin.model.PluginTraceModel;
 import java.awt.BorderLayout;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
@@ -26,6 +32,8 @@ import org.jetbrains.annotations.NotNull;
 
 /** Flat task table for a parsed trace: one row per scope header, indented rows per task. */
 final class ScopeTracerPanel extends JPanel {
+
+  private static final Logger LOG = Logger.getInstance(ScopeTracerPanel.class);
 
   private final Project project;
   private final DefaultTableModel tableModel =
@@ -38,6 +46,11 @@ final class ScopeTracerPanel extends JPanel {
       };
   private final JBTable table = new JBTable(tableModel);
 
+  // Parallel to tableModel's rows: the raw scope/task name behind each row, used for
+  // click-to-source navigation. Explicit scope names (e.g. "order-processing-ORD-001") and
+  // unlabeled tasks won't parse as a call site, so double-click on those rows is a no-op.
+  private final List<String> rowRawNames = new ArrayList<>();
+
   ScopeTracerPanel(Project project) {
     super(new BorderLayout());
     this.project = project;
@@ -47,6 +60,28 @@ final class ScopeTracerPanel extends JPanel {
     var openButton = new JButton("Open .jfr…");
     openButton.addActionListener(e -> openAndAnalyze());
     toolbar.add(openButton);
+
+    table.addMouseListener(
+        new MouseAdapter() {
+          @Override
+          public void mouseClicked(MouseEvent e) {
+            if (e.getClickCount() != 2) {
+              return;
+            }
+            var row = table.rowAtPoint(e.getPoint());
+            if (row < 0 || row >= rowRawNames.size()) {
+              LOG.info("Scope Tracer: double-click at row " + row + " — out of range, ignoring");
+              return;
+            }
+            var rawName = rowRawNames.get(row);
+            var callSite = CallSiteParser.parse(rawName);
+            LOG.info(
+                "Scope Tracer: double-click row " + row + " rawName=" + rawName + " -> " + callSite);
+            if (callSite != null) {
+              TaskSourceNavigator.navigate(project, table, callSite);
+            }
+          }
+        });
 
     add(toolbar, BorderLayout.NORTH);
     add(new JBScrollPane(table), BorderLayout.CENTER);
@@ -87,8 +122,10 @@ final class ScopeTracerPanel extends JPanel {
 
   private void populate(PluginTraceModel model) {
     tableModel.setRowCount(0);
+    rowRawNames.clear();
     for (PluginScopeRecord scope : model.scopes()) {
       tableModel.addRow(new Object[] {scope.name(), scope.ownerThreadName(), "", "", ""});
+      rowRawNames.add(scope.name());
       for (PluginTaskRecord task : scope.tasks()) {
         tableModel.addRow(
             new Object[] {
@@ -98,6 +135,7 @@ final class ScopeTracerPanel extends JPanel {
               formatDuration(task.forkTime(), task.completionTime()),
               formatOutcome(task.outcome())
             });
+        rowRawNames.add(task.taskName());
       }
     }
   }
