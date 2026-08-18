@@ -105,7 +105,7 @@ final class TaskNameDeriver {
     return new CallSiteInfo(simple, method, f.getLineNumber());
   }
 
-  private static String format(CallSiteInfo info) {
+  static String format(CallSiteInfo info) {
     if (info == null) return null;
     if (info.methodName() == null) return info.className();
     return info.line() > 0
