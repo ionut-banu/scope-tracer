@@ -9,4 +9,5 @@ public record PluginTaskRecord(
     long threadId,
     Instant forkTime,
     Instant completionTime,
-    PluginTaskOutcome outcome) {}
+    PluginTaskOutcome outcome,
+    CallSite callSite) {}
