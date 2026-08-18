@@ -585,6 +585,77 @@ class TracedScopeTest {
     assertThat(forked.get(0).getString("taskName")).isNull();
   }
 
+  /**
+   * The whole point of this feature: an explicitly-named fork still gets its call site captured,
+   * independently of the label. Before this change, callSite* fields didn't exist at all.
+   */
+  @Test
+  void forkWithExplicitNameStillCapturesCallSite() throws Exception {
+    var scopeName = "explicit-name-callsite";
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+                scope.fork("findUser", () -> "u");
+                scope.join();
+              }
+            });
+
+    var forked = eventsOfType(events, "com.ionutbanu.scopetracer.TaskForked");
+    assertThat(forked).hasSize(1);
+    var event = forked.get(0);
+    assertThat(event.getString("taskName")).isEqualTo("findUser");
+    assertThat(event.getString("callSiteClassName")).isEqualTo("TracedScopeTest");
+    assertThat(event.getString("callSiteMethodName"))
+        .isEqualTo("forkWithExplicitNameStillCapturesCallSite");
+    assertThat(event.getInt("callSiteLine")).isPositive();
+  }
+
+  /** Auto-derived forks populate the same callSite* fields as the explicit-name path. */
+  @Test
+  void forkWithLambdaAlsoCapturesCallSite() throws Exception {
+    var scopeName = "lambda-callsite";
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+                scope.fork(() -> "v");
+                scope.join();
+              }
+            });
+
+    var forked = eventsOfType(events, "com.ionutbanu.scopetracer.TaskForked");
+    assertThat(forked).hasSize(1);
+    var event = forked.get(0);
+    assertThat(event.getString("callSiteClassName")).isEqualTo("TracedScopeTest");
+    assertThat(event.getString("callSiteMethodName")).isEqualTo("forkWithLambdaAlsoCapturesCallSite");
+    assertThat(event.getInt("callSiteLine")).isPositive();
+  }
+
+  /** The named-Callable-class tier has no single enclosing method or line. */
+  @Test
+  void forkWithCallableClassHasNoCallSiteMethodOrLine() throws Exception {
+    var scopeName = "callable-class-callsite";
+    var events =
+        capture(
+            scopeName,
+            () -> {
+              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+                scope.fork(new NamedTask());
+                scope.join();
+              }
+            });
+
+    var forked = eventsOfType(events, "com.ionutbanu.scopetracer.TaskForked");
+    assertThat(forked).hasSize(1);
+    var event = forked.get(0);
+    assertThat(event.getString("callSiteClassName")).isEqualTo("NamedTask");
+    assertThat(event.getString("callSiteMethodName")).isNull();
+    assertThat(event.getInt("callSiteLine")).isZero();
+  }
+
   /** Non-lambda Callable used as test fixture for the class-name derivation tier. */
   private static final class NamedTask implements java.util.concurrent.Callable<String> {
     @Override

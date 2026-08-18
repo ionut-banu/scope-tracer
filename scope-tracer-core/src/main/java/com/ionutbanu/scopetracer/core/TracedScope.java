@@ -225,7 +225,8 @@ public final class TracedScope<R> implements AutoCloseable {
    * @return a {@link Subtask} handle whose value is observable after {@link #join()}.
    */
   public <T> Subtask<T> fork(Callable<? extends T> task) {
-    return fork(TaskNameDeriver.derive(task), task);
+    var callSite = TaskNameDeriver.deriveCallSite(task);
+    return doFork(TaskNameDeriver.format(callSite), task, callSite);
   }
 
   /**
@@ -235,6 +236,10 @@ public final class TracedScope<R> implements AutoCloseable {
    * overload when the auto-derived label from {@link #fork(Callable)} (the lambda's enclosing
    * method name, e.g. {@code OrderService#checkout}) is less informative than the operation name
    * the task represents (e.g. {@code "findUser"}).
+   *
+   * <p>The fork's source location (class, enclosing method, and line) is captured independently of
+   * this label and is unaffected by it — tooling such as the IntelliJ plugin's click-to-source
+   * navigation uses it directly, so supplying an explicit label never loses navigability.
    *
    * <pre>{@code
    * try (var scope = TracedScope.open("checkout")) {
@@ -251,6 +256,11 @@ public final class TracedScope<R> implements AutoCloseable {
    * @return a {@link Subtask} handle whose value is observable after {@link #join()}.
    */
   public <T> Subtask<T> fork(String taskName, Callable<? extends T> task) {
+    return doFork(taskName, task, TaskNameDeriver.deriveCallSite(task));
+  }
+
+  private <T> Subtask<T> doFork(
+      String taskName, Callable<? extends T> task, TaskNameDeriver.CallSiteInfo callSite) {
     long id = taskIdCounter.incrementAndGet();
 
     var forked = new TaskForkedEvent();
@@ -259,6 +269,11 @@ public final class TracedScope<R> implements AutoCloseable {
     forked.taskId = id;
     forked.taskName = taskName;
     forked.threadName = Thread.currentThread().getName();
+    if (callSite != null) {
+      forked.callSiteClassName = callSite.className();
+      forked.callSiteMethodName = callSite.methodName();
+      forked.callSiteLine = callSite.line();
+    }
     forked.commit();
 
     return scope.fork(
