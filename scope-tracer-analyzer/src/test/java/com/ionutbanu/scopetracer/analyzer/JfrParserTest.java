@@ -607,4 +607,52 @@ class JfrParserTest {
     // Caller-frame fallback for lambdas — must reference this test class.
     assertThat(task.taskName()).startsWith("JfrParserTest#");
   }
+
+  // --- callSite round-trip ---
+
+  /**
+   * The fix this feature delivers: call-site data is captured even when an explicit label is
+   * supplied to {@link TracedScope#fork(String, java.util.concurrent.Callable)}.
+   */
+  @Test
+  void explicitlyNamedForkStillCapturesCallSite() throws Exception {
+    var model =
+        capture(
+            "explicit-name-callsite",
+            () -> {
+              try (var scope =
+                  TracedScope.open("explicit-name-callsite", Thread.ofPlatform().factory())) {
+                scope.fork("findUser", () -> 1);
+                scope.join();
+              }
+            });
+
+    var task = model.scopes().get(0).tasks().get(0);
+    assertThat(task.taskName()).isEqualTo("findUser");
+    assertThat(task.callSite()).isNotNull();
+    assertThat(task.callSite().className()).isEqualTo("JfrParserTest");
+    assertThat(task.callSite().methodName()).isEqualTo("explicitlyNamedForkStillCapturesCallSite");
+    assertThat(task.callSite().line()).isPositive();
+  }
+
+  /** Auto-derived forks also populate {@code callSite}. */
+  @Test
+  void autoDerivedForkCapturesCallSite() throws Exception {
+    var model =
+        capture(
+            "auto-derived-callsite",
+            () -> {
+              try (var scope =
+                  TracedScope.open("auto-derived-callsite", Thread.ofPlatform().factory())) {
+                scope.fork(() -> 1);
+                scope.join();
+              }
+            });
+
+    var task = model.scopes().get(0).tasks().get(0);
+    assertThat(task.callSite()).isNotNull();
+    assertThat(task.callSite().className()).isEqualTo("JfrParserTest");
+    assertThat(task.callSite().methodName()).isEqualTo("autoDerivedForkCapturesCallSite");
+    assertThat(task.callSite().line()).isPositive();
+  }
 }
