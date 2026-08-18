@@ -630,7 +630,8 @@ class TracedScopeTest {
     assertThat(forked).hasSize(1);
     var event = forked.get(0);
     assertThat(event.getString("callSiteClassName")).isEqualTo("TracedScopeTest");
-    assertThat(event.getString("callSiteMethodName")).isEqualTo("forkWithLambdaAlsoCapturesCallSite");
+    assertThat(event.getString("callSiteMethodName"))
+        .isEqualTo("forkWithLambdaAlsoCapturesCallSite");
     assertThat(event.getInt("callSiteLine")).isPositive();
   }
 
