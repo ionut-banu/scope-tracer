@@ -49,6 +49,50 @@ class TraceModelJsonParserTest {
   }
 
   @Test
+  void parsesCallSiteWhenPresent() {
+    var json =
+        """
+        {"scopes":[
+          {"scopeId":1,"name":"checkout","ownerThreadName":"main","ownerThreadId":1,
+           "openTime":"2026-01-01T00:00:00Z","closeTime":"2026-01-01T00:00:01Z","parent":null,
+           "tasks":[
+             {"taskId":1,"taskName":"findUser","threadName":"vt-1","threadId":10,
+              "forkTime":"2026-01-01T00:00:00.100Z","completionTime":"2026-01-01T00:00:00.300Z",
+              "outcome":{"type":"success"},
+              "callSite":{"className":"OrderService","methodName":"checkout","line":42}}
+           ]}
+        ]}
+        """;
+
+    var model = TraceModelJsonParser.parse(json);
+
+    var task = model.scopes().get(0).tasks().get(0);
+    assertThat(task.callSite()).isEqualTo(new CallSite("OrderService", "checkout", 42));
+  }
+
+  @Test
+  void treatsMissingCallSiteKeyAsNull() {
+    // Recordings/JSON produced before the callSite field existed: the key is entirely absent.
+    var json =
+        """
+        {"scopes":[
+          {"scopeId":1,"name":"checkout","ownerThreadName":"main","ownerThreadId":1,
+           "openTime":"2026-01-01T00:00:00Z","closeTime":"2026-01-01T00:00:01Z","parent":null,
+           "tasks":[
+             {"taskId":1,"taskName":"findUser","threadName":"vt-1","threadId":10,
+              "forkTime":"2026-01-01T00:00:00.100Z","completionTime":"2026-01-01T00:00:00.300Z",
+              "outcome":{"type":"success"}}
+           ]}
+        ]}
+        """;
+
+    var model = TraceModelJsonParser.parse(json);
+
+    var task = model.scopes().get(0).tasks().get(0);
+    assertThat(task.callSite()).isNull();
+  }
+
+  @Test
   void parsesNestedScopeWithParentRef() {
     var json =
         """

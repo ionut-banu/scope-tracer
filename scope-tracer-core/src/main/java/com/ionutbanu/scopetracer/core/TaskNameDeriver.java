@@ -33,9 +33,24 @@ final class TaskNameDeriver {
    * returned.
    */
   static String derive(Callable<?> task) {
+    return format(deriveCallSite(task));
+  }
+
+  /**
+   * Derives the structured call-site components for {@code task}: the class name (always present
+   * when derivation succeeds), the enclosing method name (present only for the caller-frame tier),
+   * and the source line ({@code 0} when unknown). Returns {@code null} under the same conditions as
+   * {@link #derive(Callable)} — never throws.
+   *
+   * <p>Used both to build {@link #derive(Callable)}'s formatted label and, independently, by {@link
+   * TracedScope#fork(String, Callable)} to stamp {@code TaskForkedEvent}'s {@code callSite*} fields
+   * even when the caller supplied an explicit label — so an explicitly-named fork's source location
+   * is never lost.
+   */
+  static CallSiteInfo deriveCallSite(Callable<?> task) {
     try {
       String fromClass = fromClass(task);
-      if (fromClass != null) return fromClass;
+      if (fromClass != null) return new CallSiteInfo(fromClass, null, 0);
       return fromCallerFrame();
     } catch (RuntimeException e) {
       return null;
@@ -54,7 +69,7 @@ final class TaskNameDeriver {
     return simple;
   }
 
-  private static String fromCallerFrame() {
+  private static CallSiteInfo fromCallerFrame() {
     return StackWalker.getInstance()
         .walk(
             frames ->
@@ -71,11 +86,11 @@ final class TaskNameDeriver {
                               && !cls.startsWith("java.util.concurrent.StructuredTaskScope");
                         })
                     .findFirst()
-                    .map(TaskNameDeriver::format)
+                    .map(TaskNameDeriver::toCallSiteInfo)
                     .orElse(null));
   }
 
-  private static String format(StackWalker.StackFrame f) {
+  private static CallSiteInfo toCallSiteInfo(StackWalker.StackFrame f) {
     String cls = f.getClassName();
     int dot = cls.lastIndexOf('.');
     String simple = dot >= 0 ? cls.substring(dot + 1) : cls;
@@ -87,7 +102,26 @@ final class TaskNameDeriver {
       int lastDollar = inner.lastIndexOf('$');
       method = lastDollar > 0 ? inner.substring(0, lastDollar) : inner;
     }
-    int line = f.getLineNumber();
-    return line > 0 ? simple + "#" + method + ":" + line : simple + "#" + method;
+    return new CallSiteInfo(simple, method, f.getLineNumber());
   }
+
+  static String format(CallSiteInfo info) {
+    if (info == null) return null;
+    if (info.methodName() == null) return info.className();
+    return info.line() > 0
+        ? info.className() + "#" + info.methodName() + ":" + info.line()
+        : info.className() + "#" + info.methodName();
+  }
+
+  /**
+   * Structured call-site components, as an alternative to {@link #derive(Callable)}'s pre-formatted
+   * string.
+   *
+   * @param className always present when derivation succeeds.
+   * @param methodName present only when derived from a caller stack frame (lambda/method
+   *     reference); {@code null} for a named {@code Callable} class.
+   * @param line source line of the caller frame; {@code 0} when unknown or not applicable (the
+   *     named-class tier never has a line).
+   */
+  record CallSiteInfo(String className, String methodName, int line) {}
 }

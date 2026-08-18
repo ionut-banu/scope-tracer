@@ -1,5 +1,6 @@
 package com.ionutbanu.scopetracer.analyzer;
 
+import com.ionutbanu.scopetracer.analyzer.model.CallSite;
 import com.ionutbanu.scopetracer.analyzer.model.ScopeRecord;
 import com.ionutbanu.scopetracer.analyzer.model.TaskOutcome;
 import com.ionutbanu.scopetracer.analyzer.model.TaskRecord;
@@ -117,9 +118,10 @@ public final class JfrParser {
             if (scopeOpens.containsKey(scopeId)) {
               // taskName was added later — older recordings won't have it. hasField is required.
               String taskName = event.hasField("taskName") ? event.getString("taskName") : null;
+              CallSite callSite = readCallSite(event);
               forks
                   .computeIfAbsent(scopeId, k -> new HashMap<>())
-                  .put(taskId, new ForkData(time, threadName, taskName));
+                  .put(taskId, new ForkData(time, threadName, taskName, callSite));
             }
             // else: fork before open should not occur in practice; silently drop.
           }
@@ -197,7 +199,8 @@ public final class JfrParser {
                 completion != null ? completion.executingThreadId() : -1L,
                 fork.forkTime(),
                 completion != null ? completion.completionTime() : null,
-                completion != null ? completion.outcome() : null));
+                completion != null ? completion.outcome() : null,
+                fork.callSite()));
       }
       tasks.sort(Comparator.comparing(TaskRecord::forkTime));
 
@@ -230,6 +233,25 @@ public final class JfrParser {
     }
 
     return new TraceModel(List.copyOf(scopes));
+  }
+
+  /**
+   * Reads the {@code callSite*} fields from a {@code TASK_FORKED} event into a {@link CallSite}, or
+   * {@code null} when no class name was derived at emission time or the recording predates these
+   * fields.
+   */
+  private static CallSite readCallSite(jdk.jfr.consumer.RecordedEvent event) {
+    if (!event.hasField("callSiteClassName")) return null;
+    String className = event.getString("callSiteClassName");
+    if (className == null) return null;
+    String methodName =
+        event.hasField("callSiteMethodName") ? event.getString("callSiteMethodName") : null;
+    Integer line = null;
+    if (event.hasField("callSiteLine")) {
+      int rawLine = event.getInt("callSiteLine");
+      if (rawLine > 0) line = rawLine;
+    }
+    return new CallSite(className, methodName, line);
   }
 
   /**
@@ -310,7 +332,8 @@ public final class JfrParser {
     return parentRefs;
   }
 
-  private record ForkData(Instant forkTime, String threadName, String taskName) {}
+  private record ForkData(
+      Instant forkTime, String threadName, String taskName, CallSite callSite) {}
 
   private record CompletionData(
       Instant completionTime, TaskOutcome outcome, String threadName, long executingThreadId) {}

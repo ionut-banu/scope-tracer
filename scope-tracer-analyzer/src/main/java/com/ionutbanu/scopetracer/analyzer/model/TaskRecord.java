@@ -15,6 +15,8 @@ import java.time.Instant;
  * @param forkTime when the task was submitted via {@code TracedScope.fork()}.
  * @param completionTime when the task terminated; {@code null} for truncated recordings.
  * @param outcome terminal outcome; {@code null} for truncated recordings.
+ * @param callSite the fork's source location, captured independently of {@code taskName}; {@code
+ *     null} when derivation failed or the recording predates this field.
  */
 public record TaskRecord(
     long taskId,
@@ -23,4 +25,22 @@ public record TaskRecord(
     long threadId,
     Instant forkTime,
     Instant completionTime,
-    TaskOutcome outcome) {}
+    TaskOutcome outcome,
+    CallSite callSite) {
+
+  /**
+   * Convenience constructor for callers that don't have call-site data (e.g. tests exercising the
+   * rendering pipeline, which never reads {@link #callSite()}). Defaults {@code callSite} to {@code
+   * null}.
+   */
+  public TaskRecord(
+      long taskId,
+      String taskName,
+      String threadName,
+      long threadId,
+      Instant forkTime,
+      Instant completionTime,
+      TaskOutcome outcome) {
+    this(taskId, taskName, threadName, threadId, forkTime, completionTime, outcome, null);
+  }
+}

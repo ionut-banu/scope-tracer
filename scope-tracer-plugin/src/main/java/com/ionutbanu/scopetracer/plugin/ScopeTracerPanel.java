@@ -10,6 +10,7 @@ import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.table.JBTable;
+import com.ionutbanu.scopetracer.plugin.model.CallSite;
 import com.ionutbanu.scopetracer.plugin.model.CallSiteParser;
 import com.ionutbanu.scopetracer.plugin.model.PluginScopeRecord;
 import com.ionutbanu.scopetracer.plugin.model.PluginTaskOutcome;
@@ -46,10 +47,12 @@ final class ScopeTracerPanel extends JPanel {
       };
   private final JBTable table = new JBTable(tableModel);
 
-  // Parallel to tableModel's rows: the raw scope/task name behind each row, used for
-  // click-to-source navigation. Explicit scope names (e.g. "order-processing-ORD-001") and
-  // unlabeled tasks won't parse as a call site, so double-click on those rows is a no-op.
-  private final List<String> rowRawNames = new ArrayList<>();
+  // Parallel to tableModel's rows: the resolved CallSite (or null) behind each row, used for
+  // click-to-source navigation. Scope header rows are always null — core never derives
+  // scope-level call sites, since TracedScope.open(String) always takes a literal name. Task rows
+  // resolve via CallSiteParser.forTask, which prefers the structured call site captured at fork
+  // time and falls back to parsing the legacy taskName convention for older recordings.
+  private final List<CallSite> rowCallSites = new ArrayList<>();
 
   ScopeTracerPanel(Project project) {
     super(new BorderLayout());
@@ -69,14 +72,12 @@ final class ScopeTracerPanel extends JPanel {
               return;
             }
             var row = table.rowAtPoint(e.getPoint());
-            if (row < 0 || row >= rowRawNames.size()) {
+            if (row < 0 || row >= rowCallSites.size()) {
               LOG.info("Scope Tracer: double-click at row " + row + " — out of range, ignoring");
               return;
             }
-            var rawName = rowRawNames.get(row);
-            var callSite = CallSiteParser.parse(rawName);
-            LOG.info(
-                "Scope Tracer: double-click row " + row + " rawName=" + rawName + " -> " + callSite);
+            var callSite = rowCallSites.get(row);
+            LOG.info("Scope Tracer: double-click row " + row + " -> " + callSite);
             if (callSite != null) {
               TaskSourceNavigator.navigate(project, table, callSite);
             }
@@ -122,10 +123,10 @@ final class ScopeTracerPanel extends JPanel {
 
   private void populate(PluginTraceModel model) {
     tableModel.setRowCount(0);
-    rowRawNames.clear();
+    rowCallSites.clear();
     for (PluginScopeRecord scope : model.scopes()) {
       tableModel.addRow(new Object[] {scope.name(), scope.ownerThreadName(), "", "", ""});
-      rowRawNames.add(scope.name());
+      rowCallSites.add(null);
       for (PluginTaskRecord task : scope.tasks()) {
         tableModel.addRow(
             new Object[] {
@@ -135,7 +136,7 @@ final class ScopeTracerPanel extends JPanel {
               formatDuration(task.forkTime(), task.completionTime()),
               formatOutcome(task.outcome())
             });
-        rowRawNames.add(task.taskName());
+        rowCallSites.add(CallSiteParser.forTask(task));
       }
     }
   }
