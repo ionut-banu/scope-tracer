@@ -28,6 +28,23 @@ class TaskNameDeriverTest {
     assertThat(name).startsWith("TaskNameDeriverTest#");
   }
 
+  @Test
+  void deriveCallSiteForRealClassHasNoMethodOrLine() {
+    var info = TaskNameDeriver.deriveCallSite(new MyTask());
+    assertThat(info.className()).isEqualTo("MyTask");
+    assertThat(info.methodName()).isNull();
+    assertThat(info.line()).isZero();
+  }
+
+  @Test
+  void deriveCallSiteForLambdaCapturesCallerFrame() {
+    Callable<String> lambda = () -> "v";
+    var info = TaskNameDeriver.deriveCallSite(lambda);
+    assertThat(info.className()).isEqualTo("TaskNameDeriverTest");
+    assertThat(info.methodName()).isEqualTo("deriveCallSiteForLambdaCapturesCallerFrame");
+    assertThat(info.line()).isPositive();
+  }
+
   /** Fixture: a real (non-lambda) Callable used by {@link #realClassReturnsSimpleName()}. */
   private static final class MyTask implements Callable<String> {
     @Override
