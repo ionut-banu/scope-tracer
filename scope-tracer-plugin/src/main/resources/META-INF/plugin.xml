@@ -16,6 +16,7 @@
     <toolWindow id="Scope Tracer" anchor="bottom"
                 factoryClass="com.ionutbanu.scopetracer.plugin.ScopeTracerToolWindowFactory"/>
     <notificationGroup id="Scope Tracer" displayType="BALLOON"/>
+    <java.programPatcher implementation="com.ionutbanu.scopetracer.plugin.ScopeTracerProgramPatcher"/>
   </extensions>
 
   <actions>
@@ -23,6 +24,12 @@
             class="com.ionutbanu.scopetracer.plugin.OpenTraceReportAction"
             text="Open .jfr Recording (Scope Tracer)..."
             description="Analyze a scope-tracer JFR recording">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+    </action>
+    <action id="ScopeTracer.RunWithScopeTracer"
+            class="com.ionutbanu.scopetracer.plugin.RunWithScopeTracerAction"
+            text="Run with Scope Tracer"
+            description="Run the selected Java application with the scope-tracer agent and open the trace when it exits">
       <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>
   </actions>

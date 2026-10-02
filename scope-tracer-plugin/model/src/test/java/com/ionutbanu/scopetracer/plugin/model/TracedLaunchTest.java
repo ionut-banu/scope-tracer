@@ -89,5 +89,7 @@ class TracedLaunchTest {
     assertThat(TracedLaunch.parseJavaMajor("")).isEqualTo(-1);
     assertThat(TracedLaunch.parseJavaMajor(null)).isEqualTo(-1);
     assertThat(TracedLaunch.parseJavaMajor("abc")).isEqualTo(-1);
+    assertThat(TracedLaunch.parseJavaMajor("java version \"26\"")).isEqualTo(26);
+    assertThat(TracedLaunch.parseJavaMajor("openjdk version \"26.0.2\" 2026-07-21")).isEqualTo(26);
   }
 }

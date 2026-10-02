@@ -84,4 +84,26 @@ val copyAnalyzerJar =
       rename { "analyzer.jar" }
     }
 
-tasks.named("processResources") { dependsOn(copyAnalyzerJar) }
+// --- Bundle the agent fat-jar the same way, for "Run with Scope Tracer" ---
+//
+// The agent jar's manifest names itself in Boot-Class-Path as
+// `scope-tracer-agent-<version>-agent.jar`, resolved next to the jar, so the plugin must extract it
+// under exactly that file name. The name is written to a resource beside the jar.
+val copyAgentJar =
+    tasks.register<Copy>("copyAgentJar") {
+      val agentJarName = "scope-tracer-agent-$analyzerVersion-agent.jar"
+      val agentJar = rootDir.resolve("../scope-tracer-agent/target/$agentJarName")
+      val outDir = layout.projectDirectory.dir("src/main/resources/agent")
+      doFirst {
+        if (!agentJar.exists()) {
+          throw GradleException(
+              "Agent jar not found at $agentJar — build it first from the repo root with " +
+                  "`mvn -q -DskipTests package`.")
+        }
+      }
+      from(agentJar)
+      into(outDir)
+      doLast { outDir.file("agent-jar-name.txt").asFile.writeText(agentJarName) }
+    }
+
+tasks.named("processResources") { dependsOn(copyAnalyzerJar, copyAgentJar) }

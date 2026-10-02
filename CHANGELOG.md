@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   click-to-source from a task to its fork call site. It runs the bundled analyzer jar as
   a subprocess on a user-configured JDK 26 and parses its JSON, so it needs no
   preview-API classes in the IDE's JVM. Built from source in this release; see the README.
+- **Run with Scope Tracer.** Tools → "Run with Scope Tracer" runs the selected Java application
+  run configuration with the agent attached and opens the recording in the Scope Tracer tool
+  window when the process exits, so no JVM flags need to be written by hand.
 
 ## [0.2.0] - 2026-05-24
 

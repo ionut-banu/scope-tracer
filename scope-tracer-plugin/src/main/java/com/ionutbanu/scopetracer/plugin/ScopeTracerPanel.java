@@ -106,16 +106,41 @@ final class ScopeTracerPanel extends JPanel {
       showError(e);
       return;
     }
-    var resolvedJavaPath = javaPath;
+    analyzeRecording(jfrPath, javaPath, false);
+  }
 
+  /**
+   * Analyzes {@code jfrPath} off the EDT and shows the result. {@code deleteAfter} removes the
+   * recording once it has been loaded or has failed to load (used for temp recordings made by "Run
+   * with Scope Tracer").
+   */
+  void analyzeRecording(Path jfrPath, Path javaPath, boolean deleteAfter) {
     new Task.Backgroundable(project, "Analyzing scope-tracer recording", true) {
       @Override
       public void run(@NotNull ProgressIndicator indicator) {
         try {
-          var model = AnalyzerProcessRunner.analyze(jfrPath, resolvedJavaPath);
-          SwingUtilities.invokeLater(() -> populate(model));
+          var model = AnalyzerProcessRunner.analyze(jfrPath, javaPath);
+          SwingUtilities.invokeLater(
+              () -> {
+                populate(model);
+                if (model.scopes().isEmpty()) {
+                  ScopeTracerNotifier.notify(
+                      project,
+                      "Scope Tracer",
+                      "The recording contains no StructuredTaskScope activity.",
+                      NotificationType.INFORMATION);
+                }
+              });
         } catch (Exception e) {
           SwingUtilities.invokeLater(() -> showError(e));
+        } finally {
+          if (deleteAfter) {
+            try {
+              java.nio.file.Files.deleteIfExists(jfrPath);
+            } catch (java.io.IOException ignored) {
+              // temp file
+            }
+          }
         }
       }
     }.queue();

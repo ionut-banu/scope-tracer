@@ -3,6 +3,8 @@ package com.ionutbanu.scopetracer.plugin.model;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Decides which JVM arguments to add to a user's run configuration so the scope-tracer agent and
@@ -67,19 +69,21 @@ public final class TracedLaunch {
     return new Plan.Apply(List.copyOf(extra));
   }
 
+  private static final Pattern VERSION = Pattern.compile("(\\d+)(?:\\.(\\d+))?");
+
   /**
-   * Parses the major version out of a {@code java.version}-style string: {@code "26"}, {@code
-   * "26.0.2"}, {@code "26-ea"}, {@code "1.8.0_292"}. Returns {@code -1} when it cannot be read.
+   * Finds the major version in a JDK version string, which may be bare or embedded in text:
+   * {@code "26"}, {@code "26.0.2"}, {@code "27-ea"}, {@code "1.8.0_292"}, {@code "java version
+   * \"26\""}. Returns {@code -1} when there is no number.
    */
   public static int parseJavaMajor(String version) {
     if (version == null) return -1;
-    String v = version.trim();
-    if (v.startsWith("1.")) v = v.substring(2);
-    int end = 0;
-    while (end < v.length() && Character.isDigit(v.charAt(end))) end++;
-    if (end == 0) return -1;
+    Matcher m = VERSION.matcher(version);
+    if (!m.find()) return -1;
     try {
-      return Integer.parseInt(v.substring(0, end));
+      int first = Integer.parseInt(m.group(1));
+      if (first == 1 && m.group(2) != null) return Integer.parseInt(m.group(2));
+      return first;
     } catch (NumberFormatException e) {
       return -1;
     }
