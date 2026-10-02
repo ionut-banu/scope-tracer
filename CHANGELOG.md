@@ -20,6 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   traffic does not consume the sample budget. Glob dialect supports `*`, `**`, `?`
   and is not path-segment aware. Unblocks production deployments at scale where
   unconditional tracing would exhaust JFR per-thread buffers or balloon `.jfr` size.
+- **Analyzer JSON output.** `--format=json` (third CLI argument) writes the parsed trace as
+  JSON instead of an HTML report, for tools that want the model without loading any
+  scope-tracer classes. The IntelliJ plugin is the first consumer.
+- **Fork call sites.** `TaskForked` events carry `callSiteClassName`, `callSiteMethodName`
+  and `callSiteLine`, captured independently of the task label (also when an explicit
+  name is passed to `fork`). The fields are nullable and absent in recordings made before
+  0.3.0; the analyzer's `TaskRecord` and the JSON output expose them as `callSite`.
+- **IntelliJ plugin (first milestone).** `scope-tracer-plugin/` adds Tools → "Open .jfr
+  Recording (Scope Tracer)…", a "Scope Tracer" tool window showing the parsed trace, and
+  click-to-source from a task to its fork call site. It runs the bundled analyzer jar as
+  a subprocess on a user-configured JDK 26 and parses its JSON, so it needs no
+  preview-API classes in the IDE's JVM. Built from source in this release; see the README.
 
 ## [0.2.0] - 2026-05-24
 

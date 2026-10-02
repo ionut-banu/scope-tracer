@@ -186,6 +186,24 @@ java --enable-preview \
 
 ---
 
+## IntelliJ plugin
+
+`scope-tracer-plugin/` opens a recording inside IntelliJ IDEA: Tools → **Open .jfr Recording
+(Scope Tracer)…** loads a `.jfr` file into the **Scope Tracer** tool window, and clicking a
+task jumps to the `fork` call that created it. It is not published yet; build it from source:
+
+```bash
+mvn -q -DskipTests package                 # builds the analyzer's -executable jar
+cd scope-tracer-plugin && ./gradlew build  # bundles that jar and builds the plugin
+./gradlew runIde                           # try it in a sandbox IDE
+```
+
+The IDE itself runs on JDK 21, so the plugin runs the bundled analyzer as a subprocess on a
+JDK 26 that you configure; it needs that JDK installed. You still produce the `.jfr` yourself
+(see "Run under JFR recording" and "Zero-code-change tracing" above).
+
+---
+
 ## Demos
 
 Seven runnable examples are included in `scope-tracer-demos`:
@@ -282,6 +300,8 @@ guidelines.
 | `scope-tracer-analyzer` | `com.ionutbanu:scope-tracer-analyzer` | Parses `.jfr` files; renders HTML/SVG reports |
 | `scope-tracer-agent` | `com.ionutbanu:scope-tracer-agent` | Java agent; instruments `StructuredTaskScope` at bytecode level |
 | `scope-tracer-demos` | `com.ionutbanu:scope-tracer-demos` | Runnable example programs |
+| `scope-tracer-stress-tests` | — | Concurrency stress tests; only built with `-Pstress` |
+| `scope-tracer-plugin` | — | IntelliJ plugin; separate Gradle build, not in the Maven reactor |
 
 ---
 
