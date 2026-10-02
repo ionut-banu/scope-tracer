@@ -1,0 +1,305 @@
+Orchestrator
+
+The main session is the orchestrator. It launches the PM, the engineer
+and QA as subagents. It does not groom, implement or test itself.
+
+Lifecycle
+
+1. Pick the next open issue from the backlog
+2. PM grooms it
+3. Engineer implements it on a branch, in its own worktree
+4. QA verifies it on that branch, in that worktree
+5. On FAIL, back to step 3 with the QA comment as input
+6. On PASS, push the branch and open a pull request into `main`
+7. Stop. A human reviews and merges it, and the merge closes the issue
+8. Repeat until the backlog is empty
+
+Rules
+
+- Do not skip step 2
+- The engineer does not close the issue
+- QA does not fix the code, only outputs PASS or FAIL
+- Nobody closes an issue by hand. The pull request says `Closes #N`
+  and merging it does the closing, so an issue can never be closed
+  while its code is still unmerged.
+- Nobody merges the pull request except a human. QA passing means the
+  work is ready to be looked at, not that it is ready to land.
+- The orchestrator never fixes the code itself. Fixing in the main
+  session skips QA entirely and is how unverified work gets closed.
+- Dependabot pull requests are outside this loop. A human reads CI on
+  them and merges or closes them.
+
+Labels and milestones
+
+Every issue carries a milestone, one `kind:` label, and one `area:`
+label. The PM applies them while grooming; an issue that reaches the
+engineer without them was not groomed.
+
+- `kind:` - `feature`, `bug`, `chore`, `process`. What sort of work it is.
+- `area:` - `core`, `analyzer`, `agent`, `plugin`, `demos`, `tests`,
+  `build`, `docs`. Matches the module table in §3 of the spec, so the
+  labels stay true as the code grows rather than drifting into their
+  own vocabulary. `tests` is shared test infrastructure and the
+  stress module; `build` is Maven, CI and release.
+- `blocked` - waiting on another issue. Say which one in a comment.
+
+Three more record where an issue came from, and only the orchestrator
+applies them:
+
+- `from: review` - a finding from the milestone reviewer
+- `from: qa` - something QA found that was outside the issue it was
+  testing
+- `from: user` - reported by someone using scope-tracer, not by this
+  team
+
+Those three matter more than they look. Most issues here come from
+the maintainer's own plans. The ones that came from the machinery
+finding real problems, or from real users hitting them, are the
+evidence that the process works and that the tool is used, and they
+are worth being able to list.
+
+A pull request carries the same labels and milestone as the issue it
+closes.
+
+Writing for GitHub
+
+Do not hard-wrap anything that goes into an issue body, a pull request
+body, or a comment. GitHub renders a single newline in those as an
+actual line break rather than reflowing the paragraph, so text wrapped
+at 70 columns comes out as a column of ragged short lines.
+
+One paragraph is one line, however long. One list item is one line,
+however long. Let the browser wrap it. Fenced code blocks are
+unaffected - wrap those however the code reads best.
+
+This is the opposite of the convention for files in `_docs/`, which are
+read as text and stay wrapped at about 70 columns. The difference is
+where it will be rendered, not who wrote it.
+
+One worktree per subagent
+
+A branch is not enough isolation. The orchestrator works on `main` in
+the main directory while a subagent works on a branch, and there is
+only one working directory - so `git checkout` from either side
+changes the files under the other. (In historian, the project this
+process came from, that happened twice in one minute on its second
+issue: a module vanished from under QA mid-review, and a
+documentation commit landed on a feature branch.)
+
+So each implementing subagent gets its own directory:
+
+    git worktree add ../scope-tracer-issue-7 -b issue-7-dynamic-attach
+
+The engineer and QA work there. The orchestrator stays in the main
+directory on `main` and never checks out a feature branch. Remove it
+when the pull request merges:
+
+    git worktree remove ../scope-tracer-issue-7
+
+Neither side can then disturb the other, and no amount of care is
+required to keep it that way.
+
+A worktree carries a second hazard that a directory does not fix:
+the local Maven repository. `~/.m2/repository` is one directory,
+shared by the main checkout and every worktree, and every module here
+is the same `0.3.0-SNAPSHOT` in all of them. Two things follow:
+
+- `mvn -pl scope-tracer-analyzer test` without `-am` does not build
+  `scope-tracer-core` - it takes whatever core jar is in `~/.m2`.
+  That is whichever checkout last ran `mvn install`, which may be
+  `main`, a stale build, or another issue's branch. The analyzer's
+  tests then pass or fail against code that is not on this branch.
+- `mvn install` inside a worktree replaces those jars for everyone.
+  The orchestrator's next `-pl` run on `main` would test against the
+  branch.
+
+The rule therefore has to hold at every invocation, not once at
+`git worktree add`: never run `mvn -pl <module>` without `-am`. With
+`-am`, or with no `-pl` at all, Maven builds the sibling modules from
+the worktree's own sources in the same reactor and never consults
+`~/.m2` for them. `mvn install` is allowed only where a command needs
+it (the stress tests, the demos' classpath), and then it is followed
+by the full `mvn -q verify` from the same worktree before anything is
+reported.
+
+Everything else that locates a jar is already worktree-local: the
+agent ITs and the stress tests find the agent fat-jar through
+`${project.basedir}/../scope-tracer-agent/target/`, the plugin's
+`copyAnalyzerJar` reads `../scope-tracer-analyzer/target/`, and the
+demo commands in `README.md` put this tree's `target/` jars first on
+the classpath.
+
+Run this once on entering a worktree, before anything else, and
+confirm the first line is the worktree's own directory, not the main
+checkout, and the second is the branch named for the issue:
+
+    git rev-parse --show-toplevel
+    git branch --show-current
+
+No one-off check can catch the `~/.m2` hazard, because it lives in
+the command rather than the directory. So every report says which
+Maven commands it ran, and a verdict or report built on a `-pl` run
+without `-am` is not evidence about the branch.
+
+Branches and pull requests
+
+One branch per issue, named for it - `issue-7-dynamic-attach`. The
+engineer creates it, commits to it, and never touches `main`.
+
+The pull request is opened by the orchestrator after QA passes, not by
+the engineer. It carries `Closes #N`, a link to the QA verdict comment,
+the test result, and anything known-broken and deliberately deferred.
+It is the one place a human sees the whole change at once, so it is
+written for a reader who has not followed the issue.
+
+Step 7 is a real stop. The loop does not continue to the next issue
+while a pull request is waiting, unless the next issue is independent
+of the one under review - and an issue that touches the event schema
+or `TraceModelJson` is never independent of anything downstream of it.
+
+Progress lives in the issues
+
+Not in this session, and not in a checklist file. An issue is done when
+it is closed, and what happened to it is in its comments. If this
+session is lost or compacted, the backlog is still exactly where it
+was, so re-read the issues rather than trusting recollection about what
+was finished.
+
+Do not add a plan file with checkboxes. It would be a third copy of
+work already described by the spec and tracked by the issues, and the
+copy that is nobody's job to update is the one that goes stale while
+still looking authoritative. Progress within a single task is the
+engineer's own business and disappears with it.
+
+Review at milestone boundaries
+
+When a milestone's last issue closes, dispatch the reviewer over the
+whole milestone's diff before starting the next one.
+
+It is a separate role from QA on purpose. QA is deliberately blind to
+the implementation - it checks behaviour against the acceptance
+criteria and is told to ignore what the code claims about itself. That
+blindness is what makes it hard to fool, and reading the code for
+quality would destroy it. So the two jobs stay apart, and the reading
+one runs once per milestone rather than once per issue.
+
+Its findings become issues. Nobody fixes them in place.
+
+The loop has a ceiling
+
+Step 5 is bounded at three rounds. Each engineer subagent is fresh, so
+the issue thread is its memory - every dispatch reads the prior QA
+comments and the engineer's own replies.
+
+- Rounds 1 and 2: dispatch a fresh engineer with the QA comment
+- Round 3: dispatch on a more capable model, saying plainly that two
+  attempts already failed and pointing at the thread
+
+After round 3, stop dispatching and decide. An engineer that has
+failed three times is usually not the problem:
+
+- **An acceptance criterion is wrong or impossible.** Send it back to
+  the PM, fix the issue, restart at round one.
+- **The task is too large.** Split it, close this issue as superseded,
+  and link the pieces.
+- **The spec is wrong.** Fix `_docs/spec.md`, record why in
+  `_docs/decisions.md`, restart at round one.
+- **It is a real limitation nobody needs solved yet.** File a follow-up
+  issue, say so in a comment, and let QA pass what remains.
+
+What is forbidden is a fourth round. Three failures on the same code
+means something upstream is wrong, and dispatching again just pays to
+discover that more slowly.
+
+Models
+
+Every subagent that does not name a model inherits this session's,
+which is the most expensive one. Name a model on every dispatch.
+
+- **PM** - mid-tier (`sonnet`). Grooming is judgment about edge
+  cases, not depth.
+- **QA** - mid-tier (`sonnet`). The verdict comes from running a real
+  scope under a real recording, not from reasoning.
+- **Engineer** - mid-tier (`sonnet`) by default. Use the most capable
+  model (`opus`) for work that is design rather than transcription:
+  anything in agent advice or the bootstrap classloader, the
+  nesting detection, the event schema, and the plugin/analyzer
+  process boundary.
+- **Reviewer** - most capable (`opus`). It runs rarely, and reading a
+  milestone of code for what is wrong with it is the hardest job here.
+- **Escalation** - one tier up from whatever just failed.
+
+Each role's full definition - what it does, and what counts as
+done - lives in `_docs/team/`: `pm.md`, `software-engineer.md`,
+`qa-engineer.md`, `reviewer.md`.
+
+Cheapest is not the same as fastest. A weak model on a task beyond it
+takes several times the turns and costs more than the right one would
+have. Mid-tier is the floor, not the target.
+
+The oracle
+
+Correctness in this project is decided by the JDK, not by opinion.
+The trace has to describe what `StructuredTaskScope` actually did -
+which task failed, which was interrupted, which scope was open inside
+which task - so the only acceptable evidence is a real scope, run
+under a real JFR recording, read back with `RecordingFile`. The
+pattern is in §4 of `_docs/spec.md`.
+
+Things nobody reasons about, because they can be measured:
+
+- Whether a sibling of a failed task is cancelled, or completes,
+  under a given `Joiner`. Run it and record it.
+- Whether an event is emitted on the task thread or the owner thread.
+  Read `getThread()` off the recorded event.
+- Whether an older recording still parses. Keep or produce one and
+  parse it.
+
+Two consequences for the process:
+
+- QA runs the full `mvn -q verify` itself and, for any agent change,
+  the stress profile. QA is expected to find failures the engineer's
+  tests did not. A FAIL from a stress run is a normal outcome, not an
+  escalation.
+- The test count never goes down. An issue that reduces it is a FAIL
+  regardless of its acceptance criteria. The count is the sum of
+  surefire and failsafe totals from `mvn verify`; it was 180 on
+  2026-10-02 (§4 of the spec).
+
+The spec is binding
+
+`_docs/spec.md` is the source of truth and describes scope-tracer as
+it currently is. Every issue names the section it implements.
+
+It is the only specification. If you find another document in this
+repository describing what scope-tracer should do, it is stale. Do not
+act on it, do not reconcile it with the spec, and do not average the
+two. Say what you found, in a comment on the issue, and use the spec.
+
+Three documents are exceptions, and none of them is a specification.
+They describe what exists today, for people outside the team, and
+must be updated when behaviour changes:
+
+- `README.md` - for someone who has just arrived
+- `docs/jfr-events.md` - the published event schema, for anyone
+  reading a `.jfr` file directly. §2 of the spec defers to it for
+  field-level detail, so it is kept exact.
+- `CONTRIBUTING.md` and `CHANGELOG.md` - for outside contributors and
+  for release notes
+
+Never implement from them. If one contradicts the spec, it is wrong
+and gets fixed.
+
+Nothing that is no longer true is kept in the working tree. Superseded
+plans live in git history. `_docs/decisions.md` is the one exception,
+because every entry is dated and written as a past decision, so
+reading it cannot be mistaken for reading current requirements.
+
+The non-goals and invariants in §1 are binding. Work that contradicts
+them does not get implemented and does not get argued about in an
+issue comment - it gets filed as a separate issue for the maintainer
+to decide on, and dropped from the current one.
+
+Decisions made while building go in `_docs/decisions.md`, newest last,
+one short entry each. If a decision contradicts the spec, the spec is
+edited in the same commit.
