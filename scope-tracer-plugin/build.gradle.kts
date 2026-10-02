@@ -6,7 +6,19 @@ plugins {
 val pluginVersion = providers.gradleProperty("pluginVersion").get()
 val platformVersion = providers.gradleProperty("platformVersion").get()
 val pluginSinceBuild = providers.gradleProperty("pluginSinceBuild").get()
-val analyzerVersion = providers.gradleProperty("analyzerVersion").get()
+
+// The analyzer jar's version is the Maven project version; read it from the parent POM so a
+// version bump there cannot leave this build pointing at a jar that no longer exists.
+val analyzerVersion: String =
+    javax.xml.parsers.DocumentBuilderFactory.newInstance()
+        .newDocumentBuilder()
+        .parse(rootDir.resolve("../pom.xml"))
+        .documentElement
+        .childNodes
+        .let { nodes -> (0 until nodes.length).map { nodes.item(it) } }
+        .first { it.nodeName == "version" }
+        .textContent
+        .trim()
 
 group = providers.gradleProperty("pluginGroup").get()
 
@@ -64,8 +76,7 @@ val copyAnalyzerJar =
         if (!analyzerJar.exists()) {
           throw GradleException(
               "Analyzer executable jar not found at $analyzerJar — build it first from the " +
-                  "repo root with `mvn -q install -DskipTests` (or if `analyzerVersion` in " +
-                  "gradle.properties is stale relative to the Maven parent POM version, update it).")
+                  "repo root with `mvn -q -DskipTests package`.")
         }
       }
       from(analyzerJar)
