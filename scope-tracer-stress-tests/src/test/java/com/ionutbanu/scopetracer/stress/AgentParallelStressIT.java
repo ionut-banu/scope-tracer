@@ -44,6 +44,7 @@ class AgentParallelStressIT {
     assumeTrue(!testClassesDir.isBlank(), "testClassesDir system property not set.");
 
     Path jfrOut = Files.createTempFile("stress-agent-", ".jfr");
+    boolean passed = false;
     try {
       runSubject(agentJar, testClassesDir, jfrOut);
 
@@ -51,9 +52,23 @@ class AgentParallelStressIT {
       int expectedScopes = SCOPES + 1; // outer + per-iteration inner
       assertThat(model.scopes()).as("parsed scope records").hasSize(expectedScopes);
 
+      // Per-scope counts go into the failure message below, so a failure names which scopes lost
+      // tasks (the outer scope dropping forks, or some inner scopes dropping completions)
+      // instead of only a total.
+      var shortScopes =
+          model.scopes().stream()
+              .filter(
+                  s ->
+                      s.tasks().size()
+                          != (s.name().equals("agent-stress-outer") ? SCOPES : TASKS_PER_SCOPE))
+              .map(s -> s.name() + "=" + s.tasks().size())
+              .toList();
+
       long taskCount = model.scopes().stream().mapToLong(s -> s.tasks().size()).sum();
       long expectedTasks = SCOPES + (long) SCOPES * TASKS_PER_SCOPE;
-      assertThat(taskCount).as("total tasks across all scopes").isEqualTo(expectedTasks);
+      assertThat(taskCount)
+          .as("total tasks across all scopes; scopes with an unexpected count: %s", shortScopes)
+          .isEqualTo(expectedTasks);
 
       assertThat(model.scopes())
           .as("every task succeeded")
@@ -62,8 +77,15 @@ class AgentParallelStressIT {
                   assertThat(s.tasks())
                       .allSatisfy(
                           t -> assertThat(t.outcome()).isInstanceOf(TaskOutcome.Success.class)));
+      passed = true;
     } finally {
-      Files.deleteIfExists(jfrOut);
+      if (passed) {
+        Files.deleteIfExists(jfrOut);
+      } else {
+        // Keep the recording so CI's "Upload JFR dumps on failure" step (it globs
+        // /tmp/stress-*.jfr) has something to upload for diagnosis.
+        System.err.println("Keeping recording for diagnosis: " + jfrOut);
+      }
     }
   }
 
