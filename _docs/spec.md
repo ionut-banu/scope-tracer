@@ -267,7 +267,15 @@ runs it as a subprocess on a user-configured JDK 26 with
 - The root module has no tests; the IntelliJ Gradle plugin's test
   instrumentation needs a sandbox.
 - Features: Tools → "Open .jfr Recording (Scope Tracer)…", a "Scope
-  Tracer" tool window, click-to-source on call sites via Java PSI.
+  Tracer" tool window, click-to-source on call sites via Java PSI,
+  and Tools → "Run with Scope Tracer", which runs the selected Java
+  application configuration with the bundled agent jar, `--enable-preview`
+  and a JFR recording added to its VM options (`TracedLaunch` decides
+  which, and refuses for JDK < 26, an already-attached agent or an
+  existing `-XX:StartFlightRecording`), then opens the recording when
+  the process exits. The agent jar is bundled like the analyzer's and
+  extracted under its own file name, because its manifest's
+  `Boot-Class-Path` names that file.
 - `analyzerVersion` in `gradle.properties` is kept equal to the
   Maven project version by hand.
 

@@ -199,8 +199,11 @@ cd scope-tracer-plugin && ./gradlew build  # bundles that jar and builds the plu
 ```
 
 The IDE itself runs on JDK 21, so the plugin runs the bundled analyzer as a subprocess on a
-JDK 26 that you configure; it needs that JDK installed. You still produce the `.jfr` yourself
-(see "Run under JFR recording" and "Zero-code-change tracing" above).
+JDK 26 that you configure; it needs that JDK installed. To trace your own code from the IDE, select a Java application run configuration and use Tools
+→ **Run with Scope Tracer**: the plugin adds the agent, `--enable-preview` and a JFR recording
+to that run and opens the result when the process exits (the run configuration needs a JDK 26).
+You can also open a `.jfr` you recorded yourself (see "Run under JFR recording" and
+"Zero-code-change tracing" above).
 
 ---
 
