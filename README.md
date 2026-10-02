@@ -268,7 +268,8 @@ mvn -q verify        # compile, test, style check
 mvn spotless:apply   # auto-fix formatting if needed
 ```
 
-See [CLAUDE.md](CLAUDE.md) for architecture details, coding conventions, and contributor
+See [_docs/spec.md](_docs/spec.md) for architecture details, [AGENTS.md](AGENTS.md) for coding
+conventions, and [CONTRIBUTING.md](CONTRIBUTING.md) for contributor
 guidelines.
 
 ---

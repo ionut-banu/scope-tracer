@@ -20,8 +20,8 @@ Run the full build, tests, coverage, and style checks:
 mvn -q verify
 ```
 
-This compiles all four modules, runs **122 unit tests + 17 integration tests**
-(139 total), produces Jacoco coverage reports under
+This compiles the Maven modules, runs **155 unit tests + 25 agent integration
+tests** (180 total, as of 2026-10-02), produces Jacoco coverage reports under
 `scope-tracer-*/target/site/jacoco/`, and runs SpotBugs static analysis.
 
 ### Single-module commands
