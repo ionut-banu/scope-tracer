@@ -106,3 +106,12 @@ through real JFR recordings, rather than SQLite; the conformance
 count is the total test count; and the worktree hazard is the shared
 `~/.m2` repository rather than a shared virtualenv, so `mvn -pl`
 always takes `-am`.
+
+2026-10-02 - Milestones: release, then plugin, then dynamic attach
+
+0.3.0 comes first because finished work is sitting unreleased on
+`main`, and nobody can adopt what has not shipped. The plugin comes
+before dynamic attach because the IDE is where the agent is meant to
+reach people, and today the plugin only opens recordings made by
+hand. Dynamic attach is the largest agent change and the least
+certain, so it goes last.

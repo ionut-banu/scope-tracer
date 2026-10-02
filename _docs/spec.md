@@ -11,8 +11,7 @@ Why a thing was decided, and what it replaced, belongs in
 `_docs/decisions.md` - dated entries, never edited.
 
 §1 to §5 describe the code as it is on 2026-10-02. §6 is the
-direction; its milestones are set by the maintainer and are not yet
-decided.
+direction and the milestone order.
 
 ---
 
@@ -357,13 +356,16 @@ The agent plus the IDE is the primary experience; distribution
 (people actually finding and using the tool) matters as much as new
 features.
 
-Known open threads, not yet milestones:
+Milestones, in order. Each is a GitHub milestone; its issues carry
+the detail.
 
-- Plugin: beyond milestone 1 (scaffold, tool window, click-to-source).
-- Agent: dynamic attach (`agentmain`) so a running JVM can be traced
-  without a restart.
-- `analyzerVersion` kept in sync by hand.
-- 0.3.0 release (capture filters and plugin are unreleased).
+1. **M1 — Release 0.3.0** - ship what is already on `main` (capture
+   filters, `--format=json`, plugin milestone 1) and stop keeping the
+   plugin's `analyzerVersion` in sync by hand.
+2. **M2 — Plugin: beyond the viewer** - the plugin runs the user's
+   code with the agent attached and opens the trace, instead of only
+   opening a `.jfr` recorded by hand.
+3. **M3 — Dynamic attach** - `agentmain`, so a running JVM can be
+   traced without a restart.
 
-Milestones are created on GitHub by the maintainer. When they are,
-this section lists them in order with one line each.
+**v2 — Backlog** holds everything not in a current milestone.
