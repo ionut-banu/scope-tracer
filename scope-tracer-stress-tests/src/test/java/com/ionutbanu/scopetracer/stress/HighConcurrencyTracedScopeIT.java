@@ -70,6 +70,13 @@ class HighConcurrencyTracedScopeIT {
 
       TraceModel model = JfrParser.parse(jfrOut);
       assertThat(model.scopes()).as("parsed scope records").hasSize(expectedScopes);
+      long parsedTasks = model.scopes().stream().mapToLong(sc -> sc.tasks().size()).sum();
+      assertThat(parsedTasks).as("parsed tasks across all scopes").isEqualTo(expectedTasks);
+      assertThat(model.scopes())
+          .as("parsed tasks per scope")
+          .filteredOn(sc -> sc.name().startsWith(INNER_PREFIX))
+          .hasSize(SCOPES)
+          .allSatisfy(sc -> assertThat(sc.tasks()).hasSize(TASKS_PER_SCOPE));
       assertThat(model.scopes())
           .as("every task in every scope succeeded")
           .allSatisfy(
