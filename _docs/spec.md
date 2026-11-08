@@ -218,13 +218,25 @@ Attached with `-javaagent:scope-tracer-agent-<v>-agent.jar[=args]`.
 The fat-jar (shade classifier `agent`) lists itself in
 `Boot-Class-Path`, because `StructuredTaskScope` is loaded by the
 bootstrap classloader and advice must be visible there.
+The bootstrap classloader is asked first by every other loader, so a
+package in the fat-jar replaces the application's own copy of it.
+The jar therefore exposes no package outside
+`com.ionutbanu.scopetracer`: SLF4J (which the analyzer needs for
+auto-HTML) and ByteBuddy are relocated under
+`com.ionutbanu.scopetracer.shaded`, along with SLF4J's `slf4j.*`
+system property names, and Logback is not bundled. The relocated
+SLF4J finds only the agent's NOP provider, so the analyzer's log
+lines go nowhere and the application's logging, whatever its layout
+or SLF4J version, is the same with the agent as without.
 
 - `premain` only; there is no `agentmain` (no dynamic attach).
-- `premain` sets `net.bytebuddy.experimental=true` so ByteBuddy can
-  read Java 26 class files.
+- `premain` sets ByteBuddy's experimental property to `true` so
+  ByteBuddy can read Java 26 class files. In the fat-jar the property
+  is relocated with ByteBuddy (`com.ionutbanu.scopetracer.shaded.net.bytebuddy.experimental`),
+  so the application's own `net.bytebuddy.experimental` is untouched.
 - Three matcher chains: every public static
-  `StructuredTaskScope.open` overload (`ScopeOpenAdvice`); the
-  private 3-arg constructor of
+  `StructuredTaskScope.open` overload (`ScopeOpenAdvice`); the private
+  3-arg constructor of
   `StructuredTaskScopeImpl` (`ScopeConstructorAdvice`, captures
   `Config.withName()` into a `ThreadLocal`); and `fork(Callable)` and
   `close()` on both. `fork(Callable)` is matched by parameter type to
@@ -241,11 +253,11 @@ bootstrap classloader and advice must be visible there.
   events.
 - `ScopeNameDeriver` names unnamed scopes `SimpleClassName#methodName`
   via `StackWalker`, skipping only `java.util.concurrent.StructuredTaskScope*`,
-  `net.bytebuddy.*` and itself - user code may live in the agent's
-  own package.
+  `net.bytebuddy.*`, the agent's relocated ByteBuddy and itself -
+  user code may live in the agent's own package.
 - Logging goes through `AgentLog` (stderr, `[scope-tracer]` prefix),
-  never SLF4J: a binding on the bootstrap path would collide with the
-  host application's logging.
+  never SLF4J: unrelocated SLF4J or a binding on the bootstrap path
+  would take the place of the host application's logging.
 - Combining the agent with `TracedScope` emits every event twice.
 
 Agent arguments, parsed by `AgentConfig`:

@@ -16,6 +16,7 @@ import jdk.jfr.RecordingState;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.matcher.ElementMatchers;
+import net.bytebuddy.utility.OpenedClassReader;
 
 /**
  * Java agent entry point for zero-code-change tracing of {@code StructuredTaskScope}.
@@ -106,7 +107,10 @@ public final class ScopeTracerAgent {
   public static void premain(String args, Instrumentation inst) {
     // Allow ByteBuddy to instrument Java 26 class files even though this version of
     // ByteBuddy officially supports up to Java 23. Remove once ByteBuddy adds Java 26 support.
-    System.setProperty("net.bytebuddy.experimental", "true");
+    // The fat-jar relocates ByteBuddy, and Shade rewrites this inlined constant exactly as it does
+    // inside ByteBuddy: the agent sets the relocated name its own ByteBuddy reads and leaves the
+    // application's ByteBuddy alone. AgentIsolationIT checks it.
+    System.setProperty(OpenedClassReader.EXPERIMENTAL_PROPERTY, "true");
 
     AgentConfig config = AgentConfig.parse(args);
     AgentState.FILTER = config.filter();

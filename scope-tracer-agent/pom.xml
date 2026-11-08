@@ -65,8 +65,14 @@
       <!-- Step 2: shade everything into a fat-jar with classifier "agent".
            The fat-jar must also carry the agent manifest entries so the JVM honours
            them when the jar is loaded via -javaagent. We also set Boot-Class-Path
-           to the fat-jar filename so the JVM adds it to the bootstrap classloader —
-           required for advice code to be visible when instrumenting JDK classes. -->
+           to the fat-jar filename so the JVM adds it to the bootstrap classloader -
+           required for advice code to be visible when instrumenting JDK classes.
+
+           The bootstrap classloader is asked first by every other loader, so any
+           third-party package in this jar replaces the application's own copy. SLF4J
+           (the analyzer uses it for auto-HTML) and ByteBuddy are therefore relocated
+           under com.ionutbanu.scopetracer.shaded; the jar exposes no package outside
+           com.ionutbanu.scopetracer. AgentIsolationIT checks this. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -80,6 +86,26 @@
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>agent</shadedClassifierName>
               <createDependencyReducedPom>false</createDependencyReducedPom>
+              <relocations>
+                <relocation>
+                  <pattern>org.slf4j</pattern>
+                  <shadedPattern>com.ionutbanu.scopetracer.shaded.org.slf4j</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>net.bytebuddy</pattern>
+                  <shadedPattern>com.ionutbanu.scopetracer.shaded.net.bytebuddy</shadedPattern>
+                </relocation>
+                <!-- SLF4J's system properties (slf4j.provider, slf4j.internal.verbosity, ...)
+                     belong to the application's SLF4J. Read by the relocated copy, the
+                     application's slf4j.provider names a class the bootstrap loader cannot
+                     load, and SLF4J fails with an error on stderr. Shade rewrites only names
+                     that look like the relocated packages, so these are renamed explicitly. -->
+                <relocation>
+                  <pattern>^slf4j\.</pattern>
+                  <shadedPattern>com.ionutbanu.scopetracer.shaded.slf4j.</shadedPattern>
+                  <rawString>true</rawString>
+                </relocation>
+              </relocations>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <manifestEntries>
@@ -98,13 +124,32 @@
                     <exclude>META-INF/*.SF</exclude>
                     <exclude>META-INF/*.DSA</exclude>
                     <exclude>META-INF/*.RSA</exclude>
+                    <!-- module descriptors of the bundled jars describe the unrelocated
+                         packages; the fat-jar is not a module -->
+                    <exclude>module-info.class</exclude>
+                    <exclude>META-INF/versions/*/module-info.class</exclude>
                   </excludes>
                 </filter>
-                <!-- Do not bundle Logback into the agent fat-jar. The agent is loaded on
-                     the bootstrap classloader, and a bundled SLF4J binding here would
-                     compete with whatever binding the host application uses. SLF4J calls
-                     from analyzer code reached through the agent will discover the host's
-                     binding via ServiceLoader (or NOP if none) — that is correct behaviour. -->
+                <filter>
+                  <artifact>org.slf4j:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/maven/**</exclude>
+                  </excludes>
+                </filter>
+                <filter>
+                  <artifact>net.bytebuddy:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/maven/**</exclude>
+                    <!-- Multi-release classes: Shade does not relocate them, and the fat-jar
+                         is not multi-release, so the JVM never loaded them anyway. -->
+                    <exclude>META-INF/versions/**</exclude>
+                  </excludes>
+                </filter>
+                <!-- Do not bundle Logback. The relocated SLF4J cannot see the application's
+                     binding (it is not even looking for org.slf4j providers), and a bundled
+                     binding would print the analyzer's log lines into the application's
+                     output. The relocated SLF4J finds only NopSlf4jServiceProvider, from
+                     src/main/resources/META-INF/services, and stays silent. -->
                 <filter>
                   <artifact>ch.qos.logback:*</artifact>
                   <excludes>
