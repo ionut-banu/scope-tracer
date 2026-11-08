@@ -38,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Agent recorded two scopes for `open()` and `open(Joiner)`.** Both overloads call
+  `open(Joiner, UnaryOperator)`, and the agent advised all three, so each call emitted two
+  `ScopeOpened`: the forks and the close went to the second, and the first stayed in the report
+  as an empty scope that never closed (counted as "truncated" by the analyzer). Sampling also
+  drew twice for these scopes, so `sample.rate=0.5` kept about 75% of them. The agent now makes
+  one decision and emits one `ScopeOpened` per scope, whichever overload is called. 0.1.0 and
+  0.2.0 are affected; recordings they made still contain the empty scopes.
 - **Analyzer dropped tasks whose `TaskForked` came before `ScopeOpened` in the `.jfr` file.**
   JFR does not write the events of a scope in time order, even those of one thread, and
   `JfrParser` discarded a fork it read before its scope's open event. A report built from a
