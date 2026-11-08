@@ -115,3 +115,16 @@ before dynamic attach because the IDE is where the agent is meant to
 reach people, and today the plugin only opens recordings made by
 hand. Dynamic attach is the largest agent change and the least
 certain, so it goes last.
+
+2026-11-08 - JfrParser stores every event, then assembles the model
+
+`JfrParser` buffered completions and closes that arrived before their
+`ScopeOpened` and dropped a `TaskForked` that did. Forks do arrive
+first (issue #43; 25 of 60 local stress recordings lost 2 to 31
+tasks), so extending the pending buffers to forks would have left the
+same position-dependence one event kind at a time. The parser now
+records each event under its `scopeId` as it reads it and builds the
+model from scopes that have a `ScopeOpened` after the loop; nothing
+depends on file order, and the pending buffers are gone. Events of a
+scope without a `ScopeOpened`, and completions without a fork, are
+still left out (counting them is #68).

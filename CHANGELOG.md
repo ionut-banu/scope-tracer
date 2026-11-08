@@ -36,6 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   run configuration with the agent attached and opens the recording in the Scope Tracer tool
   window when the process exits, so no JVM flags need to be written by hand.
 
+### Fixed
+
+- **Analyzer dropped tasks whose `TaskForked` came before `ScopeOpened` in the `.jfr` file.**
+  JFR does not write the events of a scope in time order, even those of one thread, and
+  `JfrParser` discarded a fork it read before its scope's open event. A report built from a
+  real recording could silently lack tasks (and nested scopes could lose their `parent`),
+  in 0.1.0 and 0.2.0 too. The parser no longer depends on the position of any event.
+
 ## [0.2.0] - 2026-05-24
 
 ### Fixed

@@ -49,12 +49,13 @@ public final class JfrParser {
    * concurrently-open scopes that share the same name (common when no {@code withName()} is
    * configured on the agent) can never interfere with each other.
    *
-   * <p>JFR flushes per-thread buffers independently, so task-completion events (emitted on virtual
-   * task threads) can appear in the file before the main thread's {@code ScopeOpened} event for the
-   * same scope. Similarly, {@code ScopeClosed} can precede {@code ScopeOpened} for the same scope
-   * due to JFR chunk-rotation ordering (empirically observed even when both events are on the same
-   * thread). Both cases are handled by pending buffers keyed by {@code scopeId}: events that arrive
-   * early are held and flushed when {@code ScopeOpened} is eventually processed.
+   * <p>Nothing here depends on the position of an event in the file. JFR flushes per-thread buffers
+   * independently, so the events of one scope, even those of one thread, reach the file in no fixed
+   * order: a {@code TaskForked}, a completion or a {@code ScopeClosed} can precede the scope's
+   * {@code ScopeOpened}. Every event is therefore recorded under its {@code scopeId} as it is read,
+   * and the model is assembled once the whole file has been read. Events of a scope whose {@code
+   * ScopeOpened} is absent cannot be placed and are left out, as is a completion without a {@code
+   * TaskForked}.
    *
    * <p>Tasks whose completion event is absent (truncated recordings) are included with {@code null}
    * {@code completionTime} and {@code outcome}. Scopes whose {@code ScopeClosed} event is absent
@@ -68,17 +69,8 @@ public final class JfrParser {
     // All maps are keyed by the scopeId long stamped on every JFR event. This uniquely identifies
     // each scope instance, eliminating any name-based collision between concurrent scopes.
     //
-    // pendingCompletions buffers task-completion events whose SCOPE_OPENED event has not yet been
-    // seen. JFR flushes virtual-thread buffers independently; a TASK_SUCCEEDED emitted on a task
-    // thread can appear in the file before the main thread's SCOPE_OPENED event.
-    //
-    // pendingCloses buffers SCOPE_CLOSED events that arrive before SCOPE_OPENED. JFR chunk
-    // rotation can place a thread's close event in an earlier file position than its open event —
-    // empirically observed even when both events are on the same thread — because local thread
-    // buffers are flushed in chunk-rotation order, not emission-time order.
-    var pendingCompletions = new HashMap<Long, Map<Long, CompletionData>>();
-    var pendingCloses = new HashMap<Long, Instant>();
-
+    // Events are stored as they are read, whatever their position in the file; only the scopes in
+    // scopeOpens end up in the model.
     // LinkedHashMap preserves insertion (= open-time) order for deterministic iteration.
     var scopeOpens = new LinkedHashMap<Long, Instant>();
     var scopeNames = new HashMap<Long, String>();
@@ -108,31 +100,22 @@ public final class JfrParser {
             scopeNames.put(scopeId, scopeName);
             scopeOwners.put(scopeId, threadName);
             scopeOwnerThreadIds.put(scopeId, javaThreadId);
-            // Flush any close/completion events that arrived before this SCOPE_OPENED.
-            var pendingClose = pendingCloses.remove(scopeId);
-            if (pendingClose != null) scopeCloses.put(scopeId, pendingClose);
-            var pending = pendingCompletions.remove(scopeId);
-            if (pending != null) completions.put(scopeId, pending);
           }
           case TASK_FORKED -> {
-            if (scopeOpens.containsKey(scopeId)) {
-              // taskName was added later — older recordings won't have it. hasField is required.
-              String taskName = event.hasField("taskName") ? event.getString("taskName") : null;
-              CallSite callSite = readCallSite(event);
-              forks
-                  .computeIfAbsent(scopeId, k -> new HashMap<>())
-                  .put(taskId, new ForkData(time, threadName, taskName, callSite));
-            }
-            // else: fork before open should not occur in practice; silently drop.
+            // taskName was added later — older recordings won't have it. hasField is required.
+            String taskName = event.hasField("taskName") ? event.getString("taskName") : null;
+            CallSite callSite = readCallSite(event);
+            forks
+                .computeIfAbsent(scopeId, k -> new HashMap<>())
+                .put(taskId, new ForkData(time, threadName, taskName, callSite));
           }
           case TASK_SUCCEEDED ->
-              storeCompletion(
-                  scopeOpens,
-                  pendingCompletions,
-                  completions,
-                  scopeId,
-                  taskId,
-                  new CompletionData(time, new TaskOutcome.Success(), threadName, javaThreadId));
+              completions
+                  .computeIfAbsent(scopeId, k -> new HashMap<>())
+                  .put(
+                      taskId,
+                      new CompletionData(
+                          time, new TaskOutcome.Success(), threadName, javaThreadId));
           case TASK_FAILED -> {
             var exType = event.getString("exceptionType");
             var exMessage = event.getString("exceptionMessage");
@@ -140,36 +123,24 @@ public final class JfrParser {
                 event.hasField("exceptionStackTrace")
                     ? event.getString("exceptionStackTrace")
                     : null;
-            storeCompletion(
-                scopeOpens,
-                pendingCompletions,
-                completions,
-                scopeId,
-                taskId,
-                new CompletionData(
-                    time,
-                    new TaskOutcome.Failed(exType, exMessage, stackTrace),
-                    threadName,
-                    javaThreadId));
+            completions
+                .computeIfAbsent(scopeId, k -> new HashMap<>())
+                .put(
+                    taskId,
+                    new CompletionData(
+                        time,
+                        new TaskOutcome.Failed(exType, exMessage, stackTrace),
+                        threadName,
+                        javaThreadId));
           }
           case TASK_CANCELLED ->
-              storeCompletion(
-                  scopeOpens,
-                  pendingCompletions,
-                  completions,
-                  scopeId,
-                  taskId,
-                  new CompletionData(time, new TaskOutcome.Cancelled(), threadName, javaThreadId));
-          case SCOPE_CLOSED -> {
-            if (scopeOpens.containsKey(scopeId)) {
-              scopeCloses.put(scopeId, time);
-            } else {
-              // SCOPE_OPENED not yet seen (JFR chunk rotation placed this close event in an
-              // earlier file position than the open event). Only one close per scope, so a plain
-              // put is correct; the first close wins if duplicates somehow appear.
-              pendingCloses.put(scopeId, time);
-            }
-          }
+              completions
+                  .computeIfAbsent(scopeId, k -> new HashMap<>())
+                  .put(
+                      taskId,
+                      new CompletionData(
+                          time, new TaskOutcome.Cancelled(), threadName, javaThreadId));
+          case SCOPE_CLOSED -> scopeCloses.put(scopeId, time);
           default -> {
             // ignore unrecognised com.ionutbanu.scopetracer.* events for forward compatibility
           }
@@ -255,30 +226,6 @@ public final class JfrParser {
   }
 
   /**
-   * Stores a task-completion record under the scope identified by {@code scopeId}. If the scope's
-   * {@code SCOPE_OPENED} event has not yet been processed, the record is buffered in {@code
-   * pendingCompletions} and applied when {@code SCOPE_OPENED} is eventually seen.
-   */
-  private static void storeCompletion(
-      Map<Long, Instant> scopeOpens,
-      Map<Long, Map<Long, CompletionData>> pendingCompletions,
-      Map<Long, Map<Long, CompletionData>> completions,
-      long scopeId,
-      long taskId,
-      CompletionData data) {
-    if (scopeOpens.containsKey(scopeId)) {
-      completions.computeIfAbsent(scopeId, k -> new HashMap<>()).put(taskId, data);
-    } else {
-      // Scope not yet opened — buffer until SCOPE_OPENED arrives.
-      log.debug(
-          "buffering completion for scopeId={} taskId={} (open event not yet seen)",
-          scopeId,
-          taskId);
-      pendingCompletions.computeIfAbsent(scopeId, k -> new HashMap<>()).put(taskId, data);
-    }
-  }
-
-  /**
    * Detects parent-child relationships between scopes. Scope B is a child of task T in scope A
    * when: (1) B's owner thread ID matches the executing thread ID of T's completion event, and (2)
    * B's {@code [openTime, closeTime]} interval is contained within T's {@code [forkTime,
@@ -303,7 +250,7 @@ public final class JfrParser {
 
       outer:
       for (var scopeAId : completions.keySet()) {
-        if (scopeAId.equals(scopeBId)) continue;
+        if (scopeAId.equals(scopeBId) || !scopeOpens.containsKey(scopeAId)) continue;
         var aForks = forks.getOrDefault(scopeAId, Map.of());
         for (var entry : completions.get(scopeAId).entrySet()) {
           long taskId = entry.getKey();

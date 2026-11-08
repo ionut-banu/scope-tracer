@@ -123,6 +123,12 @@ JFR does not guarantee cross-thread order in a dump. A
 precedes it. Consumers order by `getStartTime()`, never by position
 in the file.
 
+File order is not time order even for the events of a single thread:
+a `ScopeClosed`, a `TaskForked` or a completion can precede the
+`ScopeOpened` of the same scope, and `JfrParser` keeps every event
+under its `scopeId` and assembles the model after the whole file has
+been read. A reader of a raw `.jfr` meets the same inversion.
+
 ### Event loss
 
 JFR silently drops events when a per-thread buffer overflows -

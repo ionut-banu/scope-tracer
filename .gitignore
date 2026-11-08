@@ -3,6 +3,7 @@ target/
 *.iml
 .DS_Store
 *.jfr
+!scope-tracer-analyzer/src/test/resources/recordings/*.jfr
 *.log
 .vscode/settings.json
 .claude/settings.local.json

@@ -28,6 +28,8 @@ JFR records the timestamp itself via `Event.startTime` — no explicit field.
 | `com.ionutbanu.scopetracer.TaskCancelled`   | `TaskCancelledEvent` | —                      | When a subtask observes scope shutdown before completing.        |
 | `com.ionutbanu.scopetracer.ScopeClosed`     | `ScopeClosedEvent`   | —                      | Once, after all subtasks terminate. `taskId = 0`.               |
 
+JFR does not write events in time order, not even those of one thread: a `TaskForked`, a completion or a `ScopeClosed` can come before the `ScopeOpened` of the same scope in the file. Order events by `startTime` and group them by `scopeId`; never rely on their position in the file.
+
 ## Sealed hierarchy
 
 All event classes implement the sealed marker interface
