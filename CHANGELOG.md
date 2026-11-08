@@ -50,6 +50,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `JfrParser` discarded a fork it read before its scope's open event. A report built from a
   real recording could silently lack tasks (and nested scopes could lose their `parent`),
   in 0.1.0 and 0.2.0 too. The parser no longer depends on the position of any event.
+- **Attaching the agent silenced the application's SLF4J logging.** The agent fat-jar is on
+  the bootstrap class path, which every class loader asks first, and it carried SLF4J (for the
+  analyzer's auto-HTML) and ByteBuddy unrelocated, so they replaced the application's own
+  copies. Logging loaded by a child class loader (Spring Boot executable jars, servlet
+  containers) and SLF4J 1.7 on the class path fell back to `NOPLoggerFactory` and printed
+  nothing, SLF4J 2.x on the class path ran on the agent's copy, and an application that sets
+  `slf4j.provider` failed at its first log call. SLF4J and ByteBuddy are now relocated under
+  `com.ionutbanu.scopetracer.shaded`, the jar exposes no package outside
+  `com.ionutbanu.scopetracer`, and the analyzer's own log lines no longer reach the
+  application's output.
 
 ## [0.2.0] - 2026-05-24
 

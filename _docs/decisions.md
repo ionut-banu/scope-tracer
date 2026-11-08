@@ -144,3 +144,30 @@ function would be hidden. The advice instead claims the returned
 instance in a weak identity set on its first exit, the innermost
 frame; later exits for the same instance return. A failure after the
 claim loses that scope's events, never more.
+
+2026-11-08 - The agent fat-jar relocates SLF4J and ByteBuddy
+
+The fat-jar has to be on the bootstrap class path for the advice, and
+every class loader asks the bootstrap loader first, so a third-party
+package in the jar replaces the application's copy (issue #50: the
+application's SLF4J became the agent's, which looks for providers
+only through the system class loader). Excluding SLF4J would not
+work: the analyzer, which auto-HTML runs inside the agent, logs
+through it, and from the bootstrap path it cannot see the
+application's SLF4J. So SLF4J and ByteBuddy are relocated under
+`com.ionutbanu.scopetracer.shaded`, and the jar exposes nothing
+outside `com.ionutbanu.scopetracer`.
+
+The relocated SLF4J finds no logging backend, and would print its own
+"No SLF4J providers were found" warning; a small NOP provider in the
+agent module, registered under the relocated service name, keeps it
+quiet, so the analyzer's log lines are dropped (routing them to
+`AgentLog` is for #68). Bundling `slf4j-nop` would have been a new
+dependency for the same twenty lines. SLF4J's `slf4j.*` system
+properties are renamed too, because the relocated copy would read the
+application's `slf4j.provider`, fail to load that class from the
+bootstrap path and break. Relocating ByteBuddy also renames its
+`net.bytebuddy.experimental` property, so the agent sets the relocated
+name and no longer changes the application's own ByteBuddy. A
+two-jar layout (only the advice on the bootstrap path) would avoid
+relocation altogether, but is a larger change than this fix needs.
