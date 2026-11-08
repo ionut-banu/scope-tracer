@@ -222,12 +222,21 @@ bootstrap classloader and advice must be visible there.
 - `premain` only; there is no `agentmain` (no dynamic attach).
 - `premain` sets `net.bytebuddy.experimental=true` so ByteBuddy can
   read Java 26 class files.
-- Three matcher chains: `StructuredTaskScope.open()`
-  (`ScopeOpenAdvice`); the private 3-arg constructor of
+- Three matcher chains: every public static
+  `StructuredTaskScope.open` overload (`ScopeOpenAdvice`); the
+  private 3-arg constructor of
   `StructuredTaskScopeImpl` (`ScopeConstructorAdvice`, captures
   `Config.withName()` into a `ThreadLocal`); and `fork(Callable)` and
   `close()` on both. `fork(Callable)` is matched by parameter type to
   avoid `fork(Runnable)`.
+- One `open` call is one decision and at most one `ScopeOpened`.
+  `open()` and `open(Joiner)` call `open(Joiner, UnaryOperator)`,
+  so the same scope leaves two advised frames.
+  `ScopeOpenAdvice` claims the returned instance in
+  `AgentState.OPENED_SCOPES` (weak, by identity) on the first exit,
+  which filters, names and emits; every later exit for that
+  instance returns at once. Which overloads exist and which one the
+  JDK delegates to does not matter.
 - `TracingCallable<T>` wraps the user's callable and emits completion
   events.
 - `ScopeNameDeriver` names unnamed scopes `SimpleClassName#methodName`

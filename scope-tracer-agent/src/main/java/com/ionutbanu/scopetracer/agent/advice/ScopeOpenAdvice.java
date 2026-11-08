@@ -9,10 +9,15 @@ import java.util.concurrent.atomic.AtomicLong;
 import net.bytebuddy.asm.Advice;
 
 /**
- * ByteBuddy {@link Advice} applied to {@code StructuredTaskScope.open()} static factory methods.
- * Runs after {@code open()} returns and:
+ * ByteBuddy {@link Advice} applied to every public static {@code StructuredTaskScope.open} factory
+ * method. Runs after {@code open} returns and:
  *
  * <ol>
+ *   <li>Claims the returned scope in {@link AgentState#OPENED_SCOPES}, and returns at once if it is
+ *       already there. The JDK's {@code open()} and {@code open(Joiner)} call {@code open(Joiner,
+ *       UnaryOperator)}, so the same instance leaves two advised frames; the innermost exits first
+ *       and is the only one that goes on. One {@code open} call is therefore one decision and at
+ *       most one {@code ScopeOpened}, whichever overloads delegate to which.
  *   <li>Resolves the scope name: prefers the user-configured name captured by {@link
  *       ScopeConstructorAdvice} via {@link AgentState#PENDING_SCOPE_NAME}; falls back to {@link
  *       ScopeNameDeriver} (call-site stack frame) when no name was configured.
@@ -37,6 +42,8 @@ public final class ScopeOpenAdvice {
   @Advice.OnMethodExit(suppress = Throwable.class)
   public static void onOpen(@Advice.Return Object scope) {
     if (scope == null) return;
+    // An outer, delegating open frame returning a scope an inner frame already decided on.
+    if (!AgentState.OPENED_SCOPES.add(scope)) return;
 
     String pending = AgentState.PENDING_SCOPE_NAME.get();
     AgentState.PENDING_SCOPE_NAME.remove();

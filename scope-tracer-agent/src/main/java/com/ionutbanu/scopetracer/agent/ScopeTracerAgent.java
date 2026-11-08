@@ -139,7 +139,11 @@ public final class ScopeTracerAgent {
         .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE)
         .with(AgentBuilder.TypeStrategy.Default.REDEFINE)
         .ignore(ElementMatchers.none()) // instrument JDK classes too
-        // --- open() on the public API class ---
+        // --- every public static open overload on the public API class ---
+        // open() and open(Joiner) delegate to open(Joiner, UnaryOperator), so one call leaves
+        // several advised frames with the same scope. ScopeOpenAdvice acts on the first exit for
+        // an instance only (AgentState.OPENED_SCOPES), so the overload list and which overload
+        // the JDK delegates to do not matter.
         .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScope"))
         .transform(
             (b, typeDescription, classLoader, module, protectionDomain) ->

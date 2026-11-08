@@ -2,6 +2,7 @@ package com.ionutbanu.scopetracer.agent;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -29,6 +30,17 @@ public final class AgentState {
    */
   public static final Map<Object, ScopeState> SCOPE_STATES =
       Collections.synchronizedMap(new WeakHashMap<>());
+
+  /**
+   * Every {@code StructuredTaskScope} instance {@link
+   * com.ionutbanu.scopetracer.agent.advice.ScopeOpenAdvice} has made its one decision on, captured
+   * or filtered out. The advice is woven into every public static {@code open} overload, and an
+   * overload that delegates to another one returns the same instance through each of their frames,
+   * so the advice runs once per frame; only the first run, the one that adds the instance here,
+   * filters, names and emits. Weakly keyed by identity, so an entry goes when its scope does.
+   */
+  public static final Set<Object> OPENED_SCOPES =
+      Collections.newSetFromMap(Collections.synchronizedMap(new WeakHashMap<>()));
 
   /**
    * Carries the user-configured scope name (from {@code Config.withName()}) from the {@code

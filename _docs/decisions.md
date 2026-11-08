@@ -128,3 +128,19 @@ model from scopes that have a `ScopeOpened` after the loop; nothing
 depends on file order, and the pending buffers are gone. Events of a
 scope without a `ScopeOpened`, and completions without a fork, are
 still left out (counting them is #68).
+
+2026-11-08 - The open advice acts once per scope instance
+
+Every public static `StructuredTaskScope.open` is advised, and on
+JDK 26 `open()` and `open(Joiner)` call `open(Joiner,
+UnaryOperator)`, so one call ran `ScopeOpenAdvice` twice: two
+`ScopeOpened`, an empty never-closed twin, and two sampling draws
+(issue #51). Matching only the overload that does the work would
+tie the agent to the JDK's delegation, which changes between
+previews (`open(UnaryOperator)` arrives in 27). A per-thread depth
+counter was rejected too: an exit that never ran would leave a
+thread untraced for good, and a scope opened inside a configuration
+function would be hidden. The advice instead claims the returned
+instance in a weak identity set on its first exit, the innermost
+frame; later exits for the same instance return. A failure after the
+claim loses that scope's events, never more.
