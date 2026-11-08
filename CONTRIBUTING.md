@@ -43,7 +43,7 @@ mvn -pl scope-tracer-core -Dtest=TracedScopeTest#myMethod test
 
 ### Formatting
 
-The project uses Spotless with google-java-format 1.27.0 and sortPom. CI
+The project uses Spotless with google-java-format 1.36.1 and sortPom. CI
 fails on style violations.
 
 ```bash
