@@ -11,11 +11,16 @@ import com.ionutbanu.scopetracer.analyzer.model.TraceModel;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Integration tests for {@link ScopeTracerAgent}. Forks a JVM with the agent fat-jar attached via
@@ -31,6 +36,9 @@ class ScopeTracerAgentIT {
   /** Parsed recording from one invocation of {@link AgentTestSubject}; shared across all tests. */
   private static TraceModel model;
 
+  /** The same recording's raw events, read with {@code RecordingFile}. */
+  private static ScopeEvents events;
+
   @BeforeAll
   static void forkSubjectAndParseJfr() throws Exception {
     String agentJar = System.getProperty("agentJar", "");
@@ -44,8 +52,9 @@ class ScopeTracerAgentIT {
 
     Path jfrOut = Files.createTempFile("scope-tracer-agent-it-", ".jfr");
     try {
-      launchSubject(agentJar, testClassesDir, jfrOut);
+      launchSubject(agentJar, testClassesDir, AgentTestSubject.class, jfrOut);
       model = JfrParser.parse(jfrOut);
+      events = ScopeEvents.read(jfrOut);
     } finally {
       Files.deleteIfExists(jfrOut);
     }
@@ -108,12 +117,160 @@ class ScopeTracerAgentIT {
 
   @Test
   void unnamedScopeHasOneTask() {
-    List<ScopeRecord> unnamed =
-        model.scopes().stream().filter(s -> s.name().contains("#")).toList();
+    // The one unnamed scope opened with open(Joiner, UnaryOperator) directly in main().
+    List<ScopeRecord> unnamed = scopesNamed(AgentTestSubject.UNNAMED_TWO_ARG_SCOPE);
 
     assertThat(unnamed).hasSize(1);
     assertThat(unnamed.get(0).tasks()).hasSize(1);
     assertThat(unnamed.get(0).tasks().get(0).outcome()).isInstanceOf(TaskOutcome.Success.class);
+  }
+
+  /**
+   * Every unnamed scope is named after the user method that called {@code open}, whichever overload
+   * it called, and a configured {@code withName} wins over the derived name: the derived names in
+   * the recording are exactly the methods that open unnamed scopes, and no {@code ScopeOpened} of a
+   * named scope carries a derived name instead.
+   */
+  @Test
+  void unnamedScopesAreNamedAfterTheCallingMethodForEveryOverload() {
+    assertThat(
+            events.ofType(ScopeEvents.SCOPE_OPENED).stream()
+                .map(ScopeEvents.Event::scopeName)
+                .filter(n -> n.contains("#"))
+                .distinct())
+        .containsExactlyInAnyOrderElementsOf(AgentTestSubject.DERIVED_NAMES);
+    assertThat(events.opened(AgentTestSubject.NAMED_SCOPE)).hasSize(1);
+  }
+
+  // --- one scope per open() call, for every overload (issue #51) ---
+
+  static Stream<Arguments> openOverloads() {
+    return Stream.of(
+        Arguments.of("open()", AgentTestSubject.NO_ARG_SCOPE, 2),
+        Arguments.of("open(Joiner)", AgentTestSubject.JOINER_SCOPE, 2),
+        Arguments.of("open(Joiner, UnaryOperator) with withName", AgentTestSubject.NAMED_SCOPE, 3),
+        Arguments.of(
+            "open(Joiner, UnaryOperator) without withName",
+            AgentTestSubject.UNNAMED_TWO_ARG_SCOPE,
+            1));
+  }
+
+  /**
+   * One {@code open} call is one {@code ScopeOpened}: the JDK's {@code open()} and {@code
+   * open(Joiner)} call {@code open(Joiner, UnaryOperator)}, and every one of them is instrumented,
+   * so the advice runs once per frame on the same scope. Read from the raw recording, not the
+   * model: one {@code ScopeOpened}, one {@code ScopeClosed}, a {@code TaskForked} per fork, and no
+   * other {@code scopeId} under the scope's name.
+   */
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("openOverloads")
+  void eachOpenOverloadRecordsExactlyOneScope(String overload, String scopeName, int forks) {
+    var opened = events.opened(scopeName);
+    assertThat(opened).as("ScopeOpened for %s", overload).hasSize(1);
+    long scopeId = opened.get(0).scopeId();
+
+    assertThat(events.ofScope(ScopeEvents.SCOPE_CLOSED, scopeId)).hasSize(1);
+    assertThat(events.ofScope(ScopeEvents.TASK_FORKED, scopeId)).hasSize(forks);
+    assertThat(events.scopeIdsNamed(scopeName)).containsExactly(scopeId);
+  }
+
+  /** The same, in the parsed model: one scope per call, with its tasks and a close time. */
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("openOverloads")
+  void eachOpenOverloadIsOneClosedScopeInTheModel(String overload, String scopeName, int forks) {
+    var scopes = scopesNamed(scopeName);
+    assertThat(scopes).as("scopes for %s", overload).hasSize(1);
+    assertThat(scopes.get(0).tasks()).hasSize(forks);
+    assertThat(scopes.get(0).closeTime()).isNotNull();
+  }
+
+  /**
+   * Nothing in the model is what {@code JfrParser} reports as truncated: its "truncated scope(s)"
+   * warning counts scopes with no {@code closeTime} and tasks with no completion, so with neither
+   * present the warning is not logged. The duplicate of #51 was an empty, never-closed scope.
+   */
+  @Test
+  void modelHasNothingTheAnalyzerWouldReportAsTruncated() {
+    assertThat(model.scopes())
+        .noneSatisfy(s -> assertThat(s.closeTime()).isNull())
+        .noneSatisfy(s -> assertThat(s.tasks()).isEmpty());
+    assertThat(model.scopes().stream().flatMap(s -> s.tasks().stream()))
+        .allSatisfy(
+            t -> {
+              assertThat(t.completionTime()).isNotNull();
+              assertThat(t.outcome()).isNotNull();
+            });
+  }
+
+  // --- outcomes, nesting, names and threads under open() and open(Joiner) ---
+
+  @Test
+  void failedTaskUnderOpenNoArgsIsRecordedAsFailedOnThatScope() {
+    var scopes = scopesNamed(AgentTestSubject.NO_ARG_FAIL_SCOPE);
+    assertThat(scopes).hasSize(1);
+    var tasks = scopes.get(0).tasks();
+    assertThat(tasks).hasSize(1);
+    assertThat(tasks.get(0).outcome())
+        .isInstanceOfSatisfying(
+            TaskOutcome.Failed.class,
+            f -> {
+              assertThat(f.exceptionType()).isEqualTo(IllegalStateException.class.getName());
+              assertThat(f.exceptionMessage()).isEqualTo(AgentTestSubject.NO_ARG_FAILURE_MESSAGE);
+            });
+  }
+
+  @Test
+  void loserUnderAnySuccessfulOrThrowIsRecordedAsCancelledOnThatScope() {
+    var scopes = scopesNamed(AgentTestSubject.ANY_SUCCESS_SCOPE);
+    assertThat(scopes).hasSize(1);
+    var tasks = scopes.get(0).tasks().stream().sorted(Comparator.comparingLong(t -> t.taskId()));
+    // Task 1 is the loser (forked first, blocks), task 2 the winner.
+    assertThat(tasks.map(t -> t.outcome().getClass().getSimpleName()))
+        .containsExactly("Cancelled", "Success");
+  }
+
+  @Test
+  void openNoArgsInsideTasksHasItsOuterScopeAndTaskAsParentTwoLevelsDeep() {
+    var level0 = onlyScopeNamed(AgentTestSubject.NESTED_LEVEL_0);
+    var level1 = onlyScopeNamed(AgentTestSubject.NESTED_LEVEL_1);
+    var level2 = onlyScopeNamed(AgentTestSubject.NESTED_LEVEL_2);
+
+    assertThat(level0.parent()).isNull();
+    assertThat(level1.parent())
+        .isEqualTo(
+            new ScopeRecord.ParentRef(
+                level0.scopeId(), level0.name(), level0.tasks().get(0).taskId()));
+    assertThat(level2.parent())
+        .isEqualTo(
+            new ScopeRecord.ParentRef(
+                level1.scopeId(), level1.name(), level1.tasks().get(0).taskId()));
+  }
+
+  @Test
+  void sameMethodOpeningTwiceGivesTwoScopesWithTheirOwnTasks() {
+    var scopes = scopesNamed(AgentTestSubject.REPEATED_SCOPE);
+    assertThat(scopes).hasSize(AgentTestSubject.REPEATED_COUNT);
+    assertThat(scopes.stream().map(ScopeRecord::scopeId).distinct())
+        .hasSize(AgentTestSubject.REPEATED_COUNT);
+    assertThat(scopes).allSatisfy(s -> assertThat(s.tasks()).hasSize(1));
+    assertThat(events.opened(AgentTestSubject.REPEATED_SCOPE))
+        .hasSize(AgentTestSubject.REPEATED_COUNT);
+  }
+
+  @Test
+  void openNoArgsFromSeveralThreadsAtOnceGivesOneScopeOpenedEachWithDistinctIds() {
+    var opened = events.opened(AgentTestSubject.CONCURRENT_OPEN_SCOPE);
+    assertThat(opened).hasSize(AgentTestSubject.CONCURRENT_SCOPE_COUNT);
+    assertThat(opened.stream().map(ScopeEvents.Event::scopeId).distinct())
+        .hasSize(AgentTestSubject.CONCURRENT_SCOPE_COUNT);
+    assertThat(opened.stream().map(ScopeEvents.Event::threadName).distinct())
+        .hasSize(AgentTestSubject.CONCURRENT_SCOPE_COUNT);
+    assertThat(opened)
+        .allSatisfy(
+            o -> {
+              assertThat(events.ofScope(ScopeEvents.SCOPE_CLOSED, o.scopeId())).hasSize(1);
+              assertThat(events.ofScope(ScopeEvents.TASK_FORKED, o.scopeId())).hasSize(1);
+            });
   }
 
   // --- task failure ---
@@ -127,7 +284,7 @@ class ScopeTracerAgentIT {
     assertThat(tasks.get(0).outcome()).isInstanceOf(TaskOutcome.Failed.class);
     var failed = (TaskOutcome.Failed) tasks.get(0).outcome();
     assertThat(failed.exceptionType()).isEqualTo(IllegalStateException.class.getName());
-    assertThat(failed.exceptionMessage()).isEqualTo("intentional failure");
+    assertThat(failed.exceptionMessage()).isEqualTo(AgentTestSubject.FAILURE_MESSAGE);
     assertThat(failed.stackTrace()).isNotBlank();
   }
 
@@ -161,9 +318,9 @@ class ScopeTracerAgentIT {
    */
   @Test
   void modelContainsExactlyExpectedNumberOfScopes() {
-    // named + unnamed + fail + cancel + outer + inner + CONCURRENT_SCOPE_COUNT = 10
-    int expected = 6 + AgentTestSubject.CONCURRENT_SCOPE_COUNT;
-    assertThat(model.scopes()).hasSize(expected);
+    assertThat(model.scopes()).hasSize(AgentTestSubject.EXPECTED_SCOPE_COUNT);
+    assertThat(events.ofType(ScopeEvents.SCOPE_OPENED))
+        .hasSize(AgentTestSubject.EXPECTED_SCOPE_COUNT);
   }
 
   // --- concurrent scope scopeId distinctness ---
@@ -231,6 +388,34 @@ class ScopeTracerAgentIT {
     assertThat(model.scopes())
         .allSatisfy(s -> assertThat(s.openTime()).isNotNull())
         .allSatisfy(s -> assertThat(s.closeTime()).isNotNull());
+  }
+
+  // --- a failing advice loses events, never behaviour (spec §1) ---
+
+  /**
+   * {@link AgentAdviceFailureSubject} makes {@code ScopeOpenAdvice} throw in every {@code open}
+   * overload and checks, in the traced JVM, that each still returns a working scope and that {@code
+   * open} throws what its configuration function threw; it exits non-zero otherwise. The scopes
+   * opened while the advice fails lose their events; the one opened afterwards is traced.
+   */
+  @Test
+  void failingOpenAdviceLosesEventsButNeverChangesWhatOpenReturnsOrThrows(@TempDir Path tempDir)
+      throws Exception {
+    String agentJar = System.getProperty("agentJar", "");
+    String testClassesDir = System.getProperty("testClassesDir", "");
+    Path jfr = tempDir.resolve("advice-failure.jfr");
+
+    launchSubject(agentJar, testClassesDir, AgentAdviceFailureSubject.class, jfr);
+    var failureEvents = ScopeEvents.read(jfr);
+
+    var opened = failureEvents.ofType(ScopeEvents.SCOPE_OPENED);
+    assertThat(opened)
+        .extracting(ScopeEvents.Event::scopeName)
+        .containsExactly(AgentAdviceFailureSubject.AFTER_RESTORE_SCOPE);
+    long tracedId = opened.get(0).scopeId();
+    assertThat(failureEvents.events()).allSatisfy(e -> assertThat(e.scopeId()).isEqualTo(tracedId));
+    assertThat(failureEvents.ofScope(ScopeEvents.TASK_FORKED, tracedId)).hasSize(1);
+    assertThat(failureEvents.ofScope(ScopeEvents.SCOPE_CLOSED, tracedId)).hasSize(1);
   }
 
   // --- auto-HTML generation ---
@@ -355,7 +540,18 @@ class ScopeTracerAgentIT {
     return model.scopes().stream().filter(s -> name.equals(s.name())).findFirst();
   }
 
-  private static void launchSubject(String agentJar, String testClassesDir, Path jfrOut)
+  private static List<ScopeRecord> scopesNamed(String name) {
+    return model.scopes().stream().filter(s -> name.equals(s.name())).toList();
+  }
+
+  private static ScopeRecord onlyScopeNamed(String name) {
+    var scopes = scopesNamed(name);
+    assertThat(scopes).as("scopes named %s", name).hasSize(1);
+    return scopes.get(0);
+  }
+
+  private static void launchSubject(
+      String agentJar, String testClassesDir, Class<?> subject, Path jfrOut)
       throws IOException, InterruptedException {
     String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
 
@@ -366,7 +562,7 @@ class ScopeTracerAgentIT {
                 "-javaagent:" + agentJar,
                 "-cp",
                 testClassesDir,
-                "com.ionutbanu.scopetracer.agent.AgentTestSubject",
+                subject.getName(),
                 jfrOut.toString())
             .redirectErrorStream(true)
             .start();
@@ -375,7 +571,7 @@ class ScopeTracerAgentIT {
     int exitCode = proc.waitFor();
 
     if (exitCode != 0) {
-      fail("AgentTestSubject process exited with code " + exitCode + ":\n" + output);
+      fail(subject.getSimpleName() + " process exited with code " + exitCode + ":\n" + output);
     }
   }
 }

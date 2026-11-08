@@ -14,9 +14,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for the agent's capture-filter and sampling features ({@link CaptureFilter}).
- * Each test forks a JVM with {@code -javaagent:...=<filter-args>} and runs {@link
- * AgentTestSubject}, then asserts that the parsed {@code TraceModel} contains exactly the scopes
- * the filter should have admitted.
+ * Each test forks a JVM with {@code -javaagent:...=<filter-args>} and runs {@link AgentTestSubject}
+ * (or, for sampling over many scopes, {@link AgentSamplingSubject}), then asserts that the
+ * recording contains exactly the scopes the filter should have admitted.
  *
  * <p>Requires the agent fat-jar to be built ({@code mvn package}). When the {@code agentJar} system
  * property is absent (e.g. during plain {@code mvn test}), all tests in this class are skipped. Run
@@ -71,10 +71,8 @@ class ScopeTracerAgentFilterIT {
   void sampleRateOneCapturesEverything() throws Exception {
     // sample.rate=1.0 is the default; passing it explicitly must change nothing.
     var model = launchAndParse("sample.rate=1.0");
-    // Expected scope count matches ScopeTracerAgentIT#modelContainsExactlyExpectedNumberOfScopes:
-    //   named + unnamed + fail + cancel + outer + inner + CONCURRENT_SCOPE_COUNT = 10
-    int expected = 6 + AgentTestSubject.CONCURRENT_SCOPE_COUNT;
-    assertThat(model.scopes()).hasSize(expected);
+    // Same count as ScopeTracerAgentIT#modelContainsExactlyExpectedNumberOfScopes.
+    assertThat(model.scopes()).hasSize(AgentTestSubject.EXPECTED_SCOPE_COUNT);
   }
 
   @Test
@@ -83,8 +81,7 @@ class ScopeTracerAgentFilterIT {
     // that package must keep every scope (including those opened from worker threads in the
     // same class).
     var model = launchAndParse("include.package=com.ionutbanu.scopetracer.agent");
-    int expected = 6 + AgentTestSubject.CONCURRENT_SCOPE_COUNT;
-    assertThat(model.scopes()).hasSize(expected);
+    assertThat(model.scopes()).hasSize(AgentTestSubject.EXPECTED_SCOPE_COUNT);
   }
 
   @Test
@@ -100,6 +97,52 @@ class ScopeTracerAgentFilterIT {
     assertThat(model.scopes()).isEmpty();
   }
 
+  // --- one filter decision per scope, whichever open overload opened it (issue #51) ---
+
+  /**
+   * An include rule on the derived name of a scope opened with {@code open()} keeps that one scope
+   * with its two tasks. Include and exclude are deterministic, so before #51 the rule kept both
+   * {@code ScopeOpened} of the call and the model had a second, empty scope.
+   */
+  @Test
+  void includeNameOnAnOpenNoArgsScopeKeepsExactlyThatOneScope() throws Exception {
+    var model = launchAndParse("include.name=" + AgentTestSubject.NO_ARG_SCOPE);
+    assertThat(model.scopes()).hasSize(1);
+    assertThat(model.scopes().get(0).name()).isEqualTo(AgentTestSubject.NO_ARG_SCOPE);
+    assertThat(model.scopes().get(0).tasks()).hasSize(2);
+  }
+
+  @Test
+  void excludeNameOnAnOpenWithJoinerScopeDropsExactlyThatOneScope() throws Exception {
+    var model = launchAndParse("exclude.name=" + AgentTestSubject.JOINER_SCOPE);
+    assertThat(scopeNamed(model, AgentTestSubject.JOINER_SCOPE)).isEmpty();
+    assertThat(model.scopes()).hasSize(AgentTestSubject.EXPECTED_SCOPE_COUNT - 1);
+  }
+
+  /**
+   * {@code sample.rate=0.5} over {@value AgentSamplingSubject#SCOPE_COUNT} scopes opened with
+   * {@code open()} keeps about half, and every kept scope has its close and its fork. Fixed, the
+   * {@code ScopeOpened} count is binomial(1000, 0.5): 500 ± 16. Before #51 the filter ran in each
+   * of the two advised {@code open} frames and each passing draw emitted, so the count was about
+   * 1,000 (974 measured) and about 750 scopes had at least one. The bounds are more than 6 standard
+   * deviations from 500 and further still from both of those.
+   */
+  @Test
+  void sampleRateHalfKeepsAboutHalfOfTheScopesOpenedWithOpenNoArgs() throws Exception {
+    var events = launchAndRead(AgentSamplingSubject.class, "sample.rate=0.5");
+
+    var opened = events.ofType(ScopeEvents.SCOPE_OPENED);
+    assertThat(opened.size()).isBetween(400, 600);
+    var openedIds = opened.stream().map(ScopeEvents.Event::scopeId).toList();
+    assertThat(openedIds).doesNotHaveDuplicates();
+    assertThat(events.ofType(ScopeEvents.SCOPE_CLOSED))
+        .extracting(ScopeEvents.Event::scopeId)
+        .containsExactlyInAnyOrderElementsOf(openedIds);
+    assertThat(events.ofType(ScopeEvents.TASK_FORKED))
+        .extracting(ScopeEvents.Event::scopeId)
+        .containsExactlyInAnyOrderElementsOf(openedIds);
+  }
+
   // --- helpers ---
 
   private static java.util.Optional<com.ionutbanu.scopetracer.analyzer.model.ScopeRecord>
@@ -108,6 +151,25 @@ class ScopeTracerAgentFilterIT {
   }
 
   private static TraceModel launchAndParse(String agentArgs) throws Exception {
+    Path jfrOut = launch(AgentTestSubject.class, agentArgs);
+    try {
+      return JfrParser.parse(jfrOut);
+    } finally {
+      Files.deleteIfExists(jfrOut);
+    }
+  }
+
+  private static ScopeEvents launchAndRead(Class<?> subject, String agentArgs) throws Exception {
+    Path jfrOut = launch(subject, agentArgs);
+    try {
+      return ScopeEvents.read(jfrOut);
+    } finally {
+      Files.deleteIfExists(jfrOut);
+    }
+  }
+
+  /** Runs {@code subject} under the agent with {@code agentArgs}; returns its recording. */
+  private static Path launch(Class<?> subject, String agentArgs) throws Exception {
     assumeTrue(
         !agentJar.isBlank() && Files.exists(Path.of(agentJar)),
         "Skipping agent IT: run 'mvn verify' to build the fat-jar.");
@@ -116,15 +178,16 @@ class ScopeTracerAgentFilterIT {
 
     Path jfrOut = Files.createTempFile("scope-tracer-filter-it-", ".jfr");
     try {
-      launchSubject(agentJar, testClassesDir, agentArgs, jfrOut);
-      return JfrParser.parse(jfrOut);
-    } finally {
+      launchSubject(agentJar, testClassesDir, subject, agentArgs, jfrOut);
+      return jfrOut;
+    } catch (Exception | AssertionError e) {
       Files.deleteIfExists(jfrOut);
+      throw e;
     }
   }
 
   private static void launchSubject(
-      String agentJar, String testClassesDir, String agentArgs, Path jfrOut)
+      String agentJar, String testClassesDir, Class<?> subject, String agentArgs, Path jfrOut)
       throws IOException, InterruptedException {
     String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
     String agentSpec = "-javaagent:" + agentJar + "=" + agentArgs;
@@ -136,7 +199,7 @@ class ScopeTracerAgentFilterIT {
                 agentSpec,
                 "-cp",
                 testClassesDir,
-                "com.ionutbanu.scopetracer.agent.AgentTestSubject",
+                subject.getName(),
                 jfrOut.toString())
             .redirectErrorStream(true)
             .start();
@@ -146,7 +209,8 @@ class ScopeTracerAgentFilterIT {
 
     if (exitCode != 0) {
       fail(
-          "AgentTestSubject process exited with code "
+          subject.getSimpleName()
+              + " process exited with code "
               + exitCode
               + " (args="
               + agentArgs
