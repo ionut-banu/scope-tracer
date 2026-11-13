@@ -209,7 +209,9 @@ public final class JfrParser {
   /**
    * Reads the {@code callSite*} fields from a {@code TASK_FORKED} event into a {@link CallSite}, or
    * {@code null} when no class name was derived at emission time or the recording predates these
-   * fields.
+   * fields. The class name is the JVM binary name, fully qualified and uncut, as both producers
+   * stamp it; it is passed through as recorded. {@code TaskForked} is an existing event type, so
+   * reading these fields needs no new case in the event switch.
    */
   private static CallSite readCallSite(jdk.jfr.consumer.RecordedEvent event) {
     if (!event.hasField("callSiteClassName")) return null;

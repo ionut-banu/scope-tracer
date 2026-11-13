@@ -38,6 +38,11 @@ import java.time.Instant;
  *   ]
  * }
  * }</pre>
+ *
+ * <p>{@code callSite.className} is the fully qualified JVM binary name of the class, uncut ({@code
+ * com.acme.Plain$Named}), as recorded in {@code callSiteClassName}; it is not the simple name.
+ * {@code callSite} is {@code null} for a recording without the {@code callSite*} fields or with
+ * them unset.
  */
 public final class TraceModelJson {
 
