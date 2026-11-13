@@ -36,7 +36,7 @@ Scope is not negotiable
 
 §1 of the spec lists the non-goals and the invariants. If the issue
 asks for any of it - tracing `CompletableFuture`, a hosted service,
-support for a JDK before 26, a feature that changes how a traced scope
+support for a JDK before 27, a feature that changes how a traced scope
 behaves - do not groom it into the task. File a separate issue for the
 maintainer to decide on, link it under out of scope, and remove it
 from this one. Say plainly in a comment what you removed and why.

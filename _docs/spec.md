@@ -20,7 +20,7 @@ and the milestone order.
 ### What scope-tracer is
 
 A tracer and report generator for
-`java.util.concurrent.StructuredTaskScope` on JDK 26+. It records
+`java.util.concurrent.StructuredTaskScope` on JDK 27+. It records
 every scope and every forked subtask as JFR events, and turns a
 `.jfr` recording into a picture of what ran in parallel, what failed,
 what was cancelled, and which nested scope belongs to which task.
@@ -48,8 +48,11 @@ they expected to finish was cancelled.
 - Not a general profiler or APM. It traces `StructuredTaskScope`
   only - not `ExecutorService`, `CompletableFuture`, or bare threads.
 - Not a hosted service. Every output is a local file.
-- No support for JDKs before 26. `StructuredTaskScope` is a preview
-  API there and its shape has changed between releases.
+- No support for JDKs before 27. `StructuredTaskScope` is a preview
+  API there and its shape has changed between releases (JDK 27's
+  JEP 533 added the exception type parameter and removed
+  `Joiner.awaitAll()`). Everything is built with `--release 27`, so
+  nothing built here runs on 26, and there are no per-JDK artifacts.
 
 ### Invariants
 
@@ -142,7 +145,7 @@ with them.
 
 ## §3 Architecture
 
-Java 26 with `--enable-preview` project-wide, Maven 3.9+, JUnit 5,
+Java 27 with `--enable-preview` project-wide, Maven 3.9+, JUnit 5,
 AssertJ, Awaitility. The plugin is a separate Gradle build on JDK 21.
 
 ### The pipeline
@@ -170,11 +173,16 @@ Maven coordinates are `com.ionutbanu:scope-tracer-*`.
 
 ### Core
 
-`TracedScope<R>` wraps `StructuredTaskScope` and accepts any
-`Joiner<Object, R>`. `TracedScope.open(name)` uses
+`TracedScope<R, R_X>` wraps `StructuredTaskScope` and accepts any
+`Joiner<Object, R, R_X>` (JEP 533). `TracedScope.open(name)` uses
 `Joiner.awaitAllSuccessfulOrThrow()` (fail-fast);
 `TracedScope.open(name, joiner)` takes a custom one. `join()` returns
-the joiner's `R`. `fork(Callable)` derives a task name;
+the joiner's `R` and throws its `R_X`: `ExecutionException` for the
+built-in joiners, whose cause is the failed task's exception, exactly
+as a plain scope throws. It has the `open(String)` and
+`open(String, Joiner)` forms, with or without a `ThreadFactory`; JDK
+27's `open(UnaryOperator)` has no counterpart (#80). `fork(Callable)`
+derives a task name;
 `fork(String, Callable)` takes an explicit one.
 
 `TaskNameDeriver` names a task by, in order: the explicit name, the
@@ -230,8 +238,10 @@ lines go nowhere and the application's logging, whatever its layout
 or SLF4J version, is the same with the agent as without.
 
 - `premain` only; there is no `agentmain` (no dynamic attach).
-- `premain` sets ByteBuddy's experimental property to `true` so
-  ByteBuddy can read Java 26 class files. In the fat-jar the property
+- `premain` sets ByteBuddy's experimental property to `true`.
+  ByteBuddy 1.18.11 reads Java 27 class files without it; it is kept
+  so a JDK newer than the ByteBuddy release is still instrumented
+  rather than refused. In the fat-jar the property
   is relocated with ByteBuddy (`com.ionutbanu.scopetracer.shaded.net.bytebuddy.experimental`),
   so the application's own `net.bytebuddy.experimental` is untouched.
 - Three matcher chains: every public static
@@ -242,8 +252,9 @@ or SLF4J version, is the same with the agent as without.
   `close()` on both. `fork(Callable)` is matched by parameter type to
   avoid `fork(Runnable)`.
 - One `open` call is one decision and at most one `ScopeOpened`.
-  `open()` and `open(Joiner)` call `open(Joiner, UnaryOperator)`,
-  so the same scope leaves two advised frames.
+  `open()`, `open(Joiner)` and `open(UnaryOperator)` call
+  `open(Joiner, UnaryOperator)`, so the same scope leaves two advised
+  frames.
   `ScopeOpenAdvice` claims the returned instance in
   `AgentState.OPENED_SCOPES` (weak, by identity) on the first exit,
   which filters, names and emits; every later exit for that
@@ -283,12 +294,15 @@ to any recording started with `filename=` the moment it stops.
 ### Plugin
 
 The IDE runs on JBR (JDK 21) and cannot load classes compiled with
-`--release 26` (class-file major version 70), which JBR 21 rejects.
+`--release 27` (class-file major version 71), which JBR 21 rejects.
 So the plugin never loads analyzer classes:
 it bundles the analyzer's `-executable` jar as a resource
 (`copyAnalyzerJar` reads it from `../scope-tracer-analyzer/target/`),
-runs it as a subprocess on a user-configured JDK 26 with
+runs it as a subprocess on a user-configured JDK 27 with
 `--format=json`, and parses the JSON with its own `:model` module.
+The configured `java` is saved as `scopeTracer.jdk27JavaPath` and
+checked with `java -version` (`AnalyzerJdk` in `:model`) every time it
+is used; one older than 27 is refused with a message naming 27.
 
 - `:model` - plain Java 21, no IntelliJ dependency, so its tests run
   as ordinary JUnit. Gson is `compileOnly` (the IDE ships it).
@@ -299,7 +313,7 @@ runs it as a subprocess on a user-configured JDK 26 with
   and Tools → "Run with Scope Tracer", which runs the selected Java
   application configuration with the bundled agent jar, `--enable-preview`
   and a JFR recording added to its VM options (`TracedLaunch` decides
-  which, and refuses for JDK < 26, an already-attached agent or an
+  which, and refuses for JDK < 27, an already-attached agent or an
   existing `-XX:StartFlightRecording`), then opens the recording when
   the process exits. The agent jar is bundled like the analyzer's and
   extracted under its own file name, because its manifest's
@@ -378,6 +392,12 @@ try (var file = new RecordingFile(tempPath)) {
 
 - Spotless (google-java-format, sortPom), Jacoco and SpotBugs run in
   `mvn verify`; CI fails on any of them.
+- CI (`ci.yml`), the release (`release.yml`) and the stress run
+  (`stress.yml`) use Temurin 27, one JDK and no matrix; the plugin
+  job adds JDK 21 for Gradle. The Maven enforcer refuses a JDK older
+  than 27 before anything is compiled.
+- maven-shade-plugin runs with ASM 9.10.1 in place of its own 9.9.1,
+  which cannot read class-file major 71 (`shade.asm.version`).
 - Releases are cut by tagging `v*.*.*`; `.github/workflows/release.yml`
   deploys to Maven Central and creates a GitHub Release from the
   matching `CHANGELOG.md` section. Steps are in `CONTRIBUTING.md`.

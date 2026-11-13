@@ -14,7 +14,7 @@ recording, feed the `.jfr` file to the analyzer, and open the resulting self-con
 report. The report shows a per-scope Gantt timeline and task table so you can see what ran
 in parallel, which tasks were cancelled, and how nested scopes relate to their parent task.
 
-Targets JDK 26+ with `--enable-preview` (`StructuredTaskScope` is a preview API).
+Targets JDK 27+ with `--enable-preview` (`StructuredTaskScope` is a preview API).
 
 ---
 
@@ -22,7 +22,7 @@ Targets JDK 26+ with `--enable-preview` (`StructuredTaskScope` is a preview API)
 
 | Tool | Version |
 |------|---------|
-| Java | 26+ (with `--enable-preview`) |
+| Java | 27+ (with `--enable-preview`) |
 | Maven | 3.9+ |
 
 ---
@@ -136,7 +136,7 @@ breadcrumb showing which task spawned them.
 ## Zero-code-change tracing (Java agent)
 
 Don't want to change source code? Use the agent. It instruments `StructuredTaskScope` at
-the bytecode level — any JDK 26+ application is traced without touching its source.
+the bytecode level — any JDK 27+ application is traced without touching its source.
 
 ```bash
 VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
@@ -199,9 +199,9 @@ cd scope-tracer-plugin && ./gradlew build  # bundles that jar and builds the plu
 ```
 
 The IDE itself runs on JDK 21, so the plugin runs the bundled analyzer as a subprocess on a
-JDK 26 that you configure; it needs that JDK installed. To trace your own code from the IDE, select a Java application run configuration and use Tools
+JDK 27 that you configure; it needs that JDK installed, and refuses an older `java`. To trace your own code from the IDE, select a Java application run configuration and use Tools
 → **Run with Scope Tracer**: the plugin adds the agent, `--enable-preview` and a JFR recording
-to that run and opens the result when the process exits (the run configuration needs a JDK 26).
+to that run and opens the result when the process exits (the run configuration needs a JDK 27).
 You can also open a `.jfr` you recorded yourself (see "Run under JFR recording" and
 "Zero-code-change tracing" above).
 

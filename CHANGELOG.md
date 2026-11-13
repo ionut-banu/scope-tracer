@@ -30,11 +30,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **IntelliJ plugin (first milestone).** `scope-tracer-plugin/` adds Tools → "Open .jfr
   Recording (Scope Tracer)…", a "Scope Tracer" tool window showing the parsed trace, and
   click-to-source from a task to its fork call site. It runs the bundled analyzer jar as
-  a subprocess on a user-configured JDK 26 and parses its JSON, so it needs no
+  a subprocess on a user-configured JDK 27 and parses its JSON, so it needs no
   preview-API classes in the IDE's JVM. Built from source in this release; see the README.
 - **Run with Scope Tracer.** Tools → "Run with Scope Tracer" runs the selected Java application
   run configuration with the agent attached and opens the recording in the Scope Tracer tool
   window when the process exits, so no JVM flags need to be written by hand.
+
+### Changed
+
+- **JDK 27 is required; JDK 26 is no longer supported.** Everything is built with
+  `--release 27` (class-file major 71), so the core, agent and analyzer jars do not load on
+  JDK 26, and `TracedScope` (the one preview-stamped class) loads only on 27. On JDK 26 the
+  build stops at the Maven enforcer. There are no per-JDK artifacts; 0.1.0 and 0.2.0 stay the
+  releases for JDK 26, and the recordings they made still parse. The plugin refuses a run
+  configuration or an analyzer `java` older than 27 with a message naming 27; the analyzer
+  path is saved under a new key, so a JDK 26 path saved by an earlier build is asked for again.
+- **`TracedScope` follows JDK 27's structured-concurrency API (JEP 533) — breaking.**
+  `TracedScope<R>` becomes `TracedScope<R, R_X extends Throwable>`, where `R_X` is the
+  exception `join()` throws: `join()` is now `R join() throws R_X, InterruptedException`.
+  `open(String)` and `open(String, ThreadFactory)` return `TracedScope<Void, ExecutionException>`,
+  and the joiner overloads take a `Joiner<? super Object, ? extends R, R_X>`. With the built-in
+  joiners `join()` throws `java.util.concurrent.ExecutionException` (cause: the failed task's
+  exception), as a plain `StructuredTaskScope` on 27 does; `StructuredTaskScope.FailedException`
+  and `Joiner.awaitAll()` no longer exist (use `Joiner.allUntil(subtask -> false)`). Code that
+  uses `var scope = TracedScope.open(...)` only changes its `catch` clause. Callers of the
+  legacy constructors must now give both type arguments, `new TracedScope<Void,
+  ExecutionException>(name)`: with the raw type, `join()` throws `Throwable`.
 
 ### Fixed
 

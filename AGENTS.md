@@ -1,5 +1,5 @@
 Visualises Java structured concurrency (`StructuredTaskScope`, JDK
-26+) as task trees, lifetimes and cancellation. See `_docs/spec.md`
+27+) as task trees, lifetimes and cancellation. See `_docs/spec.md`
 for what it is and `_docs/decisions.md` for why. Tasks live as GitHub
 issues; see `_docs/process.md` for the per-task workflow.
 
@@ -38,7 +38,7 @@ Layout
 
 Rules
 
-- Java 26 with `--enable-preview` project-wide, deliberately. Do not
+- Java 27 with `--enable-preview` project-wide, deliberately. Do not
   disable it.
 - Dependencies go in the parent `<dependencyManagement>`; modules
   omit `<version>`. Do not add one without asking - in a comment on

@@ -7,7 +7,7 @@ build commands, and coding conventions for the project.
 
 | Tool  | Version                         |
 | ----- | ------------------------------- |
-| Java  | 26+ (with `--enable-preview`)   |
+| Java  | 27+ (with `--enable-preview`)   |
 | Maven | 3.9+                            |
 
 Both are enforced by `maven-enforcer-plugin`.

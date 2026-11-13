@@ -203,3 +203,30 @@ of the IDE's JBR 21 is `--release 26` (major version 70), which JBR
 21 rejects. The decision stands, the plugin still runs the analyzer
 as a subprocess and parses its JSON, and only the reason changes:
 the class-file version, not preview stamping.
+
+2026-10-16 - 0.3.0 is the first release on JDK 27; JDK 26 is dropped
+
+JDK 27 ships structured concurrency in its seventh preview (JEP 533),
+which changes the API (a third type parameter for the exception
+`join()` throws, `ExecutionException` from the built-in joiners,
+`Joiner.awaitAll()` gone) and loads preview-stamped class files only
+at major 71, so `TracedScope` built for 26 does not load on 27. The
+maintainer chose to move everything to 27 and drop 26 rather than
+ship a 26 build and follow it with 0.4.0, or keep per-JDK artifacts:
+JEP 543 finalizes the API in JDK 28 without further change, so 27 is
+the shape 1.0 will have, and one JDK keeps one build, one CI job and
+one `TracedScope` signature. The project has no outside users on 26;
+0.1.0 and 0.2.0 stay the releases for it, and recordings they made
+must still parse (a 0.1.0 fixture was added for that). Done in #54
+on 2026-11-13.
+
+maven-shade-plugin 3.6.2, the newest release, depends on ASM 9.9.1,
+which cannot read class-file major 71, and the agent's relocation of
+SLF4J and ByteBuddy rewrites every class through ASM. Its ASM is
+overridden with 9.10.1 in the parent `<pluginManagement>`
+(`shade.asm.version`), approved by the maintainer on #54: the version
+JaCoCo 0.8.15 and SpotBugs 4.10.3 already use, so the build has one
+ASM. An ASM that reads JDK 28 (major 72) is left to #55 together
+with whatever JaCoCo and SpotBugs need for 28. ByteBuddy 1.18.11 reads
+27 on its own, but `net.bytebuddy.experimental` stays set so a JDK
+newer than the ByteBuddy release is still instrumented.
