@@ -35,10 +35,13 @@ public final class TaskForkedEvent extends Event implements TracedScopeEvent {
   public String taskName;
 
   /**
-   * Simple class name of the fork call site: the enclosing class for a lambda/method reference, or
-   * the {@link java.util.concurrent.Callable}'s own class when it's a named user class. Always
-   * derived independently of {@link #taskName} — populated even when the caller supplied an
-   * explicit label via {@code TracedScope.fork(String, Callable)}.
+   * Fully qualified class of the fork call site, as the JVM binary name, uncut: the class whose
+   * method called {@code fork} for a lambda/method reference (the class that hosts the lambda), or
+   * the {@link java.util.concurrent.Callable}'s own class when it's a named user class. A nested
+   * class is {@code com.acme.Plain$Named}, an anonymous one {@code com.acme.Plain$1}; a class in
+   * the unnamed package has no dot. Always derived independently of {@link #taskName} — populated
+   * even when the caller supplied an explicit label via {@code TracedScope.fork(String, Callable)}.
+   * {@code TracedScope} and the agent stamp the same value.
    *
    * <p>Nullable: absent when derivation fails, or in recordings produced before this field was
    * added. Parsers must use {@code event.hasField("callSiteClassName")} before reading.

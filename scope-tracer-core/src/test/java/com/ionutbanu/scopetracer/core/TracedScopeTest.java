@@ -22,6 +22,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 class TracedScopeTest {
 
+  private static final String SELF = "com.ionutbanu.scopetracer.core.TracedScopeTest";
+
   @TempDir Path tempDir;
 
   // --- constructor / factory validation ---
@@ -662,7 +664,7 @@ class TracedScopeTest {
     assertThat(forked).hasSize(1);
     var event = forked.get(0);
     assertThat(event.getString("taskName")).isEqualTo("findUser");
-    assertThat(event.getString("callSiteClassName")).isEqualTo("TracedScopeTest");
+    assertThat(event.getString("callSiteClassName")).isEqualTo(SELF);
     assertThat(event.getString("callSiteMethodName"))
         .isEqualTo("forkWithExplicitNameStillCapturesCallSite");
     assertThat(event.getInt("callSiteLine")).isPositive();
@@ -685,7 +687,7 @@ class TracedScopeTest {
     var forked = eventsOfType(events, "com.ionutbanu.scopetracer.TaskForked");
     assertThat(forked).hasSize(1);
     var event = forked.get(0);
-    assertThat(event.getString("callSiteClassName")).isEqualTo("TracedScopeTest");
+    assertThat(event.getString("callSiteClassName")).isEqualTo(SELF);
     assertThat(event.getString("callSiteMethodName"))
         .isEqualTo("forkWithLambdaAlsoCapturesCallSite");
     assertThat(event.getInt("callSiteLine")).isPositive();
@@ -708,9 +710,40 @@ class TracedScopeTest {
     var forked = eventsOfType(events, "com.ionutbanu.scopetracer.TaskForked");
     assertThat(forked).hasSize(1);
     var event = forked.get(0);
-    assertThat(event.getString("callSiteClassName")).isEqualTo("NamedTask");
+    assertThat(event.getString("callSiteClassName")).isEqualTo(SELF + "$NamedTask");
     assertThat(event.getString("callSiteMethodName")).isNull();
     assertThat(event.getInt("callSiteLine")).isZero();
+    assertThat(event.getString("taskName")).isEqualTo("NamedTask");
+  }
+
+  /**
+   * {@code callSiteClassName} is the binary name of the class that called {@code fork}, uncut: a
+   * fork in a method of a nested class records {@code TracedScopeTest$NestedForker}, while {@code
+   * taskName} keeps the outer simple name.
+   */
+  @Test
+  void forkInsideNestedClassRecordsTheNestedBinaryName() throws Exception {
+    var scopeName = "nested-class-callsite";
+    var events = capture(scopeName, () -> NestedForker.forkOnce(scopeName));
+
+    var forked = eventsOfType(events, "com.ionutbanu.scopetracer.TaskForked");
+    assertThat(forked).hasSize(1);
+    var event = forked.get(0);
+    assertThat(event.getString("callSiteClassName")).isEqualTo(SELF + "$NestedForker");
+    assertThat(event.getString("callSiteMethodName")).isEqualTo("forkOnce");
+    assertThat(event.getInt("callSiteLine")).isPositive();
+    assertThat(event.getString("taskName"))
+        .isEqualTo("TracedScopeTest#forkOnce:" + event.getInt("callSiteLine"));
+  }
+
+  /** Opens a scope and forks one lambda from a method of a static nested class. */
+  private static final class NestedForker {
+    static void forkOnce(String scopeName) throws Exception {
+      try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+        scope.fork(() -> "n");
+        scope.join();
+      }
+    }
   }
 
   /** Non-lambda Callable used as test fixture for the class-name derivation tier. */
