@@ -3,9 +3,15 @@ package com.ionutbanu.scopetracer.analyzer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ionutbanu.scopetracer.analyzer.model.CallSite;
 import com.ionutbanu.scopetracer.analyzer.model.TaskOutcome;
+import com.ionutbanu.scopetracer.analyzer.model.TaskRecord;
 import com.ionutbanu.scopetracer.analyzer.model.TraceModel;
 import com.ionutbanu.scopetracer.core.TracedScope;
+import com.ionutbanu.scopetracer.core.events.ScopeClosedEvent;
+import com.ionutbanu.scopetracer.core.events.ScopeOpenedEvent;
+import com.ionutbanu.scopetracer.core.events.TaskForkedEvent;
+import com.ionutbanu.scopetracer.core.events.TaskSucceededEvent;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
@@ -630,7 +636,7 @@ class JfrParserTest {
     var task = model.scopes().get(0).tasks().get(0);
     assertThat(task.taskName()).isEqualTo("findUser");
     assertThat(task.callSite()).isNotNull();
-    assertThat(task.callSite().className()).isEqualTo("JfrParserTest");
+    assertThat(task.callSite().className()).isEqualTo(JfrParserTest.class.getName());
     assertThat(task.callSite().methodName()).isEqualTo("explicitlyNamedForkStillCapturesCallSite");
     assertThat(task.callSite().line()).isPositive();
   }
@@ -651,8 +657,134 @@ class JfrParserTest {
 
     var task = model.scopes().get(0).tasks().get(0);
     assertThat(task.callSite()).isNotNull();
-    assertThat(task.callSite().className()).isEqualTo("JfrParserTest");
+    assertThat(task.callSite().className()).isEqualTo(JfrParserTest.class.getName());
     assertThat(task.callSite().methodName()).isEqualTo("autoDerivedForkCapturesCallSite");
     assertThat(task.callSite().line()).isPositive();
+  }
+
+  // --- callSite from hand-built events: what the agent records, before and after #86 ---
+
+  /**
+   * An agent recording now carries the call site, stamped by {@code ForkAdvice} as {@code
+   * TracedScope} does: binary class name, method and line for a lambda, class only for a named
+   * {@code Callable}.
+   */
+  @Test
+  void agentShapedForksGiveTheirCallSites() throws Exception {
+    var model =
+        capture(
+            "agent-shaped",
+            () -> {
+              opened(1, "Traced#main");
+              forked(1, "Traced#main", 1, "Traced#main:7", "com.acme.Traced", "main", 7);
+              forked(1, "Traced#main", 2, "Named", "com.acme.Plain$Named", null, 0);
+              succeeded(1, "Traced#main", 1);
+              succeeded(1, "Traced#main", 2);
+              closed(1, "Traced#main");
+            });
+
+    var tasks = model.scopes().get(0).tasks();
+    assertThat(tasks)
+        .extracting(TaskRecord::callSite)
+        .containsExactlyInAnyOrder(
+            new CallSite("com.acme.Traced", "main", 7),
+            new CallSite("com.acme.Plain$Named", null, null));
+  }
+
+  /**
+   * A recording made by the agent before #86: the {@code callSite*} fields exist (they belong to
+   * core's event) but were never set, so {@code hasField} is true and the values are null / 0. The
+   * task has no call site and keeps its {@code taskName}, which the plugin falls back to.
+   */
+  @Test
+  void agentForkFromBeforeTheCallSiteFieldsWereStampedHasNoCallSite() throws Exception {
+    var model =
+        capture(
+            "agent-before",
+            () -> {
+              opened(1, "Traced#main");
+              forked(1, "Traced#main", 1, "Traced#main:7", null, null, 0);
+              succeeded(1, "Traced#main", 1);
+              closed(1, "Traced#main");
+            });
+
+    var task = model.scopes().get(0).tasks().get(0);
+    assertThat(task.callSite()).isNull();
+    assertThat(task.taskName()).isEqualTo("Traced#main:7");
+    assertThat(task.outcome()).isInstanceOf(TaskOutcome.Success.class);
+  }
+
+  /**
+   * A task whose {@code TaskForked} JFR dropped is handled as before: the model is built from the
+   * forks, so it is not in the model and there is no call site to show for it.
+   */
+  @Test
+  void taskWithoutForkEventIsLeftOutAsBefore() throws Exception {
+    var model =
+        capture(
+            "fork-dropped",
+            () -> {
+              opened(1, "s");
+              forked(1, "s", 1, "Traced#main:7", "com.acme.Traced", "main", 7);
+              succeeded(1, "s", 1);
+              succeeded(1, "s", 2);
+              closed(1, "s");
+            });
+
+    assertThat(model.scopes().get(0).tasks())
+        .singleElement()
+        .satisfies(
+            t -> {
+              assertThat(t.taskId()).isEqualTo(1L);
+              assertThat(t.callSite()).isEqualTo(new CallSite("com.acme.Traced", "main", 7));
+            });
+  }
+
+  private static void opened(long scopeId, String name) {
+    var e = new ScopeOpenedEvent();
+    e.scopeId = scopeId;
+    e.scopeName = name;
+    e.taskId = 0;
+    e.threadName = Thread.currentThread().getName();
+    e.commit();
+  }
+
+  /** A {@code TaskForked} as {@code ForkAdvice} commits it. */
+  private static void forked(
+      long scopeId,
+      String name,
+      long taskId,
+      String taskName,
+      String callSiteClass,
+      String callSiteMethod,
+      int callSiteLine) {
+    var e = new TaskForkedEvent();
+    e.scopeId = scopeId;
+    e.scopeName = name;
+    e.taskId = taskId;
+    e.taskName = taskName;
+    e.threadName = Thread.currentThread().getName();
+    e.callSiteClassName = callSiteClass;
+    e.callSiteMethodName = callSiteMethod;
+    e.callSiteLine = callSiteLine;
+    e.commit();
+  }
+
+  private static void succeeded(long scopeId, String name, long taskId) {
+    var e = new TaskSucceededEvent();
+    e.scopeId = scopeId;
+    e.scopeName = name;
+    e.taskId = taskId;
+    e.threadName = Thread.currentThread().getName();
+    e.commit();
+  }
+
+  private static void closed(long scopeId, String name) {
+    var e = new ScopeClosedEvent();
+    e.scopeId = scopeId;
+    e.scopeName = name;
+    e.taskId = 0;
+    e.threadName = Thread.currentThread().getName();
+    e.commit();
   }
 }

@@ -74,6 +74,31 @@ class TraceModelJsonTest {
     assertThat(json).contains("\"line\":42");
   }
 
+  /**
+   * {@code className} is the binary name as recorded, {@code $} and all, and a named {@code
+   * Callable}'s call site has a {@code null} method and line: the shape is the one the plugin's
+   * {@code :model} parser already reads.
+   */
+  @Test
+  void callSiteWithBinaryClassNameIsWrittenAsRecorded() {
+    var tasks =
+        List.of(
+            new TaskRecord(
+                1,
+                "Named",
+                "worker",
+                -1L,
+                T1,
+                T2,
+                new TaskOutcome.Success(),
+                new CallSite("com.acme.Plain$Named", null, null)));
+    var scope = new ScopeRecord(1L, "scope", "main", -1L, T0, T2, tasks, null);
+    var json = TraceModelJson.toJson(new TraceModel(List.of(scope)));
+    assertThat(json)
+        .contains(
+            "\"callSite\":{\"className\":\"com.acme.Plain$Named\",\"methodName\":null,\"line\":null}");
+  }
+
   @Test
   void scriptTerminatorIsEscapedToPreventInlineBreakout() {
     // A naïve embedding would allow exceptionMessage to break out of <script> via "</script>".
