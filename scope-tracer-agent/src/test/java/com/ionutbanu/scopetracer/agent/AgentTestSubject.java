@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
 import jdk.jfr.Recording;
@@ -134,7 +135,7 @@ public final class AgentTestSubject {
         scope.join();
       }
 
-      // Failing scope: one task throws; catch FailedException so the process exits normally.
+      // Failing scope: one task throws; catch ExecutionException so the process exits normally.
       try (var scope =
           StructuredTaskScope.open(
               Joiner.awaitAllSuccessfulOrThrow(),
@@ -145,7 +146,7 @@ public final class AgentTestSubject {
             });
         try {
           scope.join();
-        } catch (StructuredTaskScope.FailedException ignored) {
+        } catch (ExecutionException ignored) {
           // expected — one task failed
         }
       }
@@ -170,7 +171,7 @@ public final class AgentTestSubject {
             });
         try {
           scope.join();
-        } catch (StructuredTaskScope.FailedException ignored) {
+        } catch (ExecutionException ignored) {
           // expected
         }
       }
@@ -246,7 +247,7 @@ public final class AgentTestSubject {
   }
 
   /** {@code open()}: two tasks that succeed. */
-  private static void openNoArgs() throws InterruptedException {
+  private static void openNoArgs() throws InterruptedException, ExecutionException {
     try (var scope = StructuredTaskScope.open()) {
       scope.fork(() -> "no-arg-1");
       scope.fork(() -> "no-arg-2");
@@ -255,7 +256,7 @@ public final class AgentTestSubject {
   }
 
   /** {@code open(Joiner)}: two tasks that succeed. */
-  private static void openWithJoiner() throws InterruptedException {
+  private static void openWithJoiner() throws InterruptedException, ExecutionException {
     try (var scope = StructuredTaskScope.open(Joiner.<String>awaitAllSuccessfulOrThrow())) {
       scope.fork(() -> "joiner-1");
       scope.fork(() -> "joiner-2");
@@ -272,7 +273,7 @@ public final class AgentTestSubject {
           });
       try {
         scope.join();
-      } catch (StructuredTaskScope.FailedException expected) {
+      } catch (ExecutionException expected) {
         // the task failed, which is the point
       }
     }
@@ -282,7 +283,7 @@ public final class AgentTestSubject {
    * {@code open(Joiner.anySuccessfulOrThrow())}: the loser is forked first and is running before
    * the winner returns, then blocks until the winner's success cancels the scope.
    */
-  private static void openAnySuccessful() throws InterruptedException {
+  private static void openAnySuccessful() throws InterruptedException, ExecutionException {
     var loserRunning = new CountDownLatch(1);
     var never = new CountDownLatch(1);
     try (var scope = StructuredTaskScope.open(Joiner.<String>anySuccessfulOrThrow())) {
@@ -305,7 +306,7 @@ public final class AgentTestSubject {
   }
 
   /** {@code open()} whose one task opens {@link #nestedLevel1()}. */
-  private static void nestedLevel0() throws InterruptedException {
+  private static void nestedLevel0() throws InterruptedException, ExecutionException {
     try (var scope = StructuredTaskScope.open()) {
       scope.fork(() -> nestedLevel1());
       scope.join();
@@ -313,7 +314,7 @@ public final class AgentTestSubject {
   }
 
   /** {@code open()} in a task of {@link #nestedLevel0()}; its one task opens level 2. */
-  private static String nestedLevel1() throws InterruptedException {
+  private static String nestedLevel1() throws InterruptedException, ExecutionException {
     try (var scope = StructuredTaskScope.open()) {
       scope.fork(() -> nestedLevel2());
       scope.join();
@@ -322,7 +323,7 @@ public final class AgentTestSubject {
   }
 
   /** {@code open()} in a task of {@link #nestedLevel1()}, with one leaf task. */
-  private static String nestedLevel2() throws InterruptedException {
+  private static String nestedLevel2() throws InterruptedException, ExecutionException {
     try (var scope = StructuredTaskScope.open()) {
       scope.fork(() -> "level-2-leaf");
       scope.join();
@@ -331,7 +332,7 @@ public final class AgentTestSubject {
   }
 
   /** {@code open()} from one method called more than once: one derived name, several scopes. */
-  private static void openRepeated(int call) throws InterruptedException {
+  private static void openRepeated(int call) throws InterruptedException, ExecutionException {
     try (var scope = StructuredTaskScope.open()) {
       scope.fork(() -> "repeated-" + call);
       scope.join();
@@ -354,7 +355,7 @@ public final class AgentTestSubject {
                       ready.countDown();
                       release.await();
                       openConcurrently(idx);
-                    } catch (InterruptedException e) {
+                    } catch (InterruptedException | ExecutionException e) {
                       throw new RuntimeException(e);
                     }
                   }));
@@ -364,7 +365,7 @@ public final class AgentTestSubject {
     for (var t : threads) t.join();
   }
 
-  private static void openConcurrently(int idx) throws InterruptedException {
+  private static void openConcurrently(int idx) throws InterruptedException, ExecutionException {
     try (var scope = StructuredTaskScope.open()) {
       scope.fork(() -> "concurrent-open-" + idx);
       scope.join();

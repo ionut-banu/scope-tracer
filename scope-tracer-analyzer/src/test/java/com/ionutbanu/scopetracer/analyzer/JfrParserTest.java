@@ -9,7 +9,7 @@ import com.ionutbanu.scopetracer.core.TracedScope;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.ExecutionException;
 import jdk.jfr.Recording;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -125,8 +125,7 @@ class JfrParserTest {
                     () -> {
                       throw new IllegalStateException("boom");
                     });
-                assertThatThrownBy(scope::join)
-                    .isInstanceOf(StructuredTaskScope.FailedException.class);
+                assertThatThrownBy(scope::join).isInstanceOf(ExecutionException.class);
               }
             });
 
@@ -152,8 +151,7 @@ class JfrParserTest {
                     () -> {
                       throw new IllegalStateException("trace-test");
                     });
-                assertThatThrownBy(scope::join)
-                    .isInstanceOf(StructuredTaskScope.FailedException.class);
+                assertThatThrownBy(scope::join).isInstanceOf(ExecutionException.class);
               }
             });
 
@@ -184,8 +182,7 @@ class JfrParserTest {
                       taskStarted.await();
                       throw new RuntimeException("trigger");
                     });
-                assertThatThrownBy(scope::join)
-                    .isInstanceOf(StructuredTaskScope.FailedException.class);
+                assertThatThrownBy(scope::join).isInstanceOf(ExecutionException.class);
               }
             });
 
@@ -417,11 +414,15 @@ class JfrParserTest {
         capture(
             "same-name-scopes",
             () -> {
-              try (var s1 = new TracedScope("duplicate-name", Thread.ofPlatform().factory())) {
+              try (var s1 =
+                  new TracedScope<Void, ExecutionException>(
+                      "duplicate-name", Thread.ofPlatform().factory())) {
                 s1.fork(() -> "first");
                 s1.join();
               }
-              try (var s2 = new TracedScope("duplicate-name", Thread.ofPlatform().factory())) {
+              try (var s2 =
+                  new TracedScope<Void, ExecutionException>(
+                      "duplicate-name", Thread.ofPlatform().factory())) {
                 s2.fork(() -> "second");
                 s2.join();
               }
@@ -551,8 +552,7 @@ class JfrParserTest {
                     () -> {
                       throw new IllegalStateException(); // no message — getMessage() returns null
                     });
-                assertThatThrownBy(scope::join)
-                    .isInstanceOf(StructuredTaskScope.FailedException.class);
+                assertThatThrownBy(scope::join).isInstanceOf(ExecutionException.class);
               }
             });
 

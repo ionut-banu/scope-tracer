@@ -1,5 +1,6 @@
 package com.ionutbanu.scopetracer.demos;
 
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
 
@@ -62,7 +63,7 @@ public final class AgentDemo {
               scope.join();
               System.out.println("price    : " + price.get());
               System.out.println("shipping : " + shipping.get());
-            } catch (StructuredTaskScope.FailedException e) {
+            } catch (ExecutionException e) {
               System.out.println("scope failed: " + e.getCause().getMessage());
             }
           }

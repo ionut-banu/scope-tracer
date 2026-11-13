@@ -1,5 +1,6 @@
 package com.ionutbanu.scopetracer.demos;
 
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -115,7 +116,7 @@ public final class LiveServiceDemo {
           "[order-%03d] ✓ %dms  price=%-8s  inventory=%-14s  shipping=%s%n",
           reqId, elapsed, price.get(), inventory.get(), shipping.get());
 
-    } catch (StructuredTaskScope.FailedException e) {
+    } catch (ExecutionException e) {
       long elapsed = System.currentTimeMillis() - start;
       System.out.printf(
           "[order-%03d] ✗ %dms  failed: %s%n", reqId, elapsed, e.getCause().getMessage());

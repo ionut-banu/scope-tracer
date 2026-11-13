@@ -1,6 +1,7 @@
 package com.ionutbanu.scopetracer.demos;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -164,9 +165,9 @@ public final class LiveOrderProcessingDemo {
       System.out.printf(
           "[ORD-%s] ✓ fulfilled  payment=%s  stock=%s%n", orderId, payment.get(), inventory.get());
       return true;
-    } catch (StructuredTaskScope.FailedException e) {
+    } catch (ExecutionException e) {
       Throwable cause = e.getCause();
-      while (cause instanceof StructuredTaskScope.FailedException && cause.getCause() != null) {
+      while (cause instanceof ExecutionException && cause.getCause() != null) {
         cause = cause.getCause();
       }
       System.out.printf("[ORD-%s] ✗ fulfillment failed: %s%n", orderId, cause.getMessage());
@@ -186,7 +187,7 @@ public final class LiveOrderProcessingDemo {
       scope.fork(() -> notifyCustomer(rng));
       scope.join();
       System.out.printf("[ORD-%s] ✓ dispatched%n", orderId);
-    } catch (StructuredTaskScope.FailedException e) {
+    } catch (ExecutionException e) {
       System.out.printf("[ORD-%s] ✗ dispatch failed: %s%n", orderId, e.getCause().getMessage());
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
@@ -202,9 +203,9 @@ public final class LiveOrderProcessingDemo {
             Joiner.awaitAllSuccessfulOrThrow(), c -> c.withName("payment-pipeline-" + orderId))) {
       var fraud = scope.fork(() -> checkFraud(orderId, amount, rng));
       var auth = scope.fork(() -> authorizeCard(rng));
-      scope.join(); // throws FailedException if fraud check rejects
+      scope.join(); // throws ExecutionException if fraud check rejects
       return capturePayment(auth.get(), rng);
-    } catch (StructuredTaskScope.FailedException e) {
+    } catch (ExecutionException e) {
       throw new RuntimeException(e.getCause().getMessage(), e.getCause());
     }
   }

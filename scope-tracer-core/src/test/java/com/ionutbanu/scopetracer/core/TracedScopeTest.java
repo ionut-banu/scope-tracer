@@ -10,8 +10,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
+import java.util.concurrent.StructuredTaskScope.Subtask;
 import jdk.jfr.Recording;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordingFile;
@@ -205,8 +207,7 @@ class TracedScopeTest {
                     () -> {
                       throw new IllegalStateException("boom");
                     });
-                assertThatThrownBy(scope::join)
-                    .isInstanceOf(StructuredTaskScope.FailedException.class);
+                assertThatThrownBy(scope::join).isInstanceOf(ExecutionException.class);
               }
             });
 
@@ -231,8 +232,7 @@ class TracedScopeTest {
                     () -> {
                       throw new IllegalStateException(); // no message
                     });
-                assertThatThrownBy(scope::join)
-                    .isInstanceOf(StructuredTaskScope.FailedException.class);
+                assertThatThrownBy(scope::join).isInstanceOf(ExecutionException.class);
               }
             });
 
@@ -255,7 +255,7 @@ class TracedScopeTest {
                     });
                 try {
                   scope.join();
-                } catch (StructuredTaskScope.FailedException ignored) {
+                } catch (ExecutionException ignored) {
                 }
               }
             });
@@ -286,13 +286,60 @@ class TracedScopeTest {
                       taskStarted.await(); // ensure task 1 is blocking before we fail
                       throw new RuntimeException("trigger cancellation");
                     });
-                assertThatThrownBy(scope::join)
-                    .isInstanceOf(StructuredTaskScope.FailedException.class);
+                assertThatThrownBy(scope::join).isInstanceOf(ExecutionException.class);
               }
             });
 
     assertThat(eventsOfType(events, "com.ionutbanu.scopetracer.TaskCancelled")).hasSize(1);
     assertThat(eventsOfType(events, "com.ionutbanu.scopetracer.TaskFailed")).hasSize(1);
+  }
+
+  // --- tracing never changes behaviour ---
+
+  /**
+   * Spec §1: a traced scope throws what a plain {@link StructuredTaskScope} running the same tasks
+   * throws. On JDK 27 the default joiner's {@code join()} throws {@link ExecutionException} with
+   * the failed task's exception as its cause.
+   */
+  @Test
+  void defaultJoinerFailureThrowsTheSameExceptionAsAPlainScope() throws Exception {
+    var failure = new IllegalStateException("boom");
+
+    Throwable plain;
+    try (var scope =
+        StructuredTaskScope.open(
+            Joiner.<Object>awaitAllSuccessfulOrThrow(),
+            cf -> cf.withThreadFactory(Thread.ofPlatform().factory()))) {
+      scope.fork(() -> "ok");
+      scope.fork(
+          () -> {
+            throw failure;
+          });
+      plain = catchJoin(scope::join);
+    }
+
+    Throwable traced;
+    try (var scope = TracedScope.open("same-exception", Thread.ofPlatform().factory())) {
+      scope.fork(() -> "ok");
+      scope.fork(
+          () -> {
+            throw failure;
+          });
+      traced = catchJoin(scope::join);
+    }
+
+    assertThat(plain).isInstanceOf(ExecutionException.class).hasCause(failure);
+    assertThat(traced).isNotNull().hasSameClassAs(plain);
+    assertThat(traced.getCause()).isSameAs(plain.getCause());
+  }
+
+  private static Throwable catchJoin(ThrowingRunnable join) {
+    try {
+      join.run();
+      return null;
+    } catch (Exception e) {
+      return e;
+    }
   }
 
   // --- idempotent close ---
@@ -359,28 +406,37 @@ class TracedScopeTest {
   }
 
   /**
-   * With {@code awaitAll()}, the scope waits for all tasks regardless of outcome. A failed task
-   * emits {@code TaskFailed} but does not cause {@link TracedScope#join()} to throw — the caller
-   * inspects subtask results directly. All events for both tasks must be present.
+   * With {@code allUntil(subtask -> false)} (JDK 27's replacement for the removed {@code
+   * awaitAll()}), the scope waits for all tasks regardless of outcome. A failed task emits {@code
+   * TaskFailed} but does not cause {@link TracedScope#join()} to throw — the caller inspects the
+   * returned subtasks directly. All events for both tasks must be present.
    */
   @Test
-  void awaitAllJoinerCollectsAllOutcomes() throws Exception {
-    var scopeName = "await-all-joiner";
+  void allUntilNeverJoinerCollectsAllOutcomes() throws Exception {
+    var scopeName = "all-until-never-joiner";
+    var states = new ArrayList<Subtask.State>();
     var events =
         capture(
             scopeName,
             () -> {
               try (var scope =
-                  TracedScope.open(scopeName, Joiner.awaitAll(), Thread.ofPlatform().factory())) {
+                  TracedScope.open(
+                      scopeName,
+                      Joiner.allUntil(subtask -> false),
+                      Thread.ofPlatform().factory())) {
                 scope.fork(() -> "ok");
                 scope.fork(
                     () -> {
                       throw new RuntimeException("partial failure");
                     });
-                scope.join(); // does NOT throw even though one task failed
+                // does NOT throw even though one task failed
+                for (var subtask : scope.join()) {
+                  states.add(subtask.state());
+                }
               }
             });
 
+    assertThat(states).containsExactly(Subtask.State.SUCCESS, Subtask.State.FAILED);
     // Both tasks ran to completion (one success, one failure); no cancellations.
     assertThat(eventsOfType(events, "com.ionutbanu.scopetracer.TaskSucceeded")).hasSize(1);
     assertThat(eventsOfType(events, "com.ionutbanu.scopetracer.TaskFailed")).hasSize(1);
