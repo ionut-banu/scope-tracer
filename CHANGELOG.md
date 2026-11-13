@@ -52,17 +52,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   releases for JDK 26, and the recordings they made still parse. The plugin refuses a run
   configuration or an analyzer `java` older than 27 with a message naming 27; the analyzer
   path is saved under a new key, so a JDK 26 path saved by an earlier build is asked for again.
-- **`TracedScope` follows JDK 27's structured-concurrency API (JEP 533) — breaking.**
-  `TracedScope<R>` becomes `TracedScope<R, R_X extends Throwable>`, where `R_X` is the
-  exception `join()` throws: `join()` is now `R join() throws R_X, InterruptedException`.
-  `open(String)` and `open(String, ThreadFactory)` return `TracedScope<Void, ExecutionException>`,
-  and the joiner overloads take a `Joiner<? super Object, ? extends R, R_X>`. With the built-in
-  joiners `join()` throws `java.util.concurrent.ExecutionException` (cause: the failed task's
-  exception), as a plain `StructuredTaskScope` on 27 does; `StructuredTaskScope.FailedException`
-  and `Joiner.awaitAll()` no longer exist (use `Joiner.allUntil(subtask -> false)`). Code that
-  uses `var scope = TracedScope.open(...)` only changes its `catch` clause. Callers of the
-  legacy constructors must now give both type arguments, `new TracedScope<Void,
-  ExecutionException>(name)`: with the raw type, `join()` throws `Throwable`.
+- **`TracedScope` mirrors JDK 27's `StructuredTaskScope` (JEP 533) — breaking.** It has the
+  same type parameters, the same four `open` factories with a leading `String name`, and the same
+  instance methods, so `StructuredTaskScope.open(...)` becomes `TracedScope.open("name", ...)`
+  and nothing else changes:
+  - `TracedScope<R>` becomes `TracedScope<T, R, R_X extends Throwable>`. `T` is the tasks'
+    result type, so typed joiners compile without casts, and `R_X` is the exception `join()`
+    throws: `R join() throws R_X, InterruptedException`. With the built-in joiners `join()` throws
+    `java.util.concurrent.ExecutionException` (cause: the failed task's exception), as a plain
+    `StructuredTaskScope` on 27 does; `StructuredTaskScope.FailedException` and
+    `Joiner.awaitAll()` no longer exist (use `Joiner.allUntil(subtask -> false)`). `fork`'s
+    type parameter is `<U extends T>`.
+  - The factories are `open(String)`, `open(String, Joiner)`,
+    `open(String, UnaryOperator<Configuration>)` (new) and
+    `open(String, Joiner, UnaryOperator<Configuration>)` (new). The configuration function runs
+    after scope-tracer's defaults (the name and virtual threads), so a thread factory, a timeout
+    or a name it sets takes effect; events keep the `name` argument as `scopeName`.
+  - `open(String, ThreadFactory)` and `open(String, Joiner, ThreadFactory)` are removed: the JDK
+    has no such factories, and next to the new ones they make `open(name, cfg -> ...)`
+    ambiguous. Pass the factory through the configuration function instead.
+  - The public constructors `TracedScope(String)` and `TracedScope(String, ThreadFactory)` are
+    removed, with no deprecation period, because they were a hole: the caller chose `R_X`, so
+    `new TracedScope<Void, RuntimeException>("sneaky")` compiled with no `catch` and its `join()`
+    threw a checked `ExecutionException` nothing declared. That no longer compiles.
+    `new TracedScope<Void>("checkout")` (0.2.0) and `new TracedScope<Void,
+    ExecutionException>("checkout")` (0.3.0 snapshots) become `TracedScope.open("checkout")`.
+  - `fork(Runnable)` and `isCancelled()` are added, as on `StructuredTaskScope`. `fork(Runnable)`
+    emits the same events as `fork(Callable)`, with the calling frame as its name and call site
+    (also for a named `Runnable` class, as the agent records it). All three `fork` methods now
+    throw `NullPointerException` for a null task before emitting anything, as the JDK's do.
+
+  ```java
+  // 0.2.0 (0.3.0 snapshots: new TracedScope<Void, ExecutionException>("checkout"))
+  try (var scope = new TracedScope<Void>("checkout")) { ... }
+  try (var scope = TracedScope.open("race", Joiner.anySuccessfulOrThrow(), factory)) {
+    Response first = (Response) scope.join();
+  }
+
+  // 0.3.0
+  try (var scope = TracedScope.open("checkout")) { ... }   // join() throws ExecutionException
+  try (var scope = TracedScope.open("race", Joiner.<Response>anySuccessfulOrThrow(),
+                                    cfg -> cfg.withThreadFactory(factory))) {
+    Response first = scope.join();
+  }
+  ```
 
 ### Fixed
 

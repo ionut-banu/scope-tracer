@@ -173,17 +173,51 @@ Maven coordinates are `com.ionutbanu:scope-tracer-*`.
 
 ### Core
 
-`TracedScope<R, R_X>` wraps `StructuredTaskScope` and accepts any
-`Joiner<Object, R, R_X>` (JEP 533). `TracedScope.open(name)` uses
-`Joiner.awaitAllSuccessfulOrThrow()` (fail-fast);
-`TracedScope.open(name, joiner)` takes a custom one. `join()` returns
-the joiner's `R` and throws its `R_X`: `ExecutionException` for the
+`TracedScope<T, R, R_X extends Throwable>` wraps `StructuredTaskScope`
+(JEP 533) and mirrors its public API exactly. The mirror rule:
+
+- the same type parameters, with the same bounds;
+- the same public static factories, each with one addition, a leading
+  `String name`, and otherwise the same type parameters, bounds,
+  parameter types and return type: `open(name)`,
+  `open(name, Joiner)`, `open(name, UnaryOperator<Configuration>)`
+  and `open(name, Joiner, UnaryOperator<Configuration>)`; no other
+  public static method;
+- every public instance method of `StructuredTaskScope`, with the
+  same signature: `fork(Callable)`, `fork(Runnable)`, `join()`,
+  `isCancelled()` and `close()`;
+- two additions, and only these: `fork(String, Callable)`, which
+  takes an explicit task name, and `name()`;
+- no public constructor.
+
+A reflection test in core compares the two classes on the running JDK
+and fails on a missing or an extra public method, so a JDK that
+changes `StructuredTaskScope` fails the build until `TracedScope`
+follows. Replacing `StructuredTaskScope.open(...)` with
+`TracedScope.open("name", ...)` therefore compiles and behaves the
+same; only the events differ.
+
+`open(name)` and `open(name, UnaryOperator)` use
+`Joiner.awaitAllSuccessfulOrThrow()` (fail-fast). `join()` returns the
+joiner's `R` and throws its `R_X`: `ExecutionException` for the
 built-in joiners, whose cause is the failed task's exception, exactly
-as a plain scope throws. It has the `open(String)` and
-`open(String, Joiner)` forms, with or without a `ThreadFactory`; JDK
-27's `open(UnaryOperator)` has no counterpart (#80). `fork(Callable)`
-derives a task name;
-`fork(String, Callable)` takes an explicit one.
+as a plain scope throws. The underlying scope is configured with
+`withName(name)` and a virtual-thread factory first, and the caller's
+configuration function is applied after them, so a thread factory, a
+timeout or a different `withName` it sets takes effect as on a plain
+scope. Every event carries the `name` argument as `scopeName`,
+whatever the function does. A null or blank `name` throws
+`IllegalArgumentException` before anything is opened or emitted.
+
+`fork(Callable)` and `fork(Runnable)` derive a task name and stamp the
+call site; `fork(String, Callable)` takes an explicit name and still
+stamps the call site. `fork(Runnable)` emits the same events as
+`fork(Callable)`, and its subtask's result is `null`, as on a plain
+scope. Its name and call site always come from the calling frame, also
+for a named `Runnable` class: a plain scope's `fork(Runnable)` hands
+the agent only the JDK's wrapper around the `Runnable`, so that is
+what the agent records, and both producers must stamp the same.
+`isCancelled()` delegates and emits nothing.
 
 `TaskNameDeriver` names a task by, in order: the explicit name, the
 `Callable`'s simple class name when it is not a lambda, or
