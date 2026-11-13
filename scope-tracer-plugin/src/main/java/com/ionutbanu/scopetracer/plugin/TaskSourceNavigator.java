@@ -8,6 +8,7 @@ import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
+import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.PsiShortNamesCache;
@@ -16,9 +17,16 @@ import com.ionutbanu.scopetracer.plugin.model.CallSite;
 import java.awt.Component;
 
 /**
- * Resolves a parsed {@link CallSite} to a project class via PSI and navigates to it — the exact
- * line when known, otherwise the class declaration. Zero matches shows a notification; multiple
- * matches (common in multi-module projects) shows IntelliJ's own disambiguation popup.
+ * Resolves a {@link CallSite} to a project class via PSI and navigates to it — the exact line when
+ * known, otherwise the class declaration.
+ *
+ * <p>An {@linkplain CallSite#exact() exact} call site (from a recording with the {@code callSite*}
+ * fields) carries the fully qualified binary class name and is resolved with {@link
+ * JavaPsiFacade#findClass}: a nested class to itself, an anonymous or local class to the nearest
+ * enclosing named class (see {@link CallSite#lookupNames()}). It never shows a chooser. A
+ * short-name call site (parsed from {@code taskName}, for older recordings) is looked up by simple
+ * name, and several matches (common in multi-module projects) show IntelliJ's own disambiguation
+ * popup. Zero matches shows a notification either way.
  */
 final class TaskSourceNavigator {
 
@@ -28,27 +36,40 @@ final class TaskSourceNavigator {
 
   static void navigate(Project project, Component popupAnchor, CallSite callSite) {
     LOG.info("Scope Tracer: navigate() submitting PSI lookup for " + callSite);
-    // The PSI short-names lookup below can scan the whole project index, which the platform
-    // forbids running synchronously on the EDT (flagged as a "slow operation"). Run it on a
-    // background read action and only touch UI (navigation, popups) back on the EDT.
-    ReadAction.nonBlocking(
-            () -> {
-              var scope = GlobalSearchScope.projectScope(project);
-              var classes =
-                  PsiShortNamesCache.getInstance(project)
-                      .getClassesByName(callSite.className(), scope);
-              LOG.info(
-                  "Scope Tracer: PSI lookup for '"
-                      + callSite.className()
-                      + "' found "
-                      + classes.length
-                      + " class(es)");
-              return classes;
-            })
+    // Index lookups are forbidden synchronously on the EDT (flagged as a "slow operation"). Run
+    // them on a background read action and only touch UI (navigation, popups) back on the EDT.
+    ReadAction.nonBlocking(() -> findClasses(project, callSite))
         .finishOnUiThread(
             ModalityState.defaultModalityState(),
             classes -> handleResult(project, popupAnchor, callSite, classes))
         .submit(AppExecutorUtil.getAppExecutorService());
+  }
+
+  private static PsiClass[] findClasses(Project project, CallSite callSite) {
+    var scope = GlobalSearchScope.projectScope(project);
+    PsiClass[] classes;
+    if (callSite.exact()) {
+      var facade = JavaPsiFacade.getInstance(project);
+      classes = new PsiClass[0];
+      for (var name : callSite.lookupNames()) {
+        var psiClass = facade.findClass(name, scope);
+        if (psiClass != null) {
+          classes = new PsiClass[] {psiClass};
+          break;
+        }
+      }
+    } else {
+      classes = PsiShortNamesCache.getInstance(project).getClassesByName(callSite.className(), scope);
+    }
+    LOG.info(
+        "Scope Tracer: PSI lookup for '"
+            + callSite.className()
+            + "' ("
+            + (callSite.exact() ? "exact" : "short name")
+            + ") found "
+            + classes.length
+            + " class(es)");
+    return classes;
   }
 
   private static void handleResult(

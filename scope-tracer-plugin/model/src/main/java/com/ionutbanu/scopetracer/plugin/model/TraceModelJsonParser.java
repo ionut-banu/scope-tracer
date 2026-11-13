@@ -26,6 +26,8 @@ public final class TraceModelJsonParser {
           .registerTypeAdapter(
               PluginTaskOutcome.class,
               (JsonDeserializer<PluginTaskOutcome>) TraceModelJsonParser::parseOutcome)
+          .registerTypeAdapter(
+              CallSite.class, (JsonDeserializer<CallSite>) TraceModelJsonParser::parseCallSite)
           .create();
 
   private TraceModelJsonParser() {}
@@ -58,6 +60,23 @@ public final class TraceModelJsonParser {
               stringOrNull(obj, "stackTrace"));
       default -> throw new JsonParseException("Unknown task outcome type: " + outcomeType);
     };
+  }
+
+  /**
+   * The structured {@code callSite} object: {@code className} is the fully qualified binary name,
+   * so the call site is {@linkplain CallSite#exact() exact}. The JSON shape is unchanged.
+   */
+  private static CallSite parseCallSite(
+      JsonElement json, Type type, JsonDeserializationContext ctx) {
+    if (json == null || json.isJsonNull()) {
+      return null;
+    }
+    JsonObject obj = json.getAsJsonObject();
+    var line = obj.get("line");
+    return CallSite.exact(
+        stringOrNull(obj, "className"),
+        stringOrNull(obj, "methodName"),
+        (line == null || line.isJsonNull()) ? null : line.getAsInt());
   }
 
   private static String stringOrNull(JsonObject obj, String key) {
