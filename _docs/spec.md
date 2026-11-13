@@ -188,6 +188,14 @@ derives a task name;
 `TaskNameDeriver` names a task by, in order: the explicit name, the
 `Callable`'s simple class name when it is not a lambda, or
 `SimpleClass#method:line` from the call site.
+It also gives the fork's call site, stamped on `TaskForked` as
+`callSiteClassName`, `callSiteMethodName` and `callSiteLine` whatever
+the name, an explicit one included: for a named `Callable` its class
+(no method, line `0`), otherwise the first caller frame outside
+`TracedScope`, the deriver and `StructuredTaskScope`.
+`callSiteClassName` is the JVM binary class name, fully qualified and
+uncut (`com.acme.Plain$Named`, `com.acme.Plain$1`). One stack walk
+gives both. No usable frame leaves the three fields null / `0`.
 
 ### Analyzer
 
@@ -262,6 +270,12 @@ or SLF4J version, is the same with the agent as without.
   JDK delegates to does not matter.
 - `TracingCallable<T>` wraps the user's callable and emits completion
   events.
+- `ForkAdvice` stamps `taskName` and the three `callSite*` fields by
+  the same rule as core's `TaskNameDeriver`, from one stack walk in
+  the agent's own `TaskNameDeriver` (skipping the JDK scope machinery,
+  ByteBuddy and itself). The two derivers are separate copies;
+  `ProducerCallSiteIT` runs one program under each producer and
+  requires equal fields.
 - `ScopeNameDeriver` names unnamed scopes `SimpleClassName#methodName`
   via `StackWalker`, skipping only `java.util.concurrent.StructuredTaskScope*`,
   `net.bytebuddy.*`, the agent's relocated ByteBuddy and itself -
@@ -309,7 +323,12 @@ is used; one older than 27 is refused with a message naming 27.
 - The root module has no tests; the IntelliJ Gradle plugin's test
   instrumentation needs a sandbox.
 - Features: Tools → "Open .jfr Recording (Scope Tracer)…", a "Scope
-  Tracer" tool window, click-to-source on call sites via Java PSI,
+  Tracer" tool window, click-to-source on call sites via Java PSI
+  (a structured `callSite` is exact: its binary class name is looked
+  up with `JavaPsiFacade.findClass`, a nested class exactly, an
+  anonymous or local class as its enclosing named class, with no
+  chooser; a recording without the fields falls back to parsing
+  `taskName` and a short-name lookup with a chooser),
   and Tools → "Run with Scope Tracer", which runs the selected Java
   application configuration with the bundled agent jar, `--enable-preview`
   and a JFR recording added to its VM options (`TracedLaunch` decides
