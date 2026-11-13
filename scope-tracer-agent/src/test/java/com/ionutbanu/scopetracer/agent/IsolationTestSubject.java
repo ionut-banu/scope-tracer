@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
 import jdk.jfr.Recording;
@@ -150,7 +151,7 @@ public final class IsolationTestSubject {
     }
   }
 
-  private static void traceOneScope() throws InterruptedException {
+  private static void traceOneScope() throws InterruptedException, ExecutionException {
     // The two-argument open: the shorter overloads are recorded twice until #51 is fixed.
     try (var scope = StructuredTaskScope.open(Joiner.awaitAllSuccessfulOrThrow(), c -> c)) {
       scope.fork(() -> "ok");

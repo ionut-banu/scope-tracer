@@ -1,7 +1,7 @@
 package com.ionutbanu.scopetracer.demos;
 
 import com.ionutbanu.scopetracer.core.TracedScope;
-import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Cancellation demo: one task fails quickly, causing its still-running sibling to be cancelled.
@@ -29,7 +29,7 @@ public final class FailFastDemo {
             scope.fork(FailFastDemo::slowEnrichment);
             try {
               scope.join();
-            } catch (StructuredTaskScope.FailedException e) {
+            } catch (ExecutionException e) {
               System.out.println("scope failed: " + e.getCause().getMessage());
             }
           }

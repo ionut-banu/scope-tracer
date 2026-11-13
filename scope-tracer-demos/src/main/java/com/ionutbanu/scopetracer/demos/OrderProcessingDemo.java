@@ -2,7 +2,7 @@ package com.ionutbanu.scopetracer.demos;
 
 import com.ionutbanu.scopetracer.core.TracedScope;
 import java.util.List;
-import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.ExecutionException;
 import java.util.random.RandomGenerator;
 
 /**
@@ -110,10 +110,10 @@ public final class OrderProcessingDemo {
       System.out.printf(
           "[%s] ✓ fulfilled  payment=%s  stock=%s%n", order.id(), payment.get(), inventory.get());
       return true;
-    } catch (StructuredTaskScope.FailedException e) {
-      // Unwrap nested FailedExceptions to surface the original error message.
+    } catch (ExecutionException e) {
+      // Unwrap nested ExecutionExceptions to surface the original error message.
       Throwable cause = e.getCause();
-      while (cause instanceof StructuredTaskScope.FailedException && cause.getCause() != null) {
+      while (cause instanceof ExecutionException && cause.getCause() != null) {
         cause = cause.getCause();
       }
       System.out.printf("[%s] ✗ fulfillment failed: %s%n", order.id(), cause.getMessage());
@@ -129,7 +129,7 @@ public final class OrderProcessingDemo {
       scope.fork(() -> notifyCustomer(order, rng));
       scope.join();
       System.out.printf("[%s] ✓ dispatched%n", order.id());
-    } catch (StructuredTaskScope.FailedException e) {
+    } catch (ExecutionException e) {
       System.out.printf("[%s] ✗ dispatch failed: %s%n", order.id(), e.getCause().getMessage());
     }
   }
@@ -151,12 +151,12 @@ public final class OrderProcessingDemo {
     try (var scope = TracedScope.open("payment-pipeline-" + numericId(order))) {
       var fraud = scope.fork(() -> checkFraud(order, rng));
       var auth = scope.fork(() -> authorizeCard(order, rng));
-      scope.join(); // throws FailedException if fraud check rejects
+      scope.join(); // throws ExecutionException if fraud check rejects
       // Sequential step: runs after parallel tasks complete, inside the same scope
       return capturePayment(auth.get(), rng);
-    } catch (StructuredTaskScope.FailedException e) {
+    } catch (ExecutionException e) {
       // Re-throw as RuntimeException so the outer scope sees the original cause directly,
-      // rather than a wrapped FailedException chain that obscures the root error message.
+      // rather than a wrapped ExecutionException chain that obscures the root error message.
       throw new RuntimeException(e.getCause().getMessage(), e.getCause());
     }
   }

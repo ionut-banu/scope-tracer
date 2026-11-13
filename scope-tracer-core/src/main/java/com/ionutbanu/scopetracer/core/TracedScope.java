@@ -7,6 +7,7 @@ import com.ionutbanu.scopetracer.core.events.TaskFailedEvent;
 import com.ionutbanu.scopetracer.core.events.TaskForkedEvent;
 import com.ionutbanu.scopetracer.core.events.TaskSucceededEvent;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
 import java.util.concurrent.StructuredTaskScope.Subtask;
@@ -16,8 +17,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A {@link StructuredTaskScope} wrapper that records each lifecycle moment of the scope and its
- * forked tasks as JFR events. The joiner controls how subtask results are combined and what {@link
- * #join()} returns; the default is {@link Joiner#awaitAllSuccessfulOrThrow()}.
+ * forked tasks as JFR events. The joiner controls how subtask results are combined, what {@link
+ * #join()} returns and which exception it throws; the default is {@link
+ * Joiner#awaitAllSuccessfulOrThrow()}, whose {@code join()} throws {@link ExecutionException}.
  *
  * <p>Six event types are emitted (see {@code com.ionutbanu.scopetracer.core.events}): scope opened,
  * task forked, task succeeded, task failed, task cancelled, scope closed. Every event carries:
@@ -38,7 +40,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * try (var scope = TracedScope.open("checkout-flow")) {
  *     Subtask<Quote>       pricing   = scope.fork(() -> pricingService.quote(cart));
  *     Subtask<Reservation> inventory = scope.fork(() -> inventoryService.reserve(cart));
- *     scope.join(); // throws FailedException if either subtask failed
+ *     scope.join(); // throws ExecutionException if either subtask failed
  *     return new Checkout(pricing.get(), inventory.get());
  * }
  * }</pre>
@@ -49,7 +51,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * try (var scope = TracedScope.open("service-race", Joiner.anySuccessfulOrThrow())) {
  *     scope.fork(() -> primaryService.call(request));
  *     scope.fork(() -> fallbackService.call(request));
- *     Response first = scope.join(); // returns first successful result; losers are cancelled
+ *     Response first = (Response) scope.join(); // first successful result; losers are cancelled
  * }
  * }</pre>
  *
@@ -59,7 +61,17 @@ import java.util.concurrent.atomic.AtomicLong;
  * try (var scope = TracedScope.open("fan-out", Joiner.allSuccessfulOrThrow())) {
  *     scope.fork(() -> serviceA.call());
  *     scope.fork(() -> serviceB.call());
- *     List<Response> results = scope.join(); // all results in completion order
+ *     List<Object> results = scope.join(); // all results, in the order they were forked
+ * }
+ * }</pre>
+ *
+ * <h2>Custom joiner — wait for every task, whatever its outcome</h2>
+ *
+ * <pre>{@code
+ * try (var scope = TracedScope.open("best-effort", Joiner.allUntil(subtask -> false))) {
+ *     scope.fork(() -> serviceA.call());
+ *     scope.fork(() -> serviceB.call());
+ *     List<Subtask<Object>> subtasks = scope.join(); // never throws for a failed subtask
  * }
  * }</pre>
  *
@@ -68,15 +80,17 @@ import java.util.concurrent.atomic.AtomicLong;
  * {@link #close} are owner-only.
  *
  * @param <R> the result type produced by the joiner on {@link #join()}.
+ * @param <R_X> the exception type {@link #join()} throws when the joiner's outcome is an exception,
+ *     as in {@link StructuredTaskScope}; {@link ExecutionException} for the built-in joiners.
  */
-public final class TracedScope<R> implements AutoCloseable {
+public final class TracedScope<R, R_X extends Throwable> implements AutoCloseable {
 
   /** Global counter; each new {@code TracedScope} instance gets a unique monotonic ID. */
   private static final AtomicLong SCOPE_ID_COUNTER = new AtomicLong();
 
   private final String name;
   private final long scopeId;
-  private final StructuredTaskScope<Object, R> scope;
+  private final StructuredTaskScope<Object, R, R_X> scope;
   private final AtomicLong taskIdCounter = new AtomicLong();
   private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -84,14 +98,22 @@ public final class TracedScope<R> implements AutoCloseable {
 
   /**
    * Opens a traced scope with the given name and virtual threads, using {@link
-   * Joiner#awaitAllSuccessfulOrThrow()}. {@link #join()} throws {@link
-   * StructuredTaskScope.FailedException} if any subtask fails.
+   * Joiner#awaitAllSuccessfulOrThrow()}. {@link #join()} throws {@link ExecutionException} if any
+   * subtask fails.
+   *
+   * <pre>{@code
+   * try (var scope = TracedScope.open("checkout")) {
+   *     Subtask<Quote> quote = scope.fork(() -> pricing.quote(cart));
+   *     scope.join();
+   *     return quote.get();
+   * }
+   * }</pre>
    *
    * @param name human-readable scope name; must be non-null and non-blank.
-   * @return a new {@code TracedScope<Void>}.
+   * @return a new {@code TracedScope<Void, ExecutionException>}.
    * @throws IllegalArgumentException if {@code name} is blank.
    */
-  public static TracedScope<Void> open(String name) {
+  public static TracedScope<Void, ExecutionException> open(String name) {
     return new TracedScope<>(
         name, Thread.ofVirtual().factory(), Joiner.awaitAllSuccessfulOrThrow());
   }
@@ -102,16 +124,16 @@ public final class TracedScope<R> implements AutoCloseable {
    *
    * @param name scope name; must be non-null and non-blank.
    * @param factory thread factory used by the underlying scope; must be non-null.
-   * @return a new {@code TracedScope<Void>}.
+   * @return a new {@code TracedScope<Void, ExecutionException>}.
    * @throws IllegalArgumentException if {@code name} is blank.
    */
-  public static TracedScope<Void> open(String name, ThreadFactory factory) {
+  public static TracedScope<Void, ExecutionException> open(String name, ThreadFactory factory) {
     return new TracedScope<>(name, factory, Joiner.awaitAllSuccessfulOrThrow());
   }
 
   /**
    * Opens a traced scope with a custom joiner and virtual threads. The joiner controls how {@link
-   * #join()} waits for subtasks and what value it returns.
+   * #join()} waits for subtasks, what value it returns and which exception it throws.
    *
    * <p>Example — race to first success:
    *
@@ -119,32 +141,46 @@ public final class TracedScope<R> implements AutoCloseable {
    * try (var scope = TracedScope.open("race", Joiner.anySuccessfulOrThrow())) {
    *     scope.fork(() -> primary.call());
    *     scope.fork(() -> fallback.call());
-   *     Response first = scope.join();
+   *     Response first = (Response) scope.join();
    * }
    * }</pre>
    *
    * @param <R> the result type produced by the joiner.
+   * @param <R_X> the exception type {@link #join()} throws when the joiner's outcome is an
+   *     exception.
    * @param name scope name; must be non-null and non-blank.
    * @param joiner the joiner to use; must be non-null.
-   * @return a new {@code TracedScope<R>}.
+   * @return a new {@code TracedScope<R, R_X>}.
    * @throws IllegalArgumentException if {@code name} is blank.
    */
-  public static <R> TracedScope<R> open(String name, Joiner<? super Object, ? extends R> joiner) {
+  public static <R, R_X extends Throwable> TracedScope<R, R_X> open(
+      String name, Joiner<? super Object, ? extends R, R_X> joiner) {
     return new TracedScope<>(name, Thread.ofVirtual().factory(), joiner);
   }
 
   /**
    * Opens a traced scope with a custom joiner and a caller-supplied {@link ThreadFactory}.
    *
+   * <pre>{@code
+   * try (var scope =
+   *     TracedScope.open("fan-out", Joiner.allSuccessfulOrThrow(), Thread.ofPlatform().factory())) {
+   *     scope.fork(() -> serviceA.call());
+   *     scope.fork(() -> serviceB.call());
+   *     List<Object> results = scope.join();
+   * }
+   * }</pre>
+   *
    * @param <R> the result type produced by the joiner.
+   * @param <R_X> the exception type {@link #join()} throws when the joiner's outcome is an
+   *     exception.
    * @param name scope name; must be non-null and non-blank.
    * @param joiner the joiner to use; must be non-null.
    * @param factory thread factory used by the underlying scope; must be non-null.
-   * @return a new {@code TracedScope<R>}.
+   * @return a new {@code TracedScope<R, R_X>}.
    * @throws IllegalArgumentException if {@code name} is blank.
    */
-  public static <R> TracedScope<R> open(
-      String name, Joiner<? super Object, ? extends R> joiner, ThreadFactory factory) {
+  public static <R, R_X extends Throwable> TracedScope<R, R_X> open(
+      String name, Joiner<? super Object, ? extends R, R_X> joiner, ThreadFactory factory) {
     return new TracedScope<>(name, factory, joiner);
   }
 
@@ -152,7 +188,8 @@ public final class TracedScope<R> implements AutoCloseable {
 
   /**
    * Opens a traced scope with the given name and virtual threads. Prefer {@link #open(String)} for
-   * new code — it returns the properly typed {@code TracedScope<Void>} without raw-type warnings.
+   * new code — it returns the properly typed {@code TracedScope<Void, ExecutionException>} without
+   * raw-type warnings.
    *
    * @param name human-readable scope name; must be non-null and non-blank.
    * @throws IllegalArgumentException if {@code name} is blank.
@@ -162,7 +199,7 @@ public final class TracedScope<R> implements AutoCloseable {
     this(
         name,
         Thread.ofVirtual().factory(),
-        (Joiner<? super Object, ? extends R>) Joiner.awaitAllSuccessfulOrThrow());
+        (Joiner<? super Object, ? extends R, R_X>) Joiner.awaitAllSuccessfulOrThrow());
   }
 
   /**
@@ -175,13 +212,16 @@ public final class TracedScope<R> implements AutoCloseable {
    */
   @SuppressWarnings("unchecked")
   public TracedScope(String name, ThreadFactory factory) {
-    this(name, factory, (Joiner<? super Object, ? extends R>) Joiner.awaitAllSuccessfulOrThrow());
+    this(
+        name,
+        factory,
+        (Joiner<? super Object, ? extends R, R_X>) Joiner.awaitAllSuccessfulOrThrow());
   }
 
   // ---- Canonical constructor ----------------------------------------------------
 
   private TracedScope(
-      String name, ThreadFactory factory, Joiner<? super Object, ? extends R> joiner) {
+      String name, ThreadFactory factory, Joiner<? super Object, ? extends R, R_X> joiner) {
     if (name == null || name.isBlank()) {
       throw new IllegalArgumentException("name must be non-null and non-blank");
     }
@@ -317,20 +357,35 @@ public final class TracedScope<R> implements AutoCloseable {
    *
    * <ul>
    *   <li>{@link Joiner#awaitAllSuccessfulOrThrow()} (default) — waits for all tasks, throws {@link
-   *       StructuredTaskScope.FailedException} on the first failure; returns {@code null}.
-   *   <li>{@link Joiner#awaitAll()} — waits for all tasks regardless of outcome; returns {@code
-   *       null}.
+   *       ExecutionException} on the first failure; returns {@code null}.
    *   <li>{@link Joiner#anySuccessfulOrThrow()} — returns as soon as one task succeeds, cancels the
-   *       rest; returns that task's result.
-   *   <li>{@link Joiner#allSuccessfulOrThrow()} — waits for all tasks, throws on any failure;
-   *       returns a {@code List} of all results in completion order.
+   *       rest; returns that task's result. Throws {@link ExecutionException} if every task fails.
+   *   <li>{@link Joiner#allSuccessfulOrThrow()} — waits for all tasks, throws {@link
+   *       ExecutionException} on any failure; returns a {@code List} of all results in fork order.
+   *   <li>{@link Joiner#allUntil(java.util.function.Predicate)} — waits for all tasks, or until the
+   *       predicate cancels the scope; returns the {@code List} of subtasks and never throws for a
+   *       failed subtask.
    * </ul>
    *
+   * <p>The built-in joiners also take a function that maps the failure to a different exception
+   * type, which then becomes {@code R_X}.
+   *
+   * <pre>{@code
+   * try (var scope = TracedScope.open("lookup", Joiner.anySuccessfulOrThrow())) {
+   *     scope.fork(() -> primary.find(id));
+   *     scope.fork(() -> replica.find(id));
+   *     Object found = scope.join();
+   * } catch (ExecutionException e) {
+   *     // both lookups failed; e.getCause() is the first failure
+   * }
+   * }</pre>
+   *
    * @return the joiner's result ({@code R}).
+   * @throws R_X if the joiner's outcome is an exception, for example {@link ExecutionException}
+   *     when a subtask failed under a built-in joiner.
    * @throws InterruptedException if the owner thread is interrupted while waiting.
-   * @throws StructuredTaskScope.FailedException if the joiner throws on subtask failure.
    */
-  public R join() throws InterruptedException {
+  public R join() throws R_X, InterruptedException {
     return scope.join();
   }
 

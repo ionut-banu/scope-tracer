@@ -48,6 +48,12 @@ public final class AgentAdviceFailureSubject {
           check("only".equals(scope.join()), "open(Joiner).join() returns the joiner's result");
         }
 
+        try (var scope = StructuredTaskScope.open(c -> c.withName(NAMED_DURING_FAILURE))) {
+          var a = scope.fork(() -> "a");
+          check(scope.join() == null, "open(UnaryOperator).join() returns null");
+          check("a".equals(a.get()), "open(UnaryOperator) subtasks keep their results");
+        }
+
         try (var scope =
             StructuredTaskScope.open(
                 Joiner.<String>allSuccessfulOrThrow(), c -> c.withName(NAMED_DURING_FAILURE))) {
@@ -77,12 +83,15 @@ public final class AgentAdviceFailureSubject {
     }
   }
 
-  /** A configuration function that throws: {@code open} must throw that very exception. */
+  /**
+   * A configuration function that throws: {@code open(Joiner, UnaryOperator)} and {@code
+   * open(UnaryOperator)} must throw that very exception.
+   */
   private static void checkOpenThrowsTheConfigFunctionsException() {
     var boom = new IllegalStateException("configuration failed");
     try {
       StructuredTaskScope.open(
-              Joiner.awaitAll(),
+              Joiner.allUntil(subtask -> false),
               c -> {
                 throw boom;
               })
@@ -90,6 +99,18 @@ public final class AgentAdviceFailureSubject {
       throw new AssertionError("open returned although its configuration function threw");
     } catch (IllegalStateException e) {
       check(e == boom, "open throws the configuration function's exception, got " + e);
+    }
+    try {
+      StructuredTaskScope.open(
+              c -> {
+                throw boom;
+              })
+          .close();
+      throw new AssertionError(
+          "open(UnaryOperator) returned although its configuration function threw");
+    } catch (IllegalStateException e) {
+      check(
+          e == boom, "open(UnaryOperator) throws the configuration function's exception, got " + e);
     }
   }
 
