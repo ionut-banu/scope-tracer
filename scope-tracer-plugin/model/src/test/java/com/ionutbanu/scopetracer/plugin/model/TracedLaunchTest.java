@@ -23,7 +23,7 @@ class TracedLaunchTest {
 
   @Test
   void addsAgentPreviewAndRecordingForAPlainConfiguration() {
-    var extra = applied(TracedLaunch.plan(List.of("-Xmx512m"), 26, AGENT, JFR));
+    var extra = applied(TracedLaunch.plan(List.of("-Xmx512m"), 27, AGENT, JFR));
 
     assertThat(extra)
         .containsExactly(
@@ -34,7 +34,7 @@ class TracedLaunchTest {
 
   @Test
   void doesNotDuplicateEnablePreview() {
-    var extra = applied(TracedLaunch.plan(List.of("--enable-preview"), 26, AGENT, JFR));
+    var extra = applied(TracedLaunch.plan(List.of("--enable-preview"), 27, AGENT, JFR));
 
     assertThat(extra).doesNotContain("--enable-preview");
     assertThat(extra).hasSize(2);
@@ -43,14 +43,27 @@ class TracedLaunchTest {
   @Test
   void leavesTheConfigurationsOwnArgumentsAlone() {
     var existing = List.of("-Xmx512m", "-Dfoo=bar");
-    TracedLaunch.plan(existing, 26, AGENT, JFR);
+    TracedLaunch.plan(existing, 27, AGENT, JFR);
 
     assertThat(existing).containsExactly("-Xmx512m", "-Dfoo=bar");
   }
 
   @Test
-  void refusesAJdkOlderThan26() {
+  void refusesAJdkOlderThan27() {
     assertThat(refused(TracedLaunch.plan(List.of(), 21, AGENT, JFR))).contains("JDK 21");
+  }
+
+  @Test
+  void refusesJdk26TheLastJdkBeforeTheMinimum() {
+    assertThat(refused(TracedLaunch.plan(List.of(), 26, AGENT, JFR)))
+        .contains("JDK 26")
+        .contains("JDK 27 or newer");
+  }
+
+  @Test
+  void acceptsJdk27TheMinimum() {
+    assertThat(TracedLaunch.MIN_JDK_MAJOR).isEqualTo(27);
+    assertThat(applied(TracedLaunch.plan(List.of(), 27, AGENT, JFR))).hasSize(3);
   }
 
   @Test
@@ -63,21 +76,21 @@ class TracedLaunchTest {
   void refusesWhenTheAgentIsAlreadyAttached() {
     var existing = List.of("-javaagent:/x/scope-tracer-agent-0.3.0-agent.jar=verbose");
 
-    assertThat(refused(TracedLaunch.plan(existing, 26, AGENT, JFR))).contains("twice");
+    assertThat(refused(TracedLaunch.plan(existing, 27, AGENT, JFR))).contains("twice");
   }
 
   @Test
   void anUnrelatedJavaagentIsNotAConflict() {
     var existing = List.of("-javaagent:/x/other-agent.jar");
 
-    assertThat(applied(TracedLaunch.plan(existing, 26, AGENT, JFR))).hasSize(3);
+    assertThat(applied(TracedLaunch.plan(existing, 27, AGENT, JFR))).hasSize(3);
   }
 
   @Test
   void refusesWhenTheConfigurationStartsItsOwnRecording() {
     var existing = List.of("-XX:StartFlightRecording=filename=mine.jfr");
 
-    assertThat(refused(TracedLaunch.plan(existing, 26, AGENT, JFR))).contains("collide");
+    assertThat(refused(TracedLaunch.plan(existing, 27, AGENT, JFR))).contains("collide");
   }
 
   @Test

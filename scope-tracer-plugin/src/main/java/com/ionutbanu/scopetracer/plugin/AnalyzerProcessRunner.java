@@ -14,9 +14,10 @@ import java.util.concurrent.TimeUnit;
  * Runs the bundled {@code scope-tracer-analyzer} executable jar as a subprocess against a
  * {@code .jfr} file and parses its {@code --format=json} output.
  *
- * <p>The analyzer's classes are compiled with {@code --enable-preview} (JDK 26) and can never be
+ * <p>The analyzer's classes are compiled with {@code --enable-preview} (JDK 27) and can never be
  * loaded inside the IDE's own JVM (JBR, currently JDK 21) — running out-of-process on a real JDK
- * 26 and exchanging JSON is the only way to bridge the two JVM versions.
+ * 27 and exchanging JSON is the only way to bridge the two JVM versions. {@link
+ * AnalyzerJdkSettings} refuses a configured {@code java} older than 27 before it gets here.
  */
 final class AnalyzerProcessRunner {
 

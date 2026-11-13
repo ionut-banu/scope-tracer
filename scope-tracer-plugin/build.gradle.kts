@@ -63,9 +63,9 @@ tasks.test { enabled = false }
 
 // --- Bundle the scope-tracer-analyzer executable jar as a plugin resource ---
 //
-// The analyzer is a Maven module compiled with --enable-preview (JDK 26) and can never be
+// The analyzer is a Maven module compiled with --enable-preview (JDK 27) and can never be
 // loaded inside the IDE's own JVM (JBR, JDK 21). The plugin instead ships the analyzer's
-// executable jar as a resource and runs it as an external subprocess against a real JDK 26 —
+// executable jar as a resource and runs it as an external subprocess against a real JDK 27 —
 // see AnalyzerProcessRunner. This task copies that jar out of the Maven build's `target/`.
 val copyAnalyzerJar =
     tasks.register<Copy>("copyAnalyzerJar") {
