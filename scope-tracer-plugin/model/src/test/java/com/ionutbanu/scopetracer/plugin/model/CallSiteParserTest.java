@@ -57,7 +57,7 @@ class CallSiteParserTest {
     var callSite = new CallSite("OrderService", "checkout", 42);
     var task = new PluginTaskRecord(1, "findUser", "vt-1", 10, null, null, null, callSite);
 
-    assertThat(CallSiteParser.forTask(task)).isEqualTo(callSite);
+    assertThat(CallSiteParser.forTask(task)).isEqualTo(CallSite.exact("OrderService", "checkout", 42));
   }
 
   @Test
@@ -74,5 +74,65 @@ class CallSiteParserTest {
     var task = new PluginTaskRecord(1, "validateOrder", "vt-1", 10, null, null, null, null);
 
     assertThat(CallSiteParser.forTask(task)).isNull();
+  }
+
+  // --- exact (structured) versus short-name call sites (#100) ---
+
+  @Test
+  void forTaskMarksAStructuredCallSiteExactAndKeepsItsBinaryName() {
+    var structured = CallSite.exact("com.acme.Plain$Named", null, null);
+    var task = new PluginTaskRecord(1, "Named", "vt-1", 10, null, null, null, structured);
+
+    var callSite = CallSiteParser.forTask(task);
+
+    assertThat(callSite.exact()).isTrue();
+    assertThat(callSite.className()).isEqualTo("com.acme.Plain$Named");
+  }
+
+  @Test
+  void forTaskWithoutStructuredCallSiteGivesAShortName() {
+    var task = new PluginTaskRecord(1, "OrderService#checkout:42", "vt-1", 10, null, null, null, null);
+
+    var callSite = CallSiteParser.forTask(task);
+
+    assertThat(callSite.exact()).isFalse();
+    assertThat(callSite.lookupNames()).isEmpty();
+  }
+
+  @Test
+  void structuredCallSiteInTheUnnamedPackageIsStillExact() {
+    // No dot in the name: exactness comes from where the call site came from, not its shape.
+    var task =
+        new PluginTaskRecord(
+            1, "Traced#main:7", "vt-1", 10, null, null, null, CallSite.exact("Traced", "main", 7));
+
+    var callSite = CallSiteParser.forTask(task);
+
+    assertThat(callSite.exact()).isTrue();
+    assertThat(callSite.lookupNames()).containsExactly("Traced");
+  }
+
+  @Test
+  void topLevelClassIsLookedUpByItsQualifiedName() {
+    assertThat(CallSite.exact("com.acme.Traced", "main", 7).lookupNames())
+        .containsExactly("com.acme.Traced");
+  }
+
+  @Test
+  void nestedClassIsLookedUpExactly() {
+    assertThat(CallSite.exact("com.acme.Plain$Named", null, null).lookupNames())
+        .containsExactly("com.acme.Plain.Named", "com.acme.Plain$Named");
+  }
+
+  @Test
+  void anonymousAndLocalClassesFallBackToTheEnclosingNamedClass() {
+    assertThat(CallSite.exact("com.acme.Plain$1", "call", 12).lookupNames())
+        .containsExactly("com.acme.Plain");
+    assertThat(CallSite.exact("com.acme.Plain$1Local", null, null).lookupNames())
+        .containsExactly("com.acme.Plain");
+    assertThat(CallSite.exact("com.acme.Outer$Inner$2", "call", 5).lookupNames())
+        .containsExactly("com.acme.Outer.Inner", "com.acme.Outer$Inner");
+    assertThat(CallSite.exact("com.acme.Outer$1Local$Deep", "run", 9).lookupNames())
+        .containsExactly("com.acme.Outer");
   }
 }

@@ -21,19 +21,24 @@ public final class CallSiteParser {
 
   /**
    * Resolves the navigable {@link CallSite} for {@code task}: the structured {@link
-   * PluginTaskRecord#callSite()} when present, otherwise a best-effort fallback that parses {@link
-   * PluginTaskRecord#taskName()} via {@link #parse(String)}.
+   * PluginTaskRecord#callSite()} when present, marked {@linkplain CallSite#exact() exact} (its
+   * class is a fully qualified binary name, looked up as such); otherwise a best-effort fallback
+   * that parses {@link PluginTaskRecord#taskName()} via {@link #parse(String)}, which is a short
+   * name and may match several classes.
    *
    * @return the resolved {@link CallSite}, or {@code null} if neither source yields one.
    */
   public static CallSite forTask(PluginTaskRecord task) {
     if (task.callSite() != null) {
-      return task.callSite();
+      return task.callSite().asExact();
     }
     return parse(task.taskName());
   }
 
-  /** Returns the parsed {@link CallSite}, or {@code null} if {@code raw} doesn't match. */
+  /**
+   * Returns the parsed short-name {@link CallSite} (not {@linkplain CallSite#exact() exact}), or
+   * {@code null} if {@code raw} doesn't match.
+   */
   public static CallSite parse(String raw) {
     if (raw == null) {
       return null;
