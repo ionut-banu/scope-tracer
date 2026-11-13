@@ -263,8 +263,9 @@ Two consequences for the process:
   escalation.
 - The test count never goes down. An issue that reduces it is a FAIL
   regardless of its acceptance criteria. The count is the sum of
-  surefire and failsafe totals from `mvn verify`; it was 180 on
-  2026-10-02 (§4 of the spec).
+  surefire and failsafe totals from `mvn verify`, compared with
+  `main` before the change; §4 of the spec has the last measured
+  figure.
 
 The spec is binding
 

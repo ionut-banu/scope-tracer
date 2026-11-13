@@ -171,3 +171,35 @@ bootstrap path and break. Relocating ByteBuddy also renames its
 name and no longer changes the application's own ByteBuddy. A
 two-jar layout (only the advice on the bootstrap path) would avoid
 relocation altogether, but is a larger change than this fix needs.
+
+2026-11-13 - The milestones after M2 are re-planned
+
+On 2026-10-16 the milestones were re-planned, and the spec's three
+milestones no longer matched them. JDK 27 shipped on 2026-09-15 with
+structured concurrency in its seventh preview (JEP 533), and
+`TracedScope` built for 26 does not load on it, so M1 became the
+first release on JDK 27 (#54) and a new M3 watches JDK 28 early
+access, because JEP 543 finalizes the API there without further
+change. The project has no outside users yet, so M4 makes the first
+minute work and M5 puts the plugin on the Marketplace, where the
+IDE's audience is. M6 makes the report say what went wrong, not only
+what happened. M7 is 1.0 on JDK 28, the first JDK where structured
+concurrency needs no `--enable-preview` (GA March 2027). Dynamic
+attach moved from M3 to M8: it is still the largest and least certain
+agent change, and loading an agent into a running JVM is planned to
+be disallowed by default (JEP 451), so it stays last. The spec's §6
+now lists M1 to M8 in that order.
+
+2026-11-13 - Correction: the 2026-08-07 reason was wrong
+
+The 2026-08-07 entry says `--enable-preview` "stamps every class
+file". It does not. Measured on the 0.3.0-SNAPSHOT build, bytes 4 to
+7 of the class file (minor, then major version): `TracedScope.class`
+in core has minor `ffff` (preview) and major `0046`;
+`AnalyzerMain.class` in the analyzer and `ScopeTracerAgent.class` in
+the agent have minor `0000` and major `0046`. Only `TracedScope`,
+which uses the preview API, is stamped. What keeps the analyzer out
+of the IDE's JBR 21 is `--release 26` (major version 70), which JBR
+21 rejects. The decision stands, the plugin still runs the analyzer
+as a subprocess and parses its JSON, and only the reason changes:
+the class-file version, not preview stamping.
