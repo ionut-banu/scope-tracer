@@ -56,7 +56,7 @@ public final class RunWithScopeTracerAction extends AnAction {
     }
     var profile = settings.getConfiguration();
 
-    // The analyzer needs a JDK 26 `java`; resolve it now, on the EDT, because it may prompt.
+    // The analyzer needs a JDK 27 `java`; resolve it now, on the EDT, because it may prompt.
     Path analyzerJava;
     Path jfrFile;
     try {

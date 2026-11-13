@@ -13,8 +13,8 @@ import java.util.regex.Pattern;
  */
 public final class TracedLaunch {
 
-  /** The oldest JDK the agent supports (spec §1: no JDK before 26). */
-  public static final int MIN_JDK_MAJOR = 26;
+  /** The oldest JDK the agent supports (spec §1: no JDK before 27). */
+  public static final int MIN_JDK_MAJOR = 27;
 
   private TracedLaunch() {}
 
