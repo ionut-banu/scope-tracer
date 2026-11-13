@@ -41,7 +41,7 @@ class ProducerCallSiteIT {
   private static final String PREFIX = "com.ionutbanu.scopetracer.";
 
   /** Forks both producers make: every fork of the subject except the explicitly named one. */
-  private static final int COMMON_FORKS = 15;
+  private static final int COMMON_FORKS = 17;
 
   private static Recorded agent;
   private static Recorded traced;
@@ -134,7 +134,14 @@ class ProducerCallSiteIT {
               });
       var methods = frameForks.stream().map(Fork::methodName).distinct().toList();
       assertThat(methods)
-          .contains("forkEveryKind", "failFast", "anySuccessful", "nested", "middle", "inner");
+          .contains(
+              "forkEveryKind",
+              "failFast",
+              "anySuccessful",
+              "nested",
+              "middle",
+              "inner",
+              "forkRunnables");
     }
   }
 
