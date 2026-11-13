@@ -35,26 +35,51 @@ Targets JDK 27+ with `--enable-preview` (`StructuredTaskScope` is a preview API)
 <dependency>
   <groupId>com.ionutbanu</groupId>
   <artifactId>scope-tracer-core</artifactId>
-  <version>0.1.0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
-> Until 0.1.0 lands on Maven Central, build from source (see below) and install into your
-> local Maven repository before adding the dependency.
+0.3.0 requires JDK 27 (every jar is built with `--release 27`); on JDK 26, stay on 0.2.0.
 
-### 2. Wrap your scope
+`TracedScope` is a preview API on JDK 27, so your own build needs `--enable-preview` and
+`--release 27` to compile against it, and `--enable-preview` to run. Without them javac stops
+with `... TracedScope.class uses preview features of Java SE 27`. In Maven:
 
-Replace `StructuredTaskScope` with `TracedScope`. The API is the same: `fork()`, `join()`,
-try-with-resources.
+```xml
+<plugin>
+  <groupId>org.apache.maven.plugins</groupId>
+  <artifactId>maven-compiler-plugin</artifactId>
+  <configuration>
+    <release>27</release>
+    <compilerArgs>
+      <arg>--enable-preview</arg>
+    </compilerArgs>
+  </configuration>
+</plugin>
+```
+
+With plain `javac`: `javac --enable-preview --release 27 -cp scope-tracer-core-0.3.0.jar ...`.
+
+### 2. Open a `TracedScope` instead of a `StructuredTaskScope`
+
+`TracedScope` mirrors JDK 27's `StructuredTaskScope`: the same type parameters, the same
+`open` factories, `fork`, `join` and `close`. The differences are the entry point,
+`TracedScope.open("name", ...)` with the scope's name as the first argument (there is no
+constructor), and the JFR events it emits. `join()` throws what the plain scope's throws:
+`ExecutionException` for the default joiner, with the failed task's exception as its cause.
 
 ```java
 import com.ionutbanu.scopetracer.core.TracedScope;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.StructuredTaskScope.Subtask;
 
-try (var scope = new TracedScope("checkout-flow")) {
-    Subtask<Quote>       pricing   = scope.fork(() -> pricingService.quote(cart));
-    Subtask<Reservation> inventory = scope.fork(() -> inventoryService.reserve(cart));
-    scope.join();
-    return new Checkout(pricing.get(), inventory.get());
+Checkout checkout(Cart cart) throws ExecutionException, InterruptedException {
+    try (var scope = TracedScope.open("checkout-flow")) {
+        Subtask<Quote>       pricing   = scope.fork(() -> pricingService.quote(cart));
+        Subtask<Reservation> inventory = scope.fork(() -> inventoryService.reserve(cart));
+        scope.join();
+        return new Checkout(pricing.get(), inventory.get());
+    }
 }
 ```
 
@@ -70,7 +95,12 @@ java -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
      com.example.MyApp
 ```
 
+Put your own classpath (including the `scope-tracer-core` jar) where `<your-classpath>` is,
+and your main class where `com.example.MyApp` is.
+
 ### 4. Run the analyzer
+
+Run this from a clone of this repository, after `mvn -q -DskipTests package`:
 
 ```bash
 VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
@@ -93,15 +123,20 @@ java --enable-preview \
      myapp.jfr trace.json --format=json
 ```
 
-Or use the programmatic API:
+Or use the programmatic API (put the `scope-tracer-analyzer` jar on the classpath):
 
 ```java
-import com.ionutbanu.scopetracer.analyzer.JfrParser;
 import com.ionutbanu.scopetracer.analyzer.HtmlRenderer;
+import com.ionutbanu.scopetracer.analyzer.JfrParser;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-var model = JfrParser.parse(Path.of("myapp.jfr"));
-String html = HtmlRenderer.render(model);
-Files.writeString(Path.of("report.html"), html);
+void writeReport() throws IOException {
+    var model = JfrParser.parse(Path.of("myapp.jfr"));
+    String html = HtmlRenderer.render(model);
+    Files.writeString(Path.of("report.html"), html);
+}
 ```
 
 ### 5. Open the report
@@ -148,9 +183,9 @@ java --enable-preview \
 ```
 
 The agent:
-- Uses the name supplied to `Config.withName("my-scope")` when set. When no name is
-  configured the name is derived from the call-site stack frame (format:
-  `SimpleClassName#methodName`).
+- Uses the name supplied to `Configuration.withName("my-scope")` when set (for example
+  `StructuredTaskScope.open(cfg -> cfg.withName("my-scope"))`). When no name is configured
+  the name is derived from the call-site stack frame (format: `SimpleClassName#methodName`).
 - Emits the same six JFR events as `TracedScope`, so the analyzer pipeline is identical.
 - **Do not** combine with `TracedScope` — each scope would emit duplicate events.
 
@@ -172,14 +207,22 @@ Globs support `*`, `**` (both equivalent to `.*`), and `?`. Patterns are **not**
 aware: `com.acme.*` matches both `com.acme.foo` and `com.acme.foo.bar`. Use a literal pattern
 if you need a strict prefix.
 
-Example — trace only the checkout subsystem at a 10% sample rate:
+The package glob is matched against the package name itself, so `com.acme.checkout.**` skips
+scopes opened directly in `com.acme.checkout`; `com.acme.checkout*` takes that package and
+everything below it.
+
+Example — trace only the checkout subsystem at a 10% sample rate (quote the agent argument so
+the shell does not expand the `*`):
 
 ```bash
+VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 java --enable-preview \
-     -javaagent:scope-tracer-agent.jar=include.package=com.acme.checkout.**,sample.rate=0.1 \
+     "-javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar=include.package=com.acme.checkout*,sample.rate=0.1" \
      -XX:StartFlightRecording=filename=checkout.jfr,dumponexit=true \
      -cp <your-classpath> com.acme.Main
 ```
+
+Replace `<your-classpath>` and `com.acme.Main` with your own classpath and main class.
 
 > **Note:** The agent jar is self-bootstrapped via `Boot-Class-Path` in its manifest. No
 > extra JVM flags are needed for the bootstrap classloader setup.
@@ -209,7 +252,7 @@ You can also open a `.jfr` you recorded yourself (see "Run under JFR recording" 
 
 ## Demos
 
-Seven runnable examples are included in `scope-tracer-demos`:
+Eight runnable examples are included in `scope-tracer-demos`:
 
 | Demo | What it shows |
 |------|--------------|
@@ -220,16 +263,21 @@ Seven runnable examples are included in `scope-tracer-demos`:
 | `LiveServiceDemo` | On-demand monitoring — long-running service; use `jcmd` to turn tracing on/off without restarting |
 | `OrderProcessingDemo` | Multi-level nesting — e-commerce pipeline with payment and inventory sub-scopes; fraud failures; critical-path highlighting |
 | `LiveOrderProcessingDemo` | Live version of `OrderProcessingDemo` — runs until Ctrl+C; use `jcmd` to capture windows of the nested pipeline |
+| `FilteringDemo` | The agent's capture filters and sampling — opens five kinds of scope (one of them ten times); the `include.name`, `exclude.name`, `include.package`, `exclude.package` and `sample.rate` arguments decide which reach the report |
 
-The first four demos write a `.jfr` and `.html` file to `target/` and exit. The live demos
-run until Ctrl+C and print ready-to-paste `jcmd` commands at startup.
+Six demos write a `.jfr` and an `.html` file to `target/` and exit: `ParallelFetchDemo`,
+`FailFastDemo`, `NestedScopesDemo`, `OrderProcessingDemo`, `AgentDemo` and `FilteringDemo`.
+The two live demos, `LiveServiceDemo` and `LiveOrderProcessingDemo`, run until Ctrl+C and print
+ready-to-paste `jcmd` commands at startup. `AgentDemo`, `FilteringDemo` and the live demos use
+plain `StructuredTaskScope` and need the agent (without it nothing is recorded); the others
+use `TracedScope`.
 
 **Run a demo:**
 
 ```bash
-mvn install -DskipTests
+mvn -q -DskipTests package
 VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-mvn -pl scope-tracer-demos -q dependency:build-classpath -Dmdep.outputFile=/tmp/scope-tracer-cp.txt
+mvn -pl scope-tracer-demos -am -q -DskipTests package dependency:build-classpath -Dmdep.outputFile=/tmp/scope-tracer-cp.txt
 CP=$(cat /tmp/scope-tracer-cp.txt)
 JARS="scope-tracer-core/target/scope-tracer-core-${VERSION}.jar:\
 scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}.jar:\
@@ -253,8 +301,20 @@ java --enable-preview \
      -cp "$JARS" com.ionutbanu.scopetracer.demos.LiveServiceDemo
 
 # LiveOrderProcessingDemo — live nested pipeline; copy the jcmd commands it prints, then Ctrl+C to stop
-java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.LiveOrderProcessingDemo
+java --enable-preview \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar \
+     -cp "$JARS" com.ionutbanu.scopetracer.demos.LiveOrderProcessingDemo
+
+# FilteringDemo — the agent's filters; baseline first (all five scope names appear), then only *-flow
+java --enable-preview \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar \
+     -cp "$JARS" com.ionutbanu.scopetracer.demos.FilteringDemo
+java --enable-preview \
+     "-javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar=include.name=*-flow" \
+     -cp "$JARS" com.ionutbanu.scopetracer.demos.FilteringDemo
 ```
+
+The other scenarios are in `FilteringDemo`'s Javadoc.
 
 **Using LiveServiceDemo** (in a second terminal while the service is running):
 
