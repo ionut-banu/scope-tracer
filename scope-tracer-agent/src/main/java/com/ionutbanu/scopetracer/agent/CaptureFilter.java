@@ -56,8 +56,8 @@ public record CaptureFilter(
   /**
    * Returns {@code true} when the scope should be captured.
    *
-   * @param name the resolved scope name (configured via {@code Config.withName(...)} or derived
-   *     from the call-site).
+   * @param name the resolved scope name (configured via {@code Configuration.withName(...)} or
+   *     derived from the call-site).
    * @param callerPackage the package of the call-site class, or empty string if the stack walk
    *     produced no user frame.
    */

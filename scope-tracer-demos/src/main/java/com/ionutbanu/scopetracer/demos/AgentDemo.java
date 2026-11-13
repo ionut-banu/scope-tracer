@@ -12,8 +12,8 @@ import java.util.concurrent.StructuredTaskScope.Joiner;
  * <p>Demonstrates two scope-naming modes:
  *
  * <ul>
- *   <li><b>Named scope</b> — {@code Config.withName("checkout-flow")} is used; the report shows the
- *       configured name.
+ *   <li><b>Named scope</b> — {@code Configuration.withName("checkout-flow")} is used; the report
+ *       shows the configured name.
  *   <li><b>Anonymous scope</b> — no name configured; the agent derives the name from the call-site
  *       stack frame.
  * </ul>
@@ -46,7 +46,7 @@ public final class AgentDemo {
     DemoRunner.run(
         "agent-demo",
         () -> {
-          // Named scope: Config.withName() → report shows "checkout-flow"
+          // Named scope: Configuration.withName() → report shows "checkout-flow"
           try (var scope =
               StructuredTaskScope.open(
                   Joiner.awaitAllSuccessfulOrThrow(),
@@ -68,7 +68,7 @@ public final class AgentDemo {
             }
           }
 
-          // Anonymous scope: no Config.withName() → name derived from call-site stack frame
+          // Anonymous scope: no Configuration.withName() → name derived from call-site stack frame
           try (var scope =
               StructuredTaskScope.open(
                   Joiner.awaitAllSuccessfulOrThrow(),

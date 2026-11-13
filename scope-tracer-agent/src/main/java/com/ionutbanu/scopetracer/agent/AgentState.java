@@ -43,7 +43,7 @@ public final class AgentState {
       Collections.newSetFromMap(Collections.synchronizedMap(new WeakHashMap<>()));
 
   /**
-   * Carries the user-configured scope name (from {@code Config.withName()}) from the {@code
+   * Carries the user-configured scope name (from {@code Configuration.withName()}) from the {@code
    * StructuredTaskScopeImpl} constructor advice to {@code ScopeOpenAdvice}. Set by {@link
    * com.ionutbanu.scopetracer.agent.advice.ScopeConstructorAdvice} and consumed (then cleared) by
    * {@link com.ionutbanu.scopetracer.agent.advice.ScopeOpenAdvice}.

@@ -72,8 +72,8 @@ import net.bytebuddy.utility.OpenedClassReader;
  * propagated through the rest of the pipeline by simply not registering the scope in the agent's
  * state map; downstream advice handlers short-circuit on the missing state.
  *
- * <p><b>Scope naming:</b> When a scope is opened with {@code Config.withName("my-scope")}, that
- * name is used as-is. When no name is configured, the name is derived from the call-site stack
+ * <p><b>Scope naming:</b> When a scope is opened with {@code Configuration.withName("my-scope")},
+ * that name is used as-is. When no name is configured, the name is derived from the call-site stack
  * frame (format: {@code SimpleClassName#methodName}).
  *
  * <p><b>Requirements:</b>
