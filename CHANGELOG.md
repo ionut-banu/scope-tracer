@@ -130,6 +130,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `com.ionutbanu.scopetracer`, and the analyzer's own log lines no longer reach the
   application's output.
 
+### Dependencies
+
+- ByteBuddy 1.18.8 → 1.18.17
+- Logback 1.5.32 → 1.6.6; SLF4J 2.0.18 → 2.0.20
+- JUnit 6.1.0 → 6.1.3
+- google-java-format 1.27.0 → 1.36.1; Spotless maven-plugin 3.5.1 → 3.11.0
+- maven-surefire-plugin 3.5.5 → 3.6.1; maven-compiler-plugin 3.15.0 → 3.16.0;
+  maven-enforcer-plugin 3.6.3 → 3.7.0; maven-jar-plugin 3.5.0 → 3.5.1
+- JaCoCo 0.8.14 → 0.8.16; SpotBugs maven plugin 4.9.8.3 → 4.10.5.0
+- central-publishing-maven-plugin 0.10.0 → 0.12.0
+- maven-shade-plugin now runs with ASM 9.11.1 (`shade.asm.version`) in place of its own
+  ASM 9.9.1, which cannot read class-file major 71 (JDK 27); the agent's relocation rewrites
+  every class through ASM
+- actions/checkout GitHub Action v6 → v7
+- New with the IntelliJ plugin's separate Gradle build: IntelliJ Platform Gradle plugin 2.18.1
+  (building against IntelliJ IDEA 2025.3.6.1), Gson 2.10.1, JUnit 5.11.0 and AssertJ 3.27.7 for
+  its `:model` tests, and the gradle/actions/setup-gradle v4 and actions/setup-java v5 actions in
+  the CI job that builds it
+
 ## [0.2.0] - 2026-05-24
 
 ### Fixed
