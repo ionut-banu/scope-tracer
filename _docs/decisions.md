@@ -243,3 +243,91 @@ Dynamic attach (#37) decides its own attach mechanism: `agentmain`
 receives its `Instrumentation` from the JVM like `premain`, so an
 attach tool is needed only on the side that starts the attach, not
 in the agent jar.
+2026-11-13 - Plugin: which launch is traced, and what a repeated click does
+
+Decided in #88. The state of one "Run with Scope Tracer" request lives
+in `TracedRunLifecycle` (`:model`); `RunWithScopeTracerAction`,
+`TracedRuns` and `ScopeTracerProgramPatcher` only forward the
+platform's callbacks to it and carry out its answers.
+
+How the traced launch is identified. `JavaProgramPatcher
+.patchJavaParameters` receives the executor and the run profile, not
+the `ExecutionEnvironment`, so at patch time the traced launch cannot
+be told from another launch of the same configuration by anything but
+the executor. The order of the callbacks was NOT observed in `runIde`
+(no GUI where this was built; the maintainer's by-hand QA on the issue
+is where it is observed). It was read from the bytecode of the
+platform the plugin compiles against, IC 2025.3.6.1 (`lib/app.jar`,
+`com.intellij.execution.impl.ExecutionManagerImpl`, `javap -c`):
+`startRunProfile` publishes `processStartScheduled(executorId, env)`
+first; the 2-argument `processStarting(executorId, env)` is published
+inside the starter's lambda, before the runner executes (which is
+where the Java command line state builds `JavaParameters` and the
+patchers run); the 3-argument `processStarting`/`processStarted` with
+the process handler come after the process exists; `processNotStarted`
+is reachable from many places after `processStartScheduled`
+(before-run failure or cancel, runner exception), so it can arrive
+with or without the patcher having run; `processTerminated` comes
+from the handler. The logic does not rely on that reading: it is
+correct for any order of those six callbacks.
+
+- Only the Run executor (`"Run"`, `DefaultRunExecutor.EXECUTOR_ID`) is
+  patched, and only once. A Debug launch is never patched and does not
+  consume the request.
+- The traced launch is claimed by its execution id from the first
+  callback that names a Run launch of the configuration. Callbacks
+  with another execution id, executor or configuration change nothing,
+  so an ordinary Run overlapping the traced one cannot take its
+  recording, nor delete it.
+- A second Run launch of the configuration that appears before the
+  patcher has been asked cannot be told apart from the traced one at
+  patch time, so the request gives up (releases everything, shows one
+  warning, nothing is patched) rather than guess. After the patcher
+  has run, a second launch is simply not patched.
+- A token in the launch's user data was rejected: the patcher does not
+  see the environment, so it could not read it.
+
+A repeated click releases the old request and starts a new one; it
+does not refuse. The earlier request's subscription, temp file and
+agent jar are released, an information notification says its trace
+will not be shown, and its process, if one is running, keeps running
+untraced from the plugin's side. Refusing was rejected because a
+request whose callbacks never arrive (a platform path we did not
+read) would then block the action until the IDE restarts; replacing
+cannot get stuck. Two live traced runs of one configuration remain
+out of scope (they would need one `.jfr` file each).
+
+2026-11-13 - Fork call sites: the agent stamps them, and the class is the binary name
+
+Decided in #86 and #100. `TaskForked`'s `callSiteClassName` is
+redefined from the simple class name to the JVM binary class name,
+fully qualified and uncut: exactly what `StackFrame.getClassName()` or
+`Class.getName()` reports (`com.acme.Plain$Named`, `com.acme.Plain$1`,
+the hosting class for a lambda, no dot in the unnamed package).
+Nothing is cut at `$` when recording: a reader can always cut, and a
+recorded cut cannot be undone. Consumers decide; the plugin resolves a
+nested class exactly and falls back to the enclosing named class only
+for anonymous and local classes.
+
+Redefining the field is allowed here because it has never been in a
+release: 0.1.0 and 0.2.0 have no `callSite*` fields (checked with
+`jfr print` on their fixtures), and 0.3.0 is the first release that
+has them. The rule that events and fields are never renamed, removed
+or redefined applies to them from 0.3.0 on. No fourth field for the
+simple name was added; `taskName` keeps the simple name for display.
+
+The agent's `ForkAdvice` now stamps `callSiteClassName`,
+`callSiteMethodName` and `callSiteLine` by the same rule as
+`TracedScope`, because §1 says a recording does not reveal which
+producer made it. Before, agent recordings had the fields (they belong
+to core's event) but left them null, so the plugin fell back to
+parsing `taskName`. Those recordings were never released either and
+still parse, with no call site.
+
+The frame formatting now exists in three copies: core's
+`TaskNameDeriver`, the agent's `TaskNameDeriver` and its
+`ScopeNameDeriver`. They stay separate here; one shared formatter is
+#97. A shared class in core would add a public type to the API and
+move code onto the bootstrap classloader, more than this change needs.
+`ProducerCallSiteIT` runs one program under each producer and fails
+if the two derivers stop agreeing.

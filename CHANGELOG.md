@@ -25,8 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scope-tracer classes. The IntelliJ plugin is the first consumer.
 - **Fork call sites.** `TaskForked` events carry `callSiteClassName`, `callSiteMethodName`
   and `callSiteLine`, captured independently of the task label (also when an explicit
-  name is passed to `fork`). The fields are nullable and absent in recordings made before
-  0.3.0; the analyzer's `TaskRecord` and the JSON output expose them as `callSite`.
+  name is passed to `fork`). `TracedScope` and the agent both stamp them, by the same rule.
+  `callSiteClassName` is fully qualified: the JVM binary class name, uncut
+  (`com.acme.Plain$Named`). The fields are nullable and absent in recordings made before
+  0.3.0; the analyzer's `TaskRecord` and the JSON output expose them as `callSite`. The
+  IntelliJ plugin opens the exact class for them, with no chooser, and falls back to the
+  task name for recordings without them.
 - **IntelliJ plugin (first milestone).** `scope-tracer-plugin/` adds Tools → "Open .jfr
   Recording (Scope Tracer)…", a "Scope Tracer" tool window showing the parsed trace, and
   click-to-source from a task to its fork call site. It runs the bundled analyzer jar as
@@ -61,6 +65,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ExecutionException>(name)`: with the raw type, `join()` throws `Throwable`.
 
 ### Fixed
+
+- **IntelliJ plugin: "Run with Scope Tracer" traced launches the user did not ask for and leaked
+  what it set up.** A run that never started (failed before-run build, cancelled task) left its
+  configuration registered, so later ordinary Runs and Debug launches of it got `-javaagent`,
+  `--enable-preview` and the JFR options and opened a trace; it also left the message-bus
+  subscription, the temp `.jfr` file and the extracted agent jar behind. Now only the Run launch
+  started by the action is patched, once, and everything is released when it terminates, fails to
+  start or is not patched. Clicking the action again replaces the earlier request.
 
 - **Agent recorded two scopes for `open()` and `open(Joiner)`.** Both overloads call
   `open(Joiner, UnaryOperator)`, and the agent advised all three, so each call emitted two

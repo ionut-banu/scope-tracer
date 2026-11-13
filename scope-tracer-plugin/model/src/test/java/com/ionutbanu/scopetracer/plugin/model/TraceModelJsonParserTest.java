@@ -67,7 +67,7 @@ class TraceModelJsonParserTest {
     var model = TraceModelJsonParser.parse(json);
 
     var task = model.scopes().get(0).tasks().get(0);
-    assertThat(task.callSite()).isEqualTo(new CallSite("OrderService", "checkout", 42));
+    assertThat(task.callSite()).isEqualTo(CallSite.exact("OrderService", "checkout", 42));
   }
 
   @Test
@@ -133,5 +133,42 @@ class TraceModelJsonParserTest {
     assertThat(task.taskName()).isNull();
     assertThat(task.completionTime()).isNull();
     assertThat(task.outcome()).isNull();
+  }
+
+  /**
+   * The agent and {@code TracedScope} stamp the same call site (#86), so the analyzer's JSON of the
+   * same fork from either producer parses to the same, exact call site with the binary name uncut.
+   */
+  @Test
+  void agentAndTracedScopeJsonParseToTheSameExactCallSite() {
+    var agentJson = taskJson("ProducerCallSiteSubject#fork:67", "agent-1");
+    var tracedJson = taskJson("ProducerCallSiteSubject#fork:67", "producer-kinds");
+
+    var fromAgent = TraceModelJsonParser.parse(agentJson).scopes().get(0).tasks().get(0);
+    var fromTraced = TraceModelJsonParser.parse(tracedJson).scopes().get(0).tasks().get(0);
+
+    assertThat(fromAgent.callSite()).isEqualTo(fromTraced.callSite());
+    assertThat(CallSiteParser.forTask(fromAgent)).isEqualTo(CallSiteParser.forTask(fromTraced));
+    assertThat(fromAgent.callSite())
+        .isEqualTo(
+            CallSite.exact(
+                "com.ionutbanu.scopetracer.agent.ProducerCallSiteSubject$Inner", "fork", 67));
+  }
+
+  private static String taskJson(String taskName, String scopeName) {
+    return """
+        {"scopes":[
+          {"scopeId":1,"name":"%s","ownerThreadName":"main","ownerThreadId":1,
+           "openTime":"2026-01-01T00:00:00Z","closeTime":"2026-01-01T00:00:01Z","parent":null,
+           "tasks":[
+             {"taskId":1,"taskName":"%s","threadName":"","threadId":10,
+              "forkTime":"2026-01-01T00:00:00.100Z","completionTime":"2026-01-01T00:00:00.300Z",
+              "outcome":{"type":"success"},
+              "callSite":{"className":"com.ionutbanu.scopetracer.agent.ProducerCallSiteSubject$Inner",
+                          "methodName":"fork","line":67}}
+           ]}
+        ]}
+        """
+        .formatted(scopeName, taskName);
   }
 }
