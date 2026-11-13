@@ -317,7 +317,11 @@ is used; one older than 27 is refused with a message naming 27.
   existing `-XX:StartFlightRecording`), then opens the recording when
   the process exits. The agent jar is bundled like the analyzer's and
   extracted under its own file name, because its manifest's
-  `Boot-Class-Path` names that file.
+  `Boot-Class-Path` names that file. Only the launch started by the
+  action is traced (Run executor, once); an ordinary Run or Debug of
+  the same configuration is not, and everything the action set up is
+  released when that launch terminates or fails to start
+  (`TracedRunLifecycle` decides).
 - `build.gradle.kts` reads `analyzerVersion` from the parent POM, so
   the bundled jar always matches the Maven project version.
 

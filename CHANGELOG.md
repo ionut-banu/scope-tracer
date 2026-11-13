@@ -59,6 +59,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **IntelliJ plugin: "Run with Scope Tracer" traced launches the user did not ask for and leaked
+  what it set up.** A run that never started (failed before-run build, cancelled task) left its
+  configuration registered, so later ordinary Runs and Debug launches of it got `-javaagent`,
+  `--enable-preview` and the JFR options and opened a trace; it also left the message-bus
+  subscription, the temp `.jfr` file and the extracted agent jar behind. Now only the Run launch
+  started by the action is patched, once, and everything is released when it terminates, fails to
+  start or is not patched. Clicking the action again replaces the earlier request.
+
 - **Agent recorded two scopes for `open()` and `open(Joiner)`.** Both overloads call
   `open(Joiner, UnaryOperator)`, and the agent advised all three, so each call emitted two
   `ScopeOpened`: the forks and the close went to the second, and the first stayed in the report

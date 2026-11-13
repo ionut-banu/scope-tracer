@@ -230,3 +230,57 @@ ASM. An ASM that reads JDK 28 (major 72) is left to #55 together
 with whatever JaCoCo and SpotBugs need for 28. ByteBuddy 1.18.11 reads
 27 on its own, but `net.bytebuddy.experimental` stays set so a JDK
 newer than the ByteBuddy release is still instrumented.
+
+2026-11-13 - Plugin: which launch is traced, and what a repeated click does
+
+Decided in #88. The state of one "Run with Scope Tracer" request lives
+in `TracedRunLifecycle` (`:model`); `RunWithScopeTracerAction`,
+`TracedRuns` and `ScopeTracerProgramPatcher` only forward the
+platform's callbacks to it and carry out its answers.
+
+How the traced launch is identified. `JavaProgramPatcher
+.patchJavaParameters` receives the executor and the run profile, not
+the `ExecutionEnvironment`, so at patch time the traced launch cannot
+be told from another launch of the same configuration by anything but
+the executor. The order of the callbacks was NOT observed in `runIde`
+(no GUI where this was built; the maintainer's by-hand QA on the issue
+is where it is observed). It was read from the bytecode of the
+platform the plugin compiles against, IC 2025.3.6.1 (`lib/app.jar`,
+`com.intellij.execution.impl.ExecutionManagerImpl`, `javap -c`):
+`startRunProfile` publishes `processStartScheduled(executorId, env)`
+first; the 2-argument `processStarting(executorId, env)` is published
+inside the starter's lambda, before the runner executes (which is
+where the Java command line state builds `JavaParameters` and the
+patchers run); the 3-argument `processStarting`/`processStarted` with
+the process handler come after the process exists; `processNotStarted`
+is reachable from many places after `processStartScheduled`
+(before-run failure or cancel, runner exception), so it can arrive
+with or without the patcher having run; `processTerminated` comes
+from the handler. The logic does not rely on that reading: it is
+correct for any order of those six callbacks.
+
+- Only the Run executor (`"Run"`, `DefaultRunExecutor.EXECUTOR_ID`) is
+  patched, and only once. A Debug launch is never patched and does not
+  consume the request.
+- The traced launch is claimed by its execution id from the first
+  callback that names a Run launch of the configuration. Callbacks
+  with another execution id, executor or configuration change nothing,
+  so an ordinary Run overlapping the traced one cannot take its
+  recording, nor delete it.
+- A second Run launch of the configuration that appears before the
+  patcher has been asked cannot be told apart from the traced one at
+  patch time, so the request gives up (releases everything, shows one
+  warning, nothing is patched) rather than guess. After the patcher
+  has run, a second launch is simply not patched.
+- A token in the launch's user data was rejected: the patcher does not
+  see the environment, so it could not read it.
+
+A repeated click releases the old request and starts a new one; it
+does not refuse. The earlier request's subscription, temp file and
+agent jar are released, an information notification says its trace
+will not be shown, and its process, if one is running, keeps running
+untraced from the plugin's side. Refusing was rejected because a
+request whose callbacks never arrive (a platform path we did not
+read) would then block the action until the IDE restarts; replacing
+cannot get stuck. Two live traced runs of one configuration remain
+out of scope (they would need one `.jfr` file each).
