@@ -319,3 +319,73 @@ The frame formatting now exists in three copies: core's
 move code onto the bootstrap classloader, more than this change needs.
 `ProducerCallSiteIT` runs one program under each producer and fails
 if the two derivers stop agreeing.
+
+2026-11-13 - TracedScope mirrors StructuredTaskScope's public API
+
+`TracedScope` has `StructuredTaskScope`'s type parameters
+(`<T, R, R_X extends Throwable>`), its four public static `open`
+factories with a leading `String name` and otherwise the same
+signatures, and every one of its public instance methods with the same
+signature (`fork(Callable)`, `fork(Runnable)`, `join()`,
+`isCancelled()`, `close()`). The only additions are
+`fork(String, Callable)`, which names a task, and `name()`. A
+reflection test compares the two on the running JDK and fails on a
+missing or an extra public method. Decided by the maintainer on #95,
+#87 and #80, and done in one change for all three.
+
+Why: spec §1 calls `TracedScope` a drop-in wrapper, and it was not
+one. `T` was fixed to `Object`, so typed joiners did not compile
+without casts (`Joiner.<String>allSuccessfulOrThrow()` was rejected)
+and the Javadoc examples needed `(Response) scope.join()`. JEP 543
+finalizes the API in JDK 28 without further change, so this is the
+shape 1.0 ships, and adding `T` after 0.3.0 would break every declared
+`TracedScope` type a second time. A rule settles the API once, rather
+than one overload at a time at each review.
+
+What follows from it:
+
+- `T` is added: `TracedScope<R, R_X>` becomes
+  `TracedScope<T, R, R_X>`, and `fork`'s method type parameter becomes
+  `<U extends T>`, as in the JDK.
+- The two public constructors are deleted, not deprecated. They let a
+  caller pick an `R_X` the compiler trusted while `join()` threw
+  `ExecutionException` past it (an undeclared checked exception, #87).
+  A deprecated constructor would keep that hole, there are no outside
+  users yet, and 0.3.0 already breaks source compatibility.
+- `open(String, UnaryOperator<Configuration>)` and
+  `open(String, Joiner, UnaryOperator<Configuration>)` are added
+  (#80): under the rule no JDK factory is missing.
+- `open(String, ThreadFactory)` and `open(String, Joiner,
+  ThreadFactory)` are removed. The JDK has no such factories, and next
+  to `open(String, UnaryOperator)` they make `open("x", c -> c)`
+  ambiguous, because both parameters are functional interfaces. The
+  replacement is `open(name, cfg -> cfg.withThreadFactory(factory))`.
+- The caller's configuration function runs after scope-tracer's own
+  defaults, `withName(name)` and a virtual-thread factory, so whatever
+  it sets is honoured as on a plain scope. Events keep the `name`
+  argument as `scopeName` even if the function calls `withName`.
+- `fork(Runnable)` and `isCancelled()` are added. `fork(Runnable)` is
+  traced like `fork(Callable)`, call site included; `isCancelled()`
+  only delegates.
+- `fork(Runnable)` takes its name and call site from the calling frame
+  even for a named `Runnable` class, where `fork(Callable)` would use
+  the class. A plain scope's `fork(Runnable)` wraps the task in a JDK
+  lambda before the agent's advice sees it, so the agent records the
+  calling frame, and §1 requires the two producers to agree.
+  `ProducerCallSiteIT` showed the difference (`NamedRunnable` from
+  `TracedScope`, `ProducerCallSiteSubject#forkRunnables:124` from the
+  agent) and now checks it. Changing the agent instead was out of
+  scope here.
+
+Two extras were kept rather than removed. `fork(String, Callable)` is
+how a task gets an explicit name, which the report and the plugin
+use. `name()` returns the `name` argument; removing it would break
+callers for no gain in the mirror, since an extra method does not stop
+`TracedScope` being a drop-in replacement. Both are named in the
+reflection test, so any other extra fails it.
+
+The `fork` methods now check for a null task before emitting
+`TaskForked`, as the JDK's `fork` does. Before, a null `Callable`
+emitted `TaskForked`, was wrapped, and failed inside the task, so
+`join()` threw `ExecutionException` where a plain scope's `fork`
+throws `NullPointerException`.
