@@ -255,6 +255,47 @@ class JfrParserEventOrderTest {
     assertThat(failing.tasks().get(0).callSite()).isNull();
   }
 
+  /**
+   * {@code recordings/v0.1.0-nested-failed-cancelled.jfr} was made by tag v0.1.0, built and run on
+   * JDK 26 ({@code TracedScope} under a {@code Recording}): a nested pair of scopes, and a scope
+   * whose failing task cancels its blocked sibling. 0.1.0 had no {@code callSite*} fields.
+   */
+  @Test
+  void recordingMadeBy010Parses() throws Exception {
+    var model = JfrParser.parse(resource("recordings/v0.1.0-nested-failed-cancelled.jfr"));
+
+    assertThat(model.scopes())
+        .extracting(ScopeRecord::name)
+        .containsExactly("v010-outer", "v010-inner", "v010-failing");
+    var outer = model.scopes().get(0);
+    var inner = model.scopes().get(1);
+    var failing = model.scopes().get(2);
+
+    assertThat(model.scopes()).allSatisfy(s -> assertThat(s.closeTime()).isNotNull());
+    assertThat(model.scopes().stream().flatMap(s -> s.tasks().stream()))
+        .hasSize(4)
+        .allSatisfy(t -> assertThat(t.callSite()).isNull());
+
+    assertThat(outer.parent()).isNull();
+    assertThat(outer.tasks()).extracting(t -> t.taskName()).containsExactly("inner-runner");
+    assertThat(outer.tasks().get(0).outcome()).isInstanceOf(TaskOutcome.Success.class);
+
+    assertThat(inner.parent()).isNotNull();
+    assertThat(inner.parent().parentScopeId()).isEqualTo(outer.scopeId());
+    assertThat(inner.parent().taskId()).isEqualTo(1L);
+    assertThat(inner.tasks()).extracting(t -> t.taskName()).containsExactly("ok");
+    assertThat(inner.tasks().get(0).outcome()).isInstanceOf(TaskOutcome.Success.class);
+
+    assertThat(failing.parent()).isNull();
+    assertThat(failing.tasks()).extracting(t -> t.taskName()).containsExactly("slow", "boom");
+    assertThat(failing.tasks().get(0).outcome()).isInstanceOf(TaskOutcome.Cancelled.class);
+    var failed = failing.tasks().get(1).outcome();
+    assertThat(failed).isInstanceOf(TaskOutcome.Failed.class);
+    assertThat(((TaskOutcome.Failed) failed).exceptionType())
+        .isEqualTo(IllegalStateException.class.getName());
+    assertThat(((TaskOutcome.Failed) failed).exceptionMessage()).isEqualTo("v0.1.0 failure");
+  }
+
   // --- harness ---
 
   private static final String LATE = "late";
