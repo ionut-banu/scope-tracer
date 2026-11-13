@@ -27,19 +27,18 @@ tests (the last count is in `_docs/spec.md` §4), produces Jacoco coverage repor
 ### Single-module commands
 
 ```bash
-# Build/test a single module
-mvn -pl scope-tracer-core -q verify
+# Build/test a single module plus what it depends on
+mvn -pl scope-tracer-analyzer -am -q verify
 
 # Run a single test
-mvn -pl scope-tracer-core -Dtest=TracedScopeTest#myMethod test
+mvn -pl scope-tracer-core -am -Dtest=TracedScopeTest#myMethod -Dsurefire.failIfNoSpecifiedTests=false test
 ```
 
-> When switching branches or after `mvn clean`, run
-> `mvn clean install -DskipTests` first. Otherwise `mvn -pl <module> test`
-> resolves `scope-tracer-core` from your local Maven repository — if that jar
-> is stale, the analyzer's integration tests will pass against old bytecode
-> while the real build would fail. Always run the full `mvn -q verify` after
-> changes to `scope-tracer-core` or anything that spans modules.
+> Never run `mvn -pl <module>` without `-am`. `-am` builds the sibling modules from
+> the same reactor. Without it Maven takes them from `~/.m2`, which every checkout and
+> worktree on the machine shares, so the tests pass or fail against someone else's
+> bytecode. Always run the full `mvn -q verify` before you push, and after changes to
+> `scope-tracer-core` or anything that spans modules.
 
 ### Formatting
 
@@ -51,7 +50,7 @@ fails on style violations.
 mvn spotless:apply
 
 # Single module (does not touch sibling poms)
-mvn -pl scope-tracer-core spotless:apply
+mvn -pl scope-tracer-core -am spotless:apply
 ```
 
 ## Coding conventions
@@ -113,26 +112,45 @@ Summary of what must be in place before the first release:
 
 ### Cutting a release
 
+In the commands, `X.Y.Z` is the release version and `X.Y+1.0-SNAPSHOT` the next development
+version (for example 0.3.0 and 0.4.0-SNAPSHOT).
+
 ```bash
 # 1. Bump from SNAPSHOT to release version on a branch off main
-git checkout -b release/0.1.0
-mvn versions:set -DnewVersion=0.1.0 -DgenerateBackupPoms=false
-# Update CHANGELOG.md: rename [Unreleased] to [0.1.0] with today's date
+VERSION=X.Y.Z
+git checkout -b release/$VERSION
+mvn versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
+
+# 2. Update the three things that go stale (see below), then check the README
+git grep -n "<version>$VERSION</version>" -- README.md || { echo "README version is not $VERSION"; false; }
 mvn -q verify
-git commit -am "release: 0.1.0"
+git commit -am "release: $VERSION"
 
-# 2. Tag and push (the tag triggers the release workflow)
-git tag v0.1.0
-git push origin release/0.1.0 v0.1.0
+# 3. Tag and push (the tag triggers the release workflow)
+git tag v$VERSION
+git push origin release/$VERSION v$VERSION
 
-# 3. Open and merge the release PR to main
+# 4. Open and merge the release PR to main
 
-# 4. Bump to next SNAPSHOT on main
+# 5. Bump to next SNAPSHOT on main
 git checkout main && git pull
-mvn versions:set -DnewVersion=0.2.0-SNAPSHOT -DgenerateBackupPoms=false
-git commit -am "chore: bump to 0.2.0-SNAPSHOT"
+mvn versions:set -DnewVersion=X.Y+1.0-SNAPSHOT -DgenerateBackupPoms=false
+git commit -am "chore: bump to X.Y+1.0-SNAPSHOT"
 git push
 ```
+
+Step 2 is what keeps a release from shipping stale text. Before the release commit:
+
+1. Set the `<version>` in the README's quick-start dependency snippet to the release version.
+   The `git grep` above fails when it is not there; run it again after editing.
+2. Update the "Released:" lines in `_docs/spec.md` §5 (the release and its date, and what
+   `main` is now).
+3. Rename `[Unreleased]` in `CHANGELOG.md` to `[X.Y.Z]` with today's date, and regenerate its
+   `### Dependencies` list from the last tag, for example
+   `git diff vPREVIOUS..HEAD -U0 -- pom.xml '*/pom.xml' .github/workflows scope-tracer-plugin/gradle.properties scope-tracer-plugin/build.gradle.kts scope-tracer-plugin/model/build.gradle.kts`
+   (`vPREVIOUS` is the previous release tag). List each dependency or plugin whose
+   version differs as "old → new", final values only. The release workflow builds the GitHub
+   Release body from this section, so a dependency missing here is missing from the release notes.
 
 The workflow validates that the tag matches the pom version, runs the full
 `mvn -P release deploy`, waits for Central to confirm publication, then creates

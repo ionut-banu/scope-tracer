@@ -101,9 +101,9 @@ mvn -P release verify
 
 After this completes, each library module's `target/` should contain:
 
-- `scope-tracer-<module>-0.1.0-SNAPSHOT.jar`
-- `scope-tracer-<module>-0.1.0-SNAPSHOT-sources.jar`
-- `scope-tracer-<module>-0.1.0-SNAPSHOT-javadoc.jar`
+- `scope-tracer-<module>-<version>.jar`
+- `scope-tracer-<module>-<version>-sources.jar`
+- `scope-tracer-<module>-<version>-javadoc.jar`
 - A `.asc` signature file alongside each of the above
 
 If signatures are missing, the GPG key isn't available to Maven — check
@@ -130,7 +130,7 @@ workflow run carefully. Common failures:
 - From a fresh, empty directory, run:
 
   ```bash
-  mvn dependency:get -Dartifact=com.ionutbanu:scope-tracer-core:0.1.0
+  mvn dependency:get -Dartifact=com.ionutbanu:scope-tracer-core:<version>
   ```
 
   Success means the artifact is consumable by any Maven user worldwide.
