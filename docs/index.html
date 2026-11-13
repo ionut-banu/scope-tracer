@@ -53,7 +53,7 @@
     Visualize Java structured concurrency (<code>StructuredTaskScope</code>) task trees,
     lifetimes, and cancellation propagation. Zero-code-change with a Java agent, or a
     thin wrapper — either way you get a self-contained HTML report with SVG Gantt
-    timelines, built from a JFR recording. Targets JDK 26+.
+    timelines, built from a JFR recording. Targets JDK 27+.
   </p>
 
   <div class="badges">
@@ -85,7 +85,7 @@
      -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
      -cp &lt;your-classpath&gt; com.example.MyApp</pre>
     <p style="color:var(--muted);font-size:0.85rem;">
-      Any JDK 26+ application using <code>StructuredTaskScope</code> gets traced —
+      Any JDK 27+ application using <code>StructuredTaskScope</code> gets traced —
       no source changes. See the
       <a href="https://github.com/ionut-banu/scope-tracer#readme">README</a>
       for the library wrapper (<code>TracedScope</code>), capture filters/sampling for
