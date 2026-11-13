@@ -231,6 +231,18 @@ with whatever JaCoCo and SpotBugs need for 28. ByteBuddy 1.18.11 reads
 27 on its own, but `net.bytebuddy.experimental` stays set so a JDK
 newer than the ByteBuddy release is still instrumented.
 
+`byte-buddy-agent` is dropped from the agent fat-jar, and from the
+parent `<dependencyManagement>`, on 2026-11-13 (#96). Nothing used it:
+`premain` hands the JVM-supplied `Instrumentation` to `AgentBuilder`,
+which is in `byte-buddy`. It brought 330 `shaded/net/bytebuddy/agent/`
+entries and two `attach_hotspot_windows.dll` files at the jar root,
+on the bootstrap path, which the old `AgentIsolationIT` check missed
+because it only looked at Java package roots. The check now rejects
+every entry outside `META-INF/` and `com/ionutbanu/scopetracer/`.
+Dynamic attach (#37) decides its own attach mechanism: `agentmain`
+receives its `Instrumentation` from the JVM like `premain`, so an
+attach tool is needed only on the side that starts the attach, not
+in the agent jar.
 2026-11-13 - Plugin: which launch is traced, and what a repeated click does
 
 Decided in #88. The state of one "Run with Scope Tracer" request lives

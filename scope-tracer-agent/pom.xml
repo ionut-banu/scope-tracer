@@ -23,10 +23,6 @@
       <groupId>net.bytebuddy</groupId>
       <artifactId>byte-buddy</artifactId>
     </dependency>
-    <dependency>
-      <groupId>net.bytebuddy</groupId>
-      <artifactId>byte-buddy-agent</artifactId>
-    </dependency>
 
     <dependency>
       <groupId>com.ionutbanu</groupId>

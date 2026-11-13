@@ -42,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Agent jar.** The agent fat-jar no longer ships `byte-buddy-agent` (the unused
+  `shaded/net/bytebuddy/agent/` classes) or its Windows attach DLLs at the jar root, and
+  `AgentIsolationIT` now fails on any entry outside `META-INF/` and `com/ionutbanu/scopetracer/`.
 - **JDK 27 is required; JDK 26 is no longer supported.** Everything is built with
   `--release 27` (class-file major 71), so the core, agent and analyzer jars do not load on
   JDK 26, and `TracedScope` (the one preview-stamped class) loads only on 27. On JDK 26 the
