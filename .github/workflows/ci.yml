@@ -13,10 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK 26
+      - name: Set up JDK 27
         uses: actions/setup-java@v5
         with:
-          java-version: '26'
+          java-version: '27'
           distribution: 'temurin'
           cache: maven
 
@@ -38,14 +38,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The analyzer and agent jars are built by Maven on JDK 26; the plugin is a separate Gradle
+      # The analyzer and agent jars are built by Maven on JDK 27; the plugin is a separate Gradle
       # build on JDK 21 (the IDE's JVM). Install both; the later one becomes JAVA_HOME.
-      - name: Set up JDK 21 and 26
+      - name: Set up JDK 21 and 27
         uses: actions/setup-java@v5
         with:
           java-version: |
             21
-            26
+            27
           distribution: 'temurin'
           cache: maven
 
