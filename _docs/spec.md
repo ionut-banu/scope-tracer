@@ -332,17 +332,17 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-13, d7f315b) |
+| Suite | Runner | Count (2026-11-13, dbf57b2, JDK 27) |
 | --- | --- | --- |
-| core unit | surefire | 34 |
-| analyzer unit | surefire | 85 |
+| core unit | surefire | 35 |
+| analyzer unit | surefire | 86 |
 | agent unit | surefire | 69 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 61 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 65 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 24 |
+| plugin `:model` | Gradle | 32 |
 
-`mvn -q verify` runs the first four: 249 tests (surefire plus
-failsafe, measured on 2026-11-13 at d7f315b). The figures are a
+`mvn -q verify` runs the first four: 255 tests (surefire plus
+failsafe, measured on 2026-11-13 at dbf57b2 on Temurin 27). The figures are a
 snapshot, not a target; the stress row is the number of test methods,
 as that profile needs an `install` to run. A change must leave the
 count the same or higher than `main` had before it. CI runs `verify`
