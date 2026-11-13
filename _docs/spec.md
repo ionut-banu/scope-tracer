@@ -10,8 +10,8 @@ it stands. Issues name the section they implement.
 Why a thing was decided, and what it replaced, belongs in
 `_docs/decisions.md` - dated entries, never edited.
 
-§1 to §5 describe the code as it is on 2026-10-02. §6 is the
-direction and the milestone order.
+§1 to §5 describe the code as it is on `main`. §6 is the direction
+and the milestone order.
 
 ---
 
@@ -283,7 +283,8 @@ to any recording started with `filename=` the moment it stops.
 ### Plugin
 
 The IDE runs on JBR (JDK 21) and cannot load classes compiled with
-`--enable-preview` for 26. So the plugin never loads analyzer classes:
+`--release 26` (class-file major version 70), which JBR 21 rejects.
+So the plugin never loads analyzer classes:
 it bundles the analyzer's `-executable` jar as a resource
 (`copyAnalyzerJar` reads it from `../scope-tracer-analyzer/target/`),
 runs it as a subprocess on a user-configured JDK 26 with
@@ -303,8 +304,8 @@ runs it as a subprocess on a user-configured JDK 26 with
   the process exits. The agent jar is bundled like the analyzer's and
   extracted under its own file name, because its manifest's
   `Boot-Class-Path` names that file.
-- `analyzerVersion` in `gradle.properties` is kept equal to the
-  Maven project version by hand.
+- `build.gradle.kts` reads `analyzerVersion` from the parent POM, so
+  the bundled jar always matches the Maven project version.
 
 A change to `TraceModelJson`'s output is a change to the plugin's
 input. Both sides change in the same issue.
@@ -317,17 +318,21 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-10-02) |
+| Suite | Runner | Count (2026-11-13, d7f315b) |
 | --- | --- | --- |
-| core unit | surefire | 29 |
-| analyzer unit | surefire | 73 |
-| agent unit | surefire | 53 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 25 |
+| core unit | surefire | 34 |
+| analyzer unit | surefire | 85 |
+| agent unit | surefire | 69 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 61 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 10 |
+| plugin `:model` | Gradle | 24 |
 
-`mvn -q verify` runs the first four: 180 tests. CI runs it on every
-push and PR; the stress profile runs on PRs to `main`.
+`mvn -q verify` runs the first four: 249 tests (surefire plus
+failsafe, measured on 2026-11-13 at d7f315b). The figures are a
+snapshot, not a target; the stress row is the number of test methods,
+as that profile needs an `install` to run. A change must leave the
+count the same or higher than `main` had before it. CI runs `verify`
+on every push and PR; the stress profile runs on PRs to `main`.
 
 ### The oracle
 
@@ -394,13 +399,29 @@ features.
 Milestones, in order. Each is a GitHub milestone; its issues carry
 the detail.
 
-1. **M1 — Release 0.3.0** - ship what is already on `main` (capture
-   filters, `--format=json`, plugin milestone 1) and stop keeping the
-   plugin's `analyzerVersion` in sync by hand.
+1. **M1 — Release 0.3.0** - the first release on JDK 27 (#54, decided
+   2026-10-16); still open: #53, #54 and #40.
 2. **M2 — Plugin: beyond the viewer** - the plugin runs the user's
    code with the agent attached and opens the trace, instead of only
    opening a `.jfr` recorded by hand.
-3. **M3 — Dynamic attach** - `agentmain`, so a running JVM can be
-   traced without a restart.
+3. **M3 — Ready for JDK 28** - CI against JDK 28 early-access builds
+   (#55); JDK 27 ships structured concurrency in its seventh preview
+   and JEP 543 finalizes the API in JDK 28 without further change, so
+   what remains is watching the JDK internals the agent instruments.
+4. **M4 — Try it in one minute** - the project has no outside users
+   yet, and the quick start begins with a build from source.
+5. **M5 — Plugin on the Marketplace** - the IDE is where §1 says the
+   tool should reach people, and the Marketplace is a discovery
+   channel of its own.
+6. **M6 — Answers, not just pictures** - the report should say what
+   went wrong (a task that ignored cancellation, a timeout, the task
+   that dominates across many requests), not only what happened.
+7. **M7 — 1.0 on JDK 28** - JDK 28 GA in March 2027 is the first JDK
+   where structured concurrency needs no `--enable-preview`, and when
+   most Java developers will first look at it.
+8. **M8 — Dynamic attach** - `agentmain`, so a running JVM can be
+   traced without a restart; the largest and least certain agent
+   change, and attaching to a running JVM is planned to be disallowed
+   by default (JEP 451), so it stays last.
 
 **v2 — Backlog** holds everything not in a current milestone.
