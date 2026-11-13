@@ -32,6 +32,10 @@ import jdk.jfr.Recording;
  *   <li>{@value #NO_ARG_SCOPE} — {@code open()}, two tasks that succeed.
  *   <li>{@value #JOINER_SCOPE} — {@code open(Joiner.awaitAllSuccessfulOrThrow())}, two tasks that
  *       succeed.
+ *   <li>{@value #CONFIG_SCOPE} — {@code open(UnaryOperator)} (new in JDK 27) without {@code
+ *       withName}, two tasks that succeed.
+ *   <li>{@value #CONFIG_NAMED_SCOPE} — {@code open(UnaryOperator)} with {@code withName}, so its
+ *       name is the configured one; three tasks that succeed.
  *   <li>{@value #NO_ARG_FAIL_SCOPE} — {@code open()}, one task that throws.
  *   <li>{@value #ANY_SUCCESS_SCOPE} — {@code open(Joiner.anySuccessfulOrThrow())}, a winner and a
  *       loser that blocks until the scope cancels it.
@@ -58,6 +62,8 @@ public final class AgentTestSubject {
 
   static final String NO_ARG_SCOPE = "AgentTestSubject#openNoArgs";
   static final String JOINER_SCOPE = "AgentTestSubject#openWithJoiner";
+  static final String CONFIG_SCOPE = "AgentTestSubject#openWithConfig";
+  static final String CONFIG_NAMED_SCOPE = "agent-config-named-scope";
   static final String NO_ARG_FAIL_SCOPE = "AgentTestSubject#openNoArgsFailing";
   static final String ANY_SUCCESS_SCOPE = "AgentTestSubject#openAnySuccessful";
   static final String NESTED_LEVEL_0 = "AgentTestSubject#nestedLevel0";
@@ -77,6 +83,7 @@ public final class AgentTestSubject {
           UNNAMED_TWO_ARG_SCOPE,
           NO_ARG_SCOPE,
           JOINER_SCOPE,
+          CONFIG_SCOPE,
           NO_ARG_FAIL_SCOPE,
           ANY_SUCCESS_SCOPE,
           NESTED_LEVEL_0,
@@ -87,11 +94,11 @@ public final class AgentTestSubject {
 
   /**
    * One per {@code open} call: named, unnamed, fail, cancel, outer, inner, the concurrent named
-   * scopes, then no-arg, joiner, no-arg-fail, any-success, three nested levels, the repeated scopes
-   * and the concurrent {@code open()} scopes.
+   * scopes, then no-arg, joiner, config, config-named, no-arg-fail, any-success, three nested
+   * levels, the repeated scopes and the concurrent {@code open()} scopes.
    */
   static final int EXPECTED_SCOPE_COUNT =
-      6 + CONCURRENT_SCOPE_COUNT + 4 + 3 + REPEATED_COUNT + CONCURRENT_SCOPE_COUNT;
+      6 + CONCURRENT_SCOPE_COUNT + 6 + 3 + REPEATED_COUNT + CONCURRENT_SCOPE_COUNT;
 
   private AgentTestSubject() {}
 
@@ -233,6 +240,8 @@ public final class AgentTestSubject {
       // --- the one- and zero-argument overloads (issue #51) ---
       openNoArgs();
       openWithJoiner();
+      openWithConfig();
+      openWithConfigNamed();
       openNoArgsFailing();
       openAnySuccessful();
       nestedLevel0();
@@ -260,6 +269,26 @@ public final class AgentTestSubject {
     try (var scope = StructuredTaskScope.open(Joiner.<String>awaitAllSuccessfulOrThrow())) {
       scope.fork(() -> "joiner-1");
       scope.fork(() -> "joiner-2");
+      scope.join();
+    }
+  }
+
+  /** {@code open(UnaryOperator)} without {@code withName}: two tasks that succeed. */
+  private static void openWithConfig() throws InterruptedException, ExecutionException {
+    try (var scope =
+        StructuredTaskScope.open(c -> c.withThreadFactory(Thread.ofVirtual().factory()))) {
+      scope.fork(() -> "config-1");
+      scope.fork(() -> "config-2");
+      scope.join();
+    }
+  }
+
+  /** {@code open(UnaryOperator)} with {@code withName}: three tasks that succeed. */
+  private static void openWithConfigNamed() throws InterruptedException, ExecutionException {
+    try (var scope = StructuredTaskScope.open(c -> c.withName(CONFIG_NAMED_SCOPE))) {
+      scope.fork(() -> "config-named-1");
+      scope.fork(() -> "config-named-2");
+      scope.fork(() -> "config-named-3");
       scope.join();
     }
   }

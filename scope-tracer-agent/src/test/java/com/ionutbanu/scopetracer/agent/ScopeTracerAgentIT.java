@@ -148,6 +148,8 @@ class ScopeTracerAgentIT {
     return Stream.of(
         Arguments.of("open()", AgentTestSubject.NO_ARG_SCOPE, 2),
         Arguments.of("open(Joiner)", AgentTestSubject.JOINER_SCOPE, 2),
+        Arguments.of("open(UnaryOperator) without withName", AgentTestSubject.CONFIG_SCOPE, 2),
+        Arguments.of("open(UnaryOperator) with withName", AgentTestSubject.CONFIG_NAMED_SCOPE, 3),
         Arguments.of("open(Joiner, UnaryOperator) with withName", AgentTestSubject.NAMED_SCOPE, 3),
         Arguments.of(
             "open(Joiner, UnaryOperator) without withName",
