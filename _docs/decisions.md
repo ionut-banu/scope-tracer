@@ -284,3 +284,38 @@ request whose callbacks never arrive (a platform path we did not
 read) would then block the action until the IDE restarts; replacing
 cannot get stuck. Two live traced runs of one configuration remain
 out of scope (they would need one `.jfr` file each).
+
+2026-11-13 - Fork call sites: the agent stamps them, and the class is the binary name
+
+Decided in #86 and #100. `TaskForked`'s `callSiteClassName` is
+redefined from the simple class name to the JVM binary class name,
+fully qualified and uncut: exactly what `StackFrame.getClassName()` or
+`Class.getName()` reports (`com.acme.Plain$Named`, `com.acme.Plain$1`,
+the hosting class for a lambda, no dot in the unnamed package).
+Nothing is cut at `$` when recording: a reader can always cut, and a
+recorded cut cannot be undone. Consumers decide; the plugin resolves a
+nested class exactly and falls back to the enclosing named class only
+for anonymous and local classes.
+
+Redefining the field is allowed here because it has never been in a
+release: 0.1.0 and 0.2.0 have no `callSite*` fields (checked with
+`jfr print` on their fixtures), and 0.3.0 is the first release that
+has them. The rule that events and fields are never renamed, removed
+or redefined applies to them from 0.3.0 on. No fourth field for the
+simple name was added; `taskName` keeps the simple name for display.
+
+The agent's `ForkAdvice` now stamps `callSiteClassName`,
+`callSiteMethodName` and `callSiteLine` by the same rule as
+`TracedScope`, because §1 says a recording does not reveal which
+producer made it. Before, agent recordings had the fields (they belong
+to core's event) but left them null, so the plugin fell back to
+parsing `taskName`. Those recordings were never released either and
+still parse, with no call site.
+
+The frame formatting now exists in three copies: core's
+`TaskNameDeriver`, the agent's `TaskNameDeriver` and its
+`ScopeNameDeriver`. They stay separate here; one shared formatter is
+#97. A shared class in core would add a public type to the API and
+move code onto the bootstrap classloader, more than this change needs.
+`ProducerCallSiteIT` runs one program under each producer and fails
+if the two derivers stop agreeing.
