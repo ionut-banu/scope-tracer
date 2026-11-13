@@ -228,8 +228,9 @@ The fat-jar (shade classifier `agent`) lists itself in
 bootstrap classloader and advice must be visible there.
 The bootstrap classloader is asked first by every other loader, so a
 package in the fat-jar replaces the application's own copy of it.
-The jar therefore exposes no package outside
-`com.ionutbanu.scopetracer`: SLF4J (which the analyzer needs for
+The jar therefore exposes no top-level entry (package, resource or
+native library) outside `META-INF/` and `com.ionutbanu.scopetracer`
+(`AgentIsolationIT` checks every entry): SLF4J (which the analyzer needs for
 auto-HTML) and ByteBuddy are relocated under
 `com.ionutbanu.scopetracer.shaded`, along with SLF4J's `slf4j.*`
 system property names, and Logback is not bundled. The relocated

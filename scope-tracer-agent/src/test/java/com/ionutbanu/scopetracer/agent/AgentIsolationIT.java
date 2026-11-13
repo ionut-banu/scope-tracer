@@ -119,22 +119,28 @@ class AgentIsolationIT {
     assertThat(jarEntries()).noneMatch(name -> name.endsWith("module-info.class"));
   }
 
+  /**
+   * Nothing at the top level of the jar except {@code META-INF/} and the agent's own package, so no
+   * foreign package, resource or native library sits on the bootstrap path. The directory entries
+   * {@code com/} and {@code com/ionutbanu/} are tolerated, since the shade plugin writes them; a
+   * file in either is not.
+   */
   @Test
-  void agentJarExposesOnlyItsOwnPackages() throws IOException {
-    // Strip a multi-release prefix: META-INF/versions/24/net/... exposes net/... as much as net/...
+  void agentJarExposesNoTopLevelEntryOutsideMetaInfAndItsOwnPackage() throws IOException {
     var foreign = new TreeSet<String>();
     for (String name : jarEntries()) {
+      // Strip a multi-release prefix: META-INF/versions/24/net/... exposes net/... as much as
+      // net/...
       String path = name.replaceFirst("^META-INF/versions/\\d+/", "");
-      boolean javaRoot =
-          path.startsWith("net/")
-              || path.startsWith("org/")
-              || path.startsWith("com/")
-              || path.startsWith("ch/");
-      if (javaRoot && path.indexOf('/') < path.length() - 1 && !isOwn(path)) {
-        foreign.add(topLevelPackage(path));
+      boolean allowed =
+          path.startsWith("META-INF/")
+              || path.startsWith(OWN_PACKAGE_PATH)
+              || (path.endsWith("/") && OWN_PACKAGE_PATH.startsWith(path));
+      if (!allowed) {
+        foreign.add(name);
       }
     }
-    assertThat(foreign).as("top-level packages outside %s", OWN_PACKAGE_PATH).isEmpty();
+    assertThat(foreign).as("jar entries outside META-INF/ and %s", OWN_PACKAGE_PATH).isEmpty();
   }
 
   @Test
@@ -349,16 +355,6 @@ class AgentIsolationIT {
     try (var jar = new ZipFile(agentJar.toFile())) {
       return Collections.list(jar.entries()).stream().map(ZipEntry::getName).toList();
     }
-  }
-
-  private static boolean isOwn(String path) {
-    return path.startsWith(OWN_PACKAGE_PATH) || OWN_PACKAGE_PATH.startsWith(path);
-  }
-
-  /** {@code org/slf4j/helpers/X.class} → {@code org/slf4j}. */
-  private static String topLevelPackage(String path) {
-    String[] parts = path.split("/");
-    return parts.length > 2 ? parts[0] + "/" + parts[1] : parts[0];
   }
 
   private static Optional<ScopeRecord> scope(TraceModel model, String name) {
