@@ -54,7 +54,10 @@ class JfrParserTest {
         capture(
             "single-success",
             () -> {
-              try (var scope = TracedScope.open("single-success", Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      "single-success",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> "result");
                 scope.join();
               }
@@ -83,7 +86,10 @@ class JfrParserTest {
         capture(
             "three-success",
             () -> {
-              try (var scope = TracedScope.open("three-success", Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      "three-success",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> 1);
                 scope.fork(() -> 2);
                 scope.fork(() -> 3);
@@ -104,7 +110,9 @@ class JfrParserTest {
         capture(
             "fork-order",
             () -> {
-              try (var scope = TracedScope.open("fork-order", Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      "fork-order", cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> 1);
                 scope.fork(() -> 2);
                 scope.fork(() -> 3);
@@ -126,7 +134,9 @@ class JfrParserTest {
         capture(
             "task-failed",
             () -> {
-              try (var scope = TracedScope.open("task-failed", Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      "task-failed", cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(
                     () -> {
                       throw new IllegalStateException("boom");
@@ -152,7 +162,9 @@ class JfrParserTest {
             "stack-trace-round-trip",
             () -> {
               try (var scope =
-                  TracedScope.open("stack-trace-round-trip", Thread.ofPlatform().factory())) {
+                  TracedScope.open(
+                      "stack-trace-round-trip",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(
                     () -> {
                       throw new IllegalStateException("trace-test");
@@ -176,7 +188,10 @@ class JfrParserTest {
         capture(
             "cancellation",
             () -> {
-              try (var scope = TracedScope.open("cancellation", Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      "cancellation",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(
                     () -> {
                       taskStarted.countDown();
@@ -207,11 +222,15 @@ class JfrParserTest {
         capture(
             "multi-scope",
             () -> {
-              try (var s1 = TracedScope.open("scope-alpha", Thread.ofPlatform().factory())) {
+              try (var s1 =
+                  TracedScope.open(
+                      "scope-alpha", cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 s1.fork(() -> "a");
                 s1.join();
               }
-              try (var s2 = TracedScope.open("scope-beta", Thread.ofPlatform().factory())) {
+              try (var s2 =
+                  TracedScope.open(
+                      "scope-beta", cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 s2.fork(() -> "b");
                 s2.join();
               }
@@ -232,7 +251,10 @@ class JfrParserTest {
         capture(
             "owner-thread",
             () -> {
-              try (var scope = TracedScope.open("owner-thread", Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      "owner-thread",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> 1);
                 scope.join();
               }
@@ -247,7 +269,9 @@ class JfrParserTest {
         capture(
             "time-bounds",
             () -> {
-              try (var scope = TracedScope.open("time-bounds", Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      "time-bounds", cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> "x");
                 scope.join();
               }
@@ -271,11 +295,15 @@ class JfrParserTest {
             "nested-scope-detection",
             () -> {
               try (var outer =
-                  TracedScope.open("order-processing", Thread.ofPlatform().factory())) {
+                  TracedScope.open(
+                      "order-processing",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 outer.fork(
                     () -> {
                       try (var inner =
-                          TracedScope.open("payment-steps", Thread.ofPlatform().factory())) {
+                          TracedScope.open(
+                              "payment-steps",
+                              cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                         inner.fork(() -> "authorise");
                         inner.join();
                       }
@@ -308,15 +336,22 @@ class JfrParserTest {
             "two-level-nesting",
             () -> {
               try (var grandparent =
-                  TracedScope.open("grandparent-scope", Thread.ofPlatform().factory())) {
+                  TracedScope.open(
+                      "grandparent-scope",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 grandparent.fork(
                     () -> {
                       try (var parent =
-                          TracedScope.open("parent-scope", Thread.ofPlatform().factory())) {
+                          TracedScope.open(
+                              "parent-scope",
+                              cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                         parent.fork(
                             () -> {
                               try (var child =
-                                  TracedScope.open("child-scope", Thread.ofPlatform().factory())) {
+                                  TracedScope.open(
+                                      "child-scope",
+                                      cfg ->
+                                          cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                                 child.fork(() -> "leaf");
                                 child.join();
                               }
@@ -371,7 +406,9 @@ class JfrParserTest {
                               release.await();
                               try (var scope =
                                   TracedScope.open(
-                                      "parallel-scope", Thread.ofPlatform().factory())) {
+                                      "parallel-scope",
+                                      cfg ->
+                                          cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                                 scope.fork(() -> "t1");
                                 scope.join();
                               }
@@ -388,7 +425,9 @@ class JfrParserTest {
                               release.await();
                               try (var scope =
                                   TracedScope.open(
-                                      "parallel-scope", Thread.ofPlatform().factory())) {
+                                      "parallel-scope",
+                                      cfg ->
+                                          cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                                 scope.fork(() -> "t2");
                                 scope.join();
                               }
@@ -421,14 +460,16 @@ class JfrParserTest {
             "same-name-scopes",
             () -> {
               try (var s1 =
-                  new TracedScope<Void, ExecutionException>(
-                      "duplicate-name", Thread.ofPlatform().factory())) {
+                  TracedScope.open(
+                      "duplicate-name",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 s1.fork(() -> "first");
                 s1.join();
               }
               try (var s2 =
-                  new TracedScope<Void, ExecutionException>(
-                      "duplicate-name", Thread.ofPlatform().factory())) {
+                  TracedScope.open(
+                      "duplicate-name",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 s2.fork(() -> "second");
                 s2.join();
               }
@@ -441,6 +482,29 @@ class JfrParserTest {
     assertThat(records)
         .allSatisfy(
             s -> assertThat(s.tasks().get(0).outcome()).isInstanceOf(TaskOutcome.Success.class));
+  }
+
+  /**
+   * A configuration function's {@code withName} names the underlying scope only: the parsed scope
+   * is named by the {@code name} argument, which every event carries as {@code scopeName}.
+   */
+  @Test
+  void configFunctionWithNameDoesNotRenameTheParsedScope() throws Exception {
+    var model =
+        capture(
+            "config-with-name",
+            () -> {
+              try (var scope =
+                  TracedScope.open("the-name-argument", cfg -> cfg.withName("other-name"))) {
+                scope.fork(() -> "x");
+                scope.join();
+              }
+            });
+
+    assertThat(model.scopes()).noneMatch(s -> "other-name".equals(s.name()));
+    assertThat(model.scopes().stream().filter(s -> "the-name-argument".equals(s.name())))
+        .singleElement()
+        .satisfies(s -> assertThat(s.tasks()).hasSize(1));
   }
 
   // --- empty recording ---
@@ -509,7 +573,9 @@ class JfrParserTest {
       recording.start();
 
       // fork() must be called from the owner thread — the task callable runs concurrently.
-      var scope = TracedScope.open("truncated-scope", Thread.ofPlatform().factory());
+      var scope =
+          TracedScope.open(
+              "truncated-scope", cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()));
       scope.fork(
           () -> {
             taskStarted.countDown();
@@ -553,7 +619,10 @@ class JfrParserTest {
         capture(
             "null-ex-message",
             () -> {
-              try (var scope = TracedScope.open("null-ex-message", Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      "null-ex-message",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(
                     () -> {
                       throw new IllegalStateException(); // no message — getMessage() returns null
@@ -583,7 +652,9 @@ class JfrParserTest {
             "task-name-roundtrip",
             () -> {
               try (var scope =
-                  TracedScope.open("task-name-roundtrip", Thread.ofPlatform().factory())) {
+                  TracedScope.open(
+                      "task-name-roundtrip",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork("findUser", () -> 1);
                 scope.fork("loadCart", () -> 2);
                 scope.join();
@@ -603,7 +674,10 @@ class JfrParserTest {
         capture(
             "task-name-auto",
             () -> {
-              try (var scope = TracedScope.open("task-name-auto", Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      "task-name-auto",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> 1);
                 scope.join();
               }
@@ -627,7 +701,9 @@ class JfrParserTest {
             "explicit-name-callsite",
             () -> {
               try (var scope =
-                  TracedScope.open("explicit-name-callsite", Thread.ofPlatform().factory())) {
+                  TracedScope.open(
+                      "explicit-name-callsite",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork("findUser", () -> 1);
                 scope.join();
               }
@@ -649,7 +725,9 @@ class JfrParserTest {
             "auto-derived-callsite",
             () -> {
               try (var scope =
-                  TracedScope.open("auto-derived-callsite", Thread.ofPlatform().factory())) {
+                  TracedScope.open(
+                      "auto-derived-callsite",
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> 1);
                 scope.join();
               }

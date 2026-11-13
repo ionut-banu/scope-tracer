@@ -181,11 +181,11 @@ public final class ProducerCallSiteSubject {
 
   /** One scope, opened by {@code TracedScope} or by a plain {@code StructuredTaskScope}. */
   static final class Scope implements AutoCloseable {
-    final TracedScope<?, ? extends Exception> ts;
+    final TracedScope<Object, ?, ? extends Exception> ts;
     final StructuredTaskScope<Object, ?, ? extends Exception> ps;
 
     private Scope(
-        TracedScope<?, ? extends Exception> ts,
+        TracedScope<Object, ?, ? extends Exception> ts,
         StructuredTaskScope<Object, ?, ? extends Exception> ps) {
       this.ts = ts;
       this.ps = ps;
