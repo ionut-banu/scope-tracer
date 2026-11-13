@@ -1,4 +1,4 @@
-# JFR events emitted by `scope-tracer-core`
+# JFR events
 
 The events are emitted by [`TracedScope`](../scope-tracer-core/src/main/java/com/ionutbanu/scopetracer/core/TracedScope.java)
 and, for plain `StructuredTaskScope`s, by the `-javaagent` (`scope-tracer-agent`), which emits the same events with the same fields.
@@ -12,7 +12,7 @@ Every event carries:
 | Field        | Type   | Notes                                                                          |
 |--------------|--------|--------------------------------------------------------------------------------|
 | `scopeId`    | long   | Globally unique monotonic ID per scope instance. Primary parser key; eliminates name-based collisions between concurrent scopes that share the same name. |
-| `scopeName`  | String | Name supplied to the `TracedScope` constructor (or derived from the call site by the agent). |
+| `scopeName`  | String | The `name` argument of `TracedScope.open`; for the agent, the name set with `Configuration.withName`, or derived from the call site when none was set. |
 | `taskId`     | long   | Per-scope monotonic id starting at 1; `0` on scope-level events.              |
 | `threadName` | String | The thread that produced the event (typically a virtual thread).               |
 
@@ -22,7 +22,7 @@ JFR records the timestamp itself via `Event.startTime` — no explicit field.
 
 | JFR name                          | Class                | Extra fields           | When emitted                                                     |
 |-----------------------------------|----------------------|------------------------|------------------------------------------------------------------|
-| `com.ionutbanu.scopetracer.ScopeOpened`     | `ScopeOpenedEvent`   | —                      | Once, at scope construction. `taskId = 0`.                      |
+| `com.ionutbanu.scopetracer.ScopeOpened`     | `ScopeOpenedEvent`   | —                      | Once, when the scope is opened. `taskId = 0`.                   |
 | `com.ionutbanu.scopetracer.TaskForked`      | `TaskForkedEvent`    | `String taskName`, `String callSiteClassName`, `String callSiteMethodName`, `int callSiteLine` | When a subtask is submitted via `fork`. `taskName` is a human-readable label: either the explicit name passed to `TracedScope.fork(String, Callable)`, the `Callable`'s simple class name when not a lambda, or `SimpleClass#method:line` derived from the call site. The `callSite*` fields capture the fork's source location independently of `taskName` — populated even when an explicit label was supplied — for tooling such as the IntelliJ plugin's click-to-source navigation. `TracedScope` and the agent both stamp `taskName` and the three `callSite*` fields, by the same rule, so a recording does not show which one produced it. `callSiteClassName` is fully qualified: the JVM binary class name, uncut, exactly as the stack frame or `Class.getName()` reports it (`com.acme.Plain$Named` for a nested class, `com.acme.Plain$1` for an anonymous one, the hosting class for a lambda, no dot for the unnamed package). `callSiteMethodName` and `callSiteLine` (`0` = unknown) are only present for the caller-frame derivation tier; a named `Callable` class sets only `callSiteClassName`. When no call site can be derived the three fields are null / `0` and the event is still emitted. All four fields are nullable/zero-default and absent in recordings made before they were added (0.1.0 and 0.2.0 have no `callSite*` fields; an agent built before it stamped them leaves them null) — use `event.hasField(...)` before reading. |
 | `com.ionutbanu.scopetracer.TaskSucceeded`   | `TaskSucceededEvent` | —                      | When a subtask returns normally.                                 |
 | `com.ionutbanu.scopetracer.TaskFailed`      | `TaskFailedEvent`    | `String exceptionType`, `String exceptionMessage`, `String exceptionStackTrace` | When a subtask escapes by throwing. `exceptionType` is the FQN; `exceptionMessage` is `Throwable.getMessage()`, nullable. `exceptionStackTrace` is the formatted stack trace (capped at 4 096 characters); nullable and absent in recordings made before this field was added — use `event.hasField("exceptionStackTrace")` before reading. |
