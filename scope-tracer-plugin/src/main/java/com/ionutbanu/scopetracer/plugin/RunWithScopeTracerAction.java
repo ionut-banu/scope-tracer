@@ -14,10 +14,12 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindowManager;
+import com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Runs the selected Java application run configuration with the scope-tracer agent attached and,
@@ -68,40 +70,79 @@ public final class RunWithScopeTracerAction extends AnAction {
       return;
     }
 
-    var pending = new TracedRuns.Pending(project, jfrFile, analyzerJava, new Path[1]);
-    TracedRuns.register(profile, pending);
-
+    var active = new TracedRuns.Active(project, jfrFile, analyzerJava);
     var connection = project.getMessageBus().connect();
+    active.connection(connection);
+    // Every platform callback is forwarded to the lifecycle, which decides what it means.
     connection.subscribe(
         ExecutionManager.EXECUTION_TOPIC,
         new ExecutionListener() {
+          private TracedRunLifecycle.Launch launch(String executorId, ExecutionEnvironment env) {
+            return new TracedRunLifecycle.Launch(
+                executorId, env.getExecutionId(), env.getRunProfile() == profile);
+          }
+
+          @Override
+          public void processStartScheduled(
+              @NotNull String executorId, @NotNull ExecutionEnvironment env) {
+            TracedRuns.apply(profile, active, active.lifecycle().launchSeen(launch(executorId, env)));
+          }
+
+          @Override
+          public void processStarting(
+              @NotNull String executorId, @NotNull ExecutionEnvironment env) {
+            TracedRuns.apply(profile, active, active.lifecycle().launchSeen(launch(executorId, env)));
+          }
+
+          @Override
+          public void processStarted(
+              @NotNull String executorId,
+              @NotNull ExecutionEnvironment env,
+              @NotNull ProcessHandler handler) {
+            TracedRuns.apply(profile, active, active.lifecycle().launchSeen(launch(executorId, env)));
+          }
+
+          @Override
+          public void processNotStarted(
+              @NotNull String executorId,
+              @NotNull ExecutionEnvironment env,
+              @Nullable Throwable cause) {
+            TracedRuns.apply(profile, active, active.lifecycle().notStarted(launch(executorId, env)));
+          }
+
           @Override
           public void processTerminated(
               @NotNull String executorId,
               @NotNull ExecutionEnvironment env,
               @NotNull ProcessHandler handler,
               int exitCode) {
-            if (env.getRunProfile() != profile) {
-              return;
-            }
-            connection.disconnect();
-            var finished = TracedRuns.remove(profile);
-            if (finished == null) {
-              // Patching was refused or failed; the run was untraced and already reported.
-              deleteQuietly(jfrFile);
-              return;
-            }
-            if (finished.agentJar() != null) {
-              BundledAgent.cleanUp(finished.agentJar());
-            }
-            openRecording(project, jfrFile, analyzerJava);
+            TracedRuns.apply(profile, active, active.lifecycle().terminated(launch(executorId, env)));
           }
         });
 
-    ProgramRunnerUtil.executeConfiguration(settings, DefaultRunExecutor.getRunExecutorInstance());
+    // A repeated click replaces the earlier request: release it so it leaks nothing.
+    var previous = TracedRuns.register(profile, active);
+    if (previous != null) {
+      var release = previous.lifecycle().abandon();
+      if (!release.isNothing()) {
+        TracedRuns.apply(profile, previous, release);
+        ScopeTracerNotifier.notify(
+            project,
+            "Scope Tracer",
+            "An earlier traced run of this configuration is replaced by this one; its trace will not be shown.",
+            NotificationType.INFORMATION);
+      }
+    }
+
+    try {
+      ProgramRunnerUtil.executeConfiguration(settings, DefaultRunExecutor.getRunExecutorInstance());
+    } catch (RuntimeException ex) {
+      TracedRuns.apply(profile, active, active.lifecycle().abandon());
+      throw ex;
+    }
   }
 
-  private static void openRecording(Project project, Path jfrFile, Path analyzerJava) {
+  static void openRecording(Project project, Path jfrFile, Path analyzerJava) {
     try {
       if (!Files.exists(jfrFile) || Files.size(jfrFile) == 0) {
         ScopeTracerNotifier.notify(
@@ -109,7 +150,7 @@ public final class RunWithScopeTracerAction extends AnAction {
             "Scope Tracer",
             "The run finished but wrote no recording, so there is nothing to show.",
             NotificationType.WARNING);
-        deleteQuietly(jfrFile);
+        TracedRuns.deleteQuietly(jfrFile);
         return;
       }
     } catch (IOException ex) {
@@ -122,7 +163,7 @@ public final class RunWithScopeTracerAction extends AnAction {
             () -> {
               var toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Scope Tracer");
               if (toolWindow == null) {
-                deleteQuietly(jfrFile);
+                TracedRuns.deleteQuietly(jfrFile);
                 return;
               }
               toolWindow.activate(
@@ -132,17 +173,9 @@ public final class RunWithScopeTracerAction extends AnAction {
                         && content.getComponent() instanceof ScopeTracerPanel panel) {
                       panel.analyzeRecording(jfrFile, analyzerJava, true);
                     } else {
-                      deleteQuietly(jfrFile);
+                      TracedRuns.deleteQuietly(jfrFile);
                     }
                   });
             });
-  }
-
-  private static void deleteQuietly(Path file) {
-    try {
-      Files.deleteIfExists(file);
-    } catch (IOException ignored) {
-      // temp file
-    }
   }
 }
