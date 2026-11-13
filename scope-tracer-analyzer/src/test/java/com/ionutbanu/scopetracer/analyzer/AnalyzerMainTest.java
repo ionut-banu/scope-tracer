@@ -81,7 +81,9 @@ class AnalyzerMainTest {
     try (var recording = new Recording()) {
       recording.enable("com.ionutbanu.scopetracer.*");
       recording.start();
-      try (var scope = TracedScope.open("json-format-test", Thread.ofPlatform().factory())) {
+      try (var scope =
+          TracedScope.open(
+              "json-format-test", cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
         scope.fork(() -> "result");
         scope.join();
       } finally {

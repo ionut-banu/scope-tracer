@@ -3,17 +3,34 @@ package com.ionutbanu.scopetracer.core;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.StructuredTaskScope.Configuration;
 import java.util.concurrent.StructuredTaskScope.Joiner;
 import java.util.concurrent.StructuredTaskScope.Subtask;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 import jdk.jfr.Recording;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordingFile;
@@ -26,21 +43,31 @@ class TracedScopeTest {
 
   @TempDir Path tempDir;
 
-  // --- constructor / factory validation ---
+  // --- factory validation ---
 
+  /** Every factory form rejects a null name before anything is opened or emitted. */
   @Test
-  void constructorRejectsNullName() {
-    assertThatIllegalArgumentException().isThrownBy(() -> new TracedScope(null));
+  void everyFactoryRejectsNullName() {
+    assertEveryFactoryRejectsName(null);
   }
 
   @Test
-  void constructorRejectsEmptyName() {
-    assertThatIllegalArgumentException().isThrownBy(() -> new TracedScope(""));
+  void everyFactoryRejectsEmptyName() {
+    assertEveryFactoryRejectsName("");
   }
 
   @Test
-  void constructorRejectsBlankName() {
-    assertThatIllegalArgumentException().isThrownBy(() -> new TracedScope("   "));
+  void everyFactoryRejectsBlankName() {
+    assertEveryFactoryRejectsName("   ");
+  }
+
+  private static void assertEveryFactoryRejectsName(String name) {
+    assertThatIllegalArgumentException().isThrownBy(() -> TracedScope.open(name));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> TracedScope.open(name, Joiner.awaitAllSuccessfulOrThrow()));
+    assertThatIllegalArgumentException().isThrownBy(() -> TracedScope.open(name, cfg -> cfg));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> TracedScope.open(name, Joiner.awaitAllSuccessfulOrThrow(), cfg -> cfg));
   }
 
   @Test
@@ -65,7 +92,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> "result");
                 scope.join();
               }
@@ -88,7 +117,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> "x");
                 scope.join();
               }
@@ -106,7 +137,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> "x");
                 scope.join();
               }
@@ -124,7 +157,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> 1);
                 scope.join();
               }
@@ -143,7 +178,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> 1);
                 scope.fork(() -> 2);
                 scope.fork(() -> 3);
@@ -166,7 +203,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> "a");
                 scope.fork(() -> "b");
                 scope.fork(() -> "c");
@@ -186,7 +225,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> 42);
                 scope.join();
               }
@@ -204,7 +245,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(
                     () -> {
                       throw new IllegalStateException("boom");
@@ -229,7 +272,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(
                     () -> {
                       throw new IllegalStateException(); // no message
@@ -250,7 +295,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(
                     () -> {
                       throw new RuntimeException("fail");
@@ -276,7 +323,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(
                     () -> {
                       taskStarted.countDown();
@@ -321,7 +370,9 @@ class TracedScopeTest {
     }
 
     Throwable traced;
-    try (var scope = TracedScope.open("same-exception", Thread.ofPlatform().factory())) {
+    try (var scope =
+        TracedScope.open(
+            "same-exception", cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
       scope.fork(() -> "ok");
       scope.fork(
           () -> {
@@ -353,7 +404,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory());
+              var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()));
               scope.fork(() -> 1);
               scope.join();
               scope.close();
@@ -384,7 +437,9 @@ class TracedScopeTest {
             () -> {
               try (var scope =
                   TracedScope.open(
-                      scopeName, Joiner.anySuccessfulOrThrow(), Thread.ofPlatform().factory())) {
+                      scopeName,
+                      Joiner.anySuccessfulOrThrow(),
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 // Loser parks first; winner waits for loser to be blocking before returning.
                 scope.fork(
                     () -> {
@@ -425,7 +480,7 @@ class TracedScopeTest {
                   TracedScope.open(
                       scopeName,
                       Joiner.allUntil(subtask -> false),
-                      Thread.ofPlatform().factory())) {
+                      cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> "ok");
                 scope.fork(
                     () -> {
@@ -460,7 +515,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> "x");
                 scope.join();
               }
@@ -497,7 +554,9 @@ class TracedScopeTest {
                       try {
                         start.await();
                         try (var scope =
-                            TracedScope.open("concurrent-" + idx, Thread.ofPlatform().factory())) {
+                            TracedScope.open(
+                                "concurrent-" + idx,
+                                cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                           scope.fork(() -> idx);
                           scope.join();
                         }
@@ -537,7 +596,9 @@ class TracedScopeTest {
     var taskRunning = new CountDownLatch(1);
     var unblock = new CountDownLatch(1);
 
-    try (var scope = TracedScope.open("join-interrupted", Thread.ofPlatform().factory())) {
+    try (var scope =
+        TracedScope.open(
+            "join-interrupted", cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
       scope.fork(
           () -> {
             taskRunning.countDown();
@@ -562,7 +623,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork("findUser", () -> "u");
                 scope.join();
               }
@@ -584,7 +647,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(new NamedTask());
                 scope.join();
               }
@@ -607,7 +672,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> "v");
                 scope.join();
               }
@@ -632,7 +699,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork((String) null, () -> "v");
                 scope.join();
               }
@@ -654,7 +723,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork("findUser", () -> "u");
                 scope.join();
               }
@@ -678,7 +749,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(() -> "v");
                 scope.join();
               }
@@ -701,7 +774,9 @@ class TracedScopeTest {
         capture(
             scopeName,
             () -> {
-              try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+              try (var scope =
+                  TracedScope.open(
+                      scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
                 scope.fork(new NamedTask());
                 scope.join();
               }
@@ -739,7 +814,9 @@ class TracedScopeTest {
   /** Opens a scope and forks one lambda from a method of a static nested class. */
   private static final class NestedForker {
     static void forkOnce(String scopeName) throws Exception {
-      try (var scope = TracedScope.open(scopeName, Thread.ofPlatform().factory())) {
+      try (var scope =
+          TracedScope.open(
+              scopeName, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
         scope.fork(() -> "n");
         scope.join();
       }
@@ -754,9 +831,882 @@ class TracedScopeTest {
     }
   }
 
+  // --- the mirror rule: TracedScope's public API is StructuredTaskScope's (#95, #87, #80) ---
+
+  private static final String OPENED = "com.ionutbanu.scopetracer.ScopeOpened";
+  private static final String FORKED = "com.ionutbanu.scopetracer.TaskForked";
+  private static final String SUCCEEDED = "com.ionutbanu.scopetracer.TaskSucceeded";
+  private static final String FAILED = "com.ionutbanu.scopetracer.TaskFailed";
+  private static final String CANCELLED = "com.ionutbanu.scopetracer.TaskCancelled";
+  private static final String CLOSED = "com.ionutbanu.scopetracer.ScopeClosed";
+
+  /**
+   * The public instance methods {@code TracedScope} has that {@code StructuredTaskScope} does not:
+   * the labelled fork and the name accessor. Anything else extra fails {@link
+   * #publicApiMirrorsStructuredTaskScope()}.
+   */
+  private static final Set<String> TRACED_SCOPE_ADDITIONS =
+      Set.of(
+          "instance <U extends T> java.util.concurrent.StructuredTaskScope$Subtask<U>"
+              + " fork(java.lang.String, java.util.concurrent.Callable<? extends U>)",
+          "instance java.lang.String name()");
+
+  @Test
+  void hasNoPublicConstructorAndExactlyOnePrivateOne() {
+    assertThat(TracedScope.class.getConstructors()).isEmpty();
+    assertThat(TracedScope.class.getDeclaredConstructors())
+        .singleElement()
+        .satisfies(c -> assertThat(Modifier.isPrivate(c.getModifiers())).isTrue());
+  }
+
+  @Test
+  void typeParametersAreStructuredTaskScopes() {
+    assertThat(typeParameters(TracedScope.class.getTypeParameters()))
+        .isEqualTo(typeParameters(StructuredTaskScope.class.getTypeParameters()))
+        .isEqualTo("<T, R, R_X extends java.lang.Throwable>");
+  }
+
+  /**
+   * Every public static method of {@code StructuredTaskScope} has exactly one {@code TracedScope}
+   * counterpart with a leading {@code String} parameter and otherwise the same type parameters,
+   * bounds, parameter types, return type (modulo the class) and exceptions; every public instance
+   * method has an identical counterpart; and {@code TracedScope} has no other public method than
+   * {@link #TRACED_SCOPE_ADDITIONS}. Read from the running JDK, so a JDK that adds or removes a
+   * method fails this test.
+   */
+  @Test
+  void publicApiMirrorsStructuredTaskScope() {
+    assertThat(mirrorDifferences(TracedScope.class, TRACED_SCOPE_ADDITIONS)).isEmpty();
+    // The factory list itself, so a reader sees what is compared.
+    assertThat(publicSignatures(TracedScope.class))
+        .filteredOn(s -> s.startsWith("static"))
+        .containsExactlyInAnyOrder(
+            "static <T, R, R_X extends java.lang.Throwable>"
+                + " com.ionutbanu.scopetracer.core.TracedScope<T, R, R_X> open(java.lang.String,"
+                + " java.util.concurrent.StructuredTaskScope$Joiner<? super T, ? extends R, R_X>,"
+                + " java.util.function.UnaryOperator<java.util.concurrent.StructuredTaskScope"
+                + "$Configuration>)",
+            "static <T, R, R_X extends java.lang.Throwable>"
+                + " com.ionutbanu.scopetracer.core.TracedScope<T, R, R_X> open(java.lang.String,"
+                + " java.util.concurrent.StructuredTaskScope$Joiner<? super T, ? extends R, R_X>)",
+            "static <T> com.ionutbanu.scopetracer.core.TracedScope<T, java.lang.Void,"
+                + " java.util.concurrent.ExecutionException> open(java.lang.String,"
+                + " java.util.function.UnaryOperator<java.util.concurrent.StructuredTaskScope"
+                + "$Configuration>)",
+            "static <T> com.ionutbanu.scopetracer.core.TracedScope<T, java.lang.Void,"
+                + " java.util.concurrent.ExecutionException> open(java.lang.String)");
+  }
+
+  /** The mirror check itself fails on a missing and on an extra public method. */
+  @Test
+  void mirrorCheckReportsMissingAndExtraMethods() {
+    assertThat(mirrorDifferences(NotAMirror.class, Set.of()))
+        .contains(
+            "missing: static <T> com.ionutbanu.scopetracer.core.TracedScopeTest$NotAMirror<T,"
+                + " java.lang.Void, java.util.concurrent.ExecutionException>"
+                + " open(java.lang.String)",
+            "missing: instance boolean isCancelled()",
+            "extra: instance void cancel()")
+        .doesNotContain(
+            "missing: instance <U extends T> java.util.concurrent.StructuredTaskScope$Subtask<U>"
+                + " fork(java.lang.Runnable)");
+  }
+
+  /** Has {@code fork(Runnable)}, lacks everything else, and adds {@code cancel()}. */
+  @SuppressWarnings("unused")
+  public static final class NotAMirror<T, R, R_X extends Throwable> {
+    public <U extends T> Subtask<U> fork(Runnable task) {
+      throw new UnsupportedOperationException();
+    }
+
+    public void cancel() {}
+  }
+
+  private static List<String> mirrorDifferences(Class<?> candidate, Set<String> additions) {
+    var expected = new HashSet<String>();
+    for (var m : StructuredTaskScope.class.getMethods()) {
+      if (!Modifier.isPublic(m.getModifiers())) continue;
+      if (Modifier.isStatic(m.getModifiers())) {
+        var params = new ArrayList<String>();
+        params.add("java.lang.String");
+        params.addAll(typeNames(m.getGenericParameterTypes()));
+        var returnType =
+            m.getGenericReturnType()
+                .getTypeName()
+                .replace("java.util.concurrent.StructuredTaskScope<", candidate.getName() + "<");
+        expected.add(signature("static", m, returnType, params));
+      } else {
+        expected.add(signature(m));
+      }
+    }
+    var actual = new HashSet<>(publicSignatures(candidate));
+    var differences = new ArrayList<String>();
+    for (var s : expected) {
+      if (!actual.contains(s)) differences.add("missing: " + s);
+    }
+    for (var s : actual) {
+      if (!expected.contains(s) && !additions.contains(s)) differences.add("extra: " + s);
+    }
+    return differences;
+  }
+
+  /** Every public method of {@code type}, static or instance, except those of {@link Object}. */
+  private static List<String> publicSignatures(Class<?> type) {
+    return Arrays.stream(type.getMethods())
+        .filter(m -> m.getDeclaringClass() != Object.class)
+        .map(TracedScopeTest::signature)
+        .toList();
+  }
+
+  private static String signature(Method m) {
+    return signature(
+        Modifier.isStatic(m.getModifiers()) ? "static" : "instance",
+        m,
+        m.getGenericReturnType().getTypeName(),
+        typeNames(m.getGenericParameterTypes()));
+  }
+
+  private static String signature(
+      String kind, Method m, String returnType, List<String> parameterTypes) {
+    var typeParameters = typeParameters(m.getTypeParameters());
+    var exceptions = typeNames(m.getGenericExceptionTypes());
+    return kind
+        + (typeParameters.isEmpty() ? "" : " " + typeParameters)
+        + " "
+        + returnType
+        + " "
+        + m.getName()
+        + "("
+        + String.join(", ", parameterTypes)
+        + ")"
+        + (exceptions.isEmpty() ? "" : " throws " + String.join(", ", exceptions));
+  }
+
+  private static String typeParameters(TypeVariable<?>[] variables) {
+    if (variables.length == 0) return "";
+    return Arrays.stream(variables)
+        .map(
+            v -> {
+              var bounds =
+                  Arrays.stream(v.getBounds())
+                      .filter(b -> b != Object.class)
+                      .map(Type::getTypeName)
+                      .toList();
+              return bounds.isEmpty()
+                  ? v.getName()
+                  : v.getName() + " extends " + String.join(" & ", bounds);
+            })
+        .collect(Collectors.joining(", ", "<", ">"));
+  }
+
+  private static List<String> typeNames(Type[] types) {
+    return Arrays.stream(types).map(Type::getTypeName).toList();
+  }
+
+  // --- every factory form behaves as a plain scope (spec §1), read off a recording (§4) ---
+
+  @Test
+  void openNameThrowsTheSameExceptionAsPlainOpen() throws Exception {
+    var failure = new IllegalStateException("boom");
+    Throwable plain;
+    try (var scope = StructuredTaskScope.open()) {
+      plain = joinFailingPair(scope::fork, scope::join, failure);
+    }
+    var name = "parity-open-name";
+    var traced = new Throwable[1];
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope = TracedScope.open(name)) {
+                traced[0] = joinFailingPair(scope::fork, scope::join, failure);
+              }
+            });
+    assertSameFailure(plain, traced[0], ExecutionException.class, failure);
+    assertFailingPairEvents(events);
+  }
+
+  @Test
+  void openNameJoinerThrowsTheSameExceptionAsPlainOpenJoiner() throws Exception {
+    var failure = new IllegalStateException("boom");
+    Throwable plain;
+    try (var scope = StructuredTaskScope.open(Joiner.<Object>allSuccessfulOrThrow())) {
+      plain = joinFailingPair(scope::fork, scope::join, failure);
+    }
+    var name = "parity-open-name-joiner";
+    var traced = new Throwable[1];
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope = TracedScope.open(name, Joiner.<Object>allSuccessfulOrThrow())) {
+                traced[0] = joinFailingPair(scope::fork, scope::join, failure);
+              }
+            });
+    assertSameFailure(plain, traced[0], ExecutionException.class, failure);
+    assertFailingPairEvents(events);
+  }
+
+  @Test
+  void openNameConfigThrowsTheSameExceptionAsPlainOpenConfig() throws Exception {
+    var failure = new IllegalStateException("boom");
+    UnaryOperator<Configuration> platform =
+        cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory());
+    Throwable plain;
+    try (var scope = StructuredTaskScope.open(platform)) {
+      plain = joinFailingPair(scope::fork, scope::join, failure);
+    }
+    var name = "parity-open-name-config";
+    var traced = new Throwable[1];
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope = TracedScope.open(name, platform)) {
+                traced[0] = joinFailingPair(scope::fork, scope::join, failure);
+              }
+            });
+    assertSameFailure(plain, traced[0], ExecutionException.class, failure);
+    assertFailingPairEvents(events);
+  }
+
+  @Test
+  void openNameJoinerConfigThrowsTheSameExceptionAsPlainOpenJoinerConfig() throws Exception {
+    var failure = new IllegalStateException("boom");
+    UnaryOperator<Configuration> platform =
+        cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory());
+    Throwable plain;
+    try (var scope =
+        StructuredTaskScope.open(Joiner.<Object>awaitAllSuccessfulOrThrow(), platform)) {
+      plain = joinFailingPair(scope::fork, scope::join, failure);
+    }
+    var name = "parity-open-name-joiner-config";
+    var traced = new Throwable[1];
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope =
+                  TracedScope.open(name, Joiner.<Object>awaitAllSuccessfulOrThrow(), platform)) {
+                traced[0] = joinFailingPair(scope::fork, scope::join, failure);
+              }
+            });
+    assertSameFailure(plain, traced[0], ExecutionException.class, failure);
+    assertFailingPairEvents(events);
+  }
+
+  /** A joiner with a mapped exception makes {@code R_X} that exception, as on a plain scope. */
+  @Test
+  void mappedExceptionJoinerThrowsTheSameIOExceptionAsAPlainScope() throws Exception {
+    var failure = new IllegalStateException("boom");
+    Throwable plain;
+    try (var scope =
+        StructuredTaskScope.open(
+            Joiner.<Object, IOException>allSuccessfulOrThrow(IOException::new))) {
+      plain = joinFailingPair(scope::fork, scope::join, failure);
+    }
+    var name = "parity-mapped-exception";
+    var traced = new Throwable[1];
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope =
+                  TracedScope.open(
+                      name, Joiner.<Object, IOException>allSuccessfulOrThrow(IOException::new))) {
+                traced[0] = joinFailingPair(scope::fork, scope::join, failure);
+              }
+            });
+    assertSameFailure(plain, traced[0], IOException.class, failure);
+    assertFailingPairEvents(events);
+  }
+
+  /**
+   * With {@code Joiner.allSuccessfulOrThrow(cause -> new IOException(cause))}, {@code join()} is
+   * declared to throw {@link IOException}: this method compiles only because {@code catch
+   * (IOException e)} is the right clause.
+   */
+  @Test
+  void mappedExceptionJoinIsCaughtAsIOException() throws InterruptedException {
+    var failure = new IllegalStateException("boom");
+    Throwable caught = null;
+    try (var scope =
+        TracedScope.open(
+            "mapped-catch",
+            Joiner.<String, IOException>allSuccessfulOrThrow(cause -> new IOException(cause)))) {
+      scope.fork(
+          () -> {
+            throw failure;
+          });
+      List<String> unused = scope.join();
+      assertThat(unused).isNotNull();
+    } catch (IOException e) {
+      caught = e;
+    }
+    assertThat(caught).isInstanceOf(IOException.class).hasCause(failure);
+  }
+
+  /**
+   * #87: {@code open("sneaky")}'s {@code join()} declares {@link ExecutionException}, so the task's
+   * checked exception cannot escape undeclared. This method declares only {@code
+   * InterruptedException}; it compiles only because of the catch clause, which receives the
+   * failure.
+   */
+  @Test
+  void sneakyCheckedExceptionIsCaughtAsExecutionException() throws InterruptedException {
+    Throwable caught = null;
+    try (var scope = TracedScope.open("sneaky")) {
+      scope.fork(
+          () -> {
+            throw new IOException("task failed");
+          });
+      scope.join();
+    } catch (ExecutionException e) {
+      caught = e;
+    }
+    assertThat(caught)
+        .isInstanceOf(ExecutionException.class)
+        .cause()
+        .isInstanceOf(IOException.class)
+        .hasMessage("task failed");
+  }
+
+  @Test
+  void everyFactoryFormEmitsOneScopeOpenedOneScopeClosedAndATaskForkedPerFork() throws Exception {
+    Map<String, Function<String, TracedScope<Object, ?, ExecutionException>>> forms =
+        new LinkedHashMap<>();
+    forms.put("open-name", n -> TracedScope.open(n));
+    forms.put("open-name-joiner", n -> TracedScope.open(n, Joiner.<Object>allSuccessfulOrThrow()));
+    forms.put("open-name-config", n -> TracedScope.open(n, cfg -> cfg));
+    forms.put(
+        "open-name-joiner-config",
+        n -> TracedScope.open(n, Joiner.<Object>awaitAllSuccessfulOrThrow(), cfg -> cfg));
+
+    for (var form : forms.entrySet()) {
+      var name = "count-" + form.getKey();
+      var events =
+          capture(
+              name,
+              () -> {
+                try (var scope = form.getValue().apply(name)) {
+                  scope.fork(() -> 1);
+                  scope.fork(() -> 2);
+                  scope.fork(() -> 3);
+                  scope.join();
+                }
+              });
+      assertThat(eventsOfType(events, OPENED)).as(name).hasSize(1);
+      assertThat(eventsOfType(events, CLOSED)).as(name).hasSize(1);
+      assertThat(eventsOfType(events, FORKED)).as(name).hasSize(3);
+      assertThat(eventsOfType(events, SUCCEEDED)).as(name).hasSize(3);
+    }
+  }
+
+  /**
+   * {@code withTimeout} in the configuration function takes effect: a task that outlives it makes
+   * {@code join()} throw what a plain scope throws, {@link ExecutionException} caused by the JDK's
+   * {@code CancelledByTimeoutException}. The traced run's events are asserted as observed.
+   */
+  @Test
+  void configFunctionTimeoutThrowsTheSameExceptionAsAPlainScope() throws Exception {
+    UnaryOperator<Configuration> timeout = cfg -> cfg.withTimeout(Duration.ofMillis(100));
+    Throwable plain;
+    try (var scope = StructuredTaskScope.open(timeout)) {
+      scope.fork(
+          () -> {
+            new CountDownLatch(1).await(); // outlives the timeout; interrupted by it
+            return null;
+          });
+      plain = catchJoin(scope::join);
+    }
+    var name = "config-timeout";
+    var traced = new Throwable[1];
+    var cancelled = new boolean[1];
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope = TracedScope.open(name, timeout)) {
+                scope.fork(
+                    () -> {
+                      new CountDownLatch(1).await();
+                      return null;
+                    });
+                traced[0] = catchJoin(scope::join);
+                cancelled[0] = scope.isCancelled();
+              }
+            });
+
+    assertThat(plain).isInstanceOf(ExecutionException.class);
+    assertThat(plain.getCause().getClass().getName())
+        .isEqualTo("java.util.concurrent.StructuredTaskScope$CancelledByTimeoutException");
+    assertThat(traced[0]).hasSameClassAs(plain);
+    assertThat(traced[0].getCause()).hasSameClassAs(plain.getCause());
+    assertThat(cancelled[0]).isTrue();
+    assertThat(eventNames(events)).containsExactlyInAnyOrder(OPENED, FORKED, CANCELLED, CLOSED);
+  }
+
+  /** {@code withThreadFactory} in the configuration function makes the threads the tasks run on. */
+  @Test
+  void configFunctionThreadFactoryRunsTheTasks() throws Exception {
+    var name = "config-thread-factory";
+    var onVirtualThread = new boolean[1];
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope =
+                  TracedScope.<Boolean>open(
+                      name,
+                      cfg ->
+                          cfg.withThreadFactory(
+                              Thread.ofPlatform().name("cfg-factory-", 0).factory()))) {
+                Subtask<Boolean> virtual = scope.fork(() -> Thread.currentThread().isVirtual());
+                scope.join();
+                onVirtualThread[0] = virtual.get();
+              }
+            });
+    assertThat(onVirtualThread[0]).isFalse();
+    assertThat(eventsOfType(events, SUCCEEDED))
+        .singleElement()
+        .satisfies(e -> assertThat(e.getString("threadName")).startsWith("cfg-factory-"));
+  }
+
+  /** Without a thread factory in the configuration function, tasks run on virtual threads. */
+  @Test
+  void tasksRunOnVirtualThreadsByDefault() throws Exception {
+    try (var scope = TracedScope.<Boolean>open("default-virtual", cfg -> cfg)) {
+      Subtask<Boolean> virtual = scope.fork(() -> Thread.currentThread().isVirtual());
+      scope.join();
+      assertThat(virtual.get()).isTrue();
+    }
+  }
+
+  /**
+   * A configuration function that throws propagates from {@code open} as from a plain scope, emits
+   * nothing and leaves nothing open: the enclosing scope still closes without a structure
+   * violation.
+   */
+  @Test
+  void throwingConfigFunctionPropagatesEmitsNothingAndLeavesNothingOpen() throws Exception {
+    var failure = new IllegalStateException("config boom");
+    UnaryOperator<Configuration> throwing =
+        cfg -> {
+          throw failure;
+        };
+    assertThat(catchThrowable(() -> StructuredTaskScope.open(throwing))).isSameAs(failure);
+
+    var name = "throwing-config";
+    var events =
+        captureAll(
+            name,
+            () -> {
+              try (var outer = TracedScope.open("throwing-config-outer")) {
+                assertThat(catchThrowable(() -> TracedScope.open(name, throwing)))
+                    .isSameAs(failure);
+                assertThat(
+                        catchThrowable(
+                            () ->
+                                TracedScope.open(
+                                    name, Joiner.awaitAllSuccessfulOrThrow(), throwing)))
+                    .isSameAs(failure);
+                outer.join();
+              }
+            });
+    assertThat(filterByScopeName(events, name)).isEmpty();
+    assertThat(eventNames(filterByScopeName(events, "throwing-config-outer")))
+        .containsExactlyInAnyOrder(OPENED, CLOSED);
+  }
+
+  /** A null joiner or configuration function throws what the plain factory throws. */
+  @Test
+  void nullJoinerOrConfigFunctionThrowsWhatAPlainScopeThrows() throws Exception {
+    Joiner<Object, Void, ExecutionException> noJoiner = null;
+    UnaryOperator<Configuration> noConfig = null;
+    var plainJoiner = catchThrowable(() -> StructuredTaskScope.open(noJoiner));
+    var plainJoinerConfig = catchThrowable(() -> StructuredTaskScope.open(noJoiner, cfg -> cfg));
+    var plainConfig = catchThrowable(() -> StructuredTaskScope.open(noConfig));
+    var plainJoinerNoConfig =
+        catchThrowable(
+            () -> StructuredTaskScope.open(Joiner.<Object>awaitAllSuccessfulOrThrow(), noConfig));
+    assertThat(List.of(plainJoiner, plainJoinerConfig, plainConfig, plainJoinerNoConfig))
+        .allSatisfy(t -> assertThat(t).isInstanceOf(NullPointerException.class));
+
+    var name = "null-arguments";
+    var events =
+        capture(
+            name,
+            () -> {
+              assertThat(catchThrowable(() -> TracedScope.open(name, noJoiner)))
+                  .hasSameClassAs(plainJoiner);
+              assertThat(catchThrowable(() -> TracedScope.open(name, noJoiner, cfg -> cfg)))
+                  .hasSameClassAs(plainJoinerConfig);
+              assertThat(catchThrowable(() -> TracedScope.open(name, noConfig)))
+                  .hasSameClassAs(plainConfig);
+              assertThat(
+                      catchThrowable(
+                          () ->
+                              TracedScope.open(
+                                  name, Joiner.<Object>awaitAllSuccessfulOrThrow(), noConfig)))
+                  .hasSameClassAs(plainJoinerNoConfig);
+            });
+    assertThat(events).isEmpty();
+  }
+
+  /**
+   * {@code cfg.withName("other")} names the underlying scope, but every event carries the {@code
+   * name} argument as {@code scopeName}.
+   */
+  @Test
+  void configFunctionWithNameDoesNotChangeScopeName() throws Exception {
+    var name = "the-name-argument";
+    var other = "other-name-from-config";
+    var events =
+        captureAll(
+            name,
+            () -> {
+              try (var scope = TracedScope.open(name, cfg -> cfg.withName(other))) {
+                scope.fork(() -> "x");
+                scope.join();
+              }
+            });
+    assertThat(filterByScopeName(events, other)).isEmpty();
+    assertThat(eventNames(filterByScopeName(events, name)))
+        .containsExactlyInAnyOrder(OPENED, FORKED, SUCCEEDED, CLOSED);
+  }
+
+  /** Scopes that share a name get distinct scope ids, nested two deep and in sequence. */
+  @Test
+  void scopesWithTheSameNameGetDistinctScopeIds() throws Exception {
+    var name = "same-name";
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var outer = TracedScope.open(name, cfg -> cfg.withName("outer"))) {
+                outer.fork(
+                    () -> {
+                      try (var inner = TracedScope.open(name)) {
+                        inner.fork(() -> 1);
+                        inner.join();
+                      }
+                      return null;
+                    });
+                outer.join();
+              }
+              try (var sequential = TracedScope.open(name)) {
+                sequential.join();
+              }
+            });
+    var ids = eventsOfType(events, OPENED).stream().map(e -> e.getLong("scopeId")).toList();
+    assertThat(ids).hasSize(3).doesNotHaveDuplicates();
+    assertThat(eventsOfType(events, CLOSED).stream().map(e -> e.getLong("scopeId")))
+        .containsExactlyInAnyOrderElementsOf(ids);
+  }
+
+  private static Throwable joinFailingPair(
+      Function<Callable<Object>, Subtask<Object>> fork,
+      ThrowingRunnable join,
+      RuntimeException failure) {
+    // The sibling is running before the failure, so it returns normally whatever the joiner does.
+    var siblingRunning = new CountDownLatch(1);
+    fork.apply(
+        () -> {
+          siblingRunning.countDown();
+          return "ok";
+        });
+    fork.apply(
+        () -> {
+          siblingRunning.await();
+          throw failure;
+        });
+    return catchJoin(join);
+  }
+
+  private static void assertSameFailure(
+      Throwable plain, Throwable traced, Class<?> expectedType, RuntimeException failure) {
+    assertThat(plain).isInstanceOf(expectedType).hasCause(failure);
+    assertThat(traced).isNotNull().hasSameClassAs(plain);
+    assertThat(traced.getCause()).isSameAs(plain.getCause());
+  }
+
+  /** Task 1 (the sibling) succeeded, task 2 failed, and the scope opened and closed once. */
+  private static void assertFailingPairEvents(List<RecordedEvent> events) {
+    assertThat(eventsOfType(events, OPENED)).hasSize(1);
+    assertThat(eventsOfType(events, FORKED)).hasSize(2);
+    assertThat(eventsOfType(events, FAILED))
+        .singleElement()
+        .satisfies(
+            e -> {
+              assertThat(e.getLong("taskId")).isEqualTo(2L);
+              assertThat(e.getString("exceptionType"))
+                  .isEqualTo(IllegalStateException.class.getName());
+            });
+    assertThat(eventsOfType(events, SUCCEEDED))
+        .singleElement()
+        .satisfies(e -> assertThat(e.getLong("taskId")).isEqualTo(1L));
+    assertThat(eventsOfType(events, CANCELLED)).isEmpty();
+    assertThat(eventsOfType(events, CLOSED)).hasSize(1);
+  }
+
+  // --- fork(Runnable) and isCancelled(), mirrored from StructuredTaskScope ---
+
+  @Test
+  void forkRunnableEmitsTheSameEventsAsForkCallable() throws Exception {
+    var name = "fork-runnable";
+    var ran = new AtomicBoolean();
+    var subtask = new ArrayList<Subtask<String>>();
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope =
+                  TracedScope.<String>open(
+                      name, cfg -> cfg.withThreadFactory(Thread.ofPlatform().factory()))) {
+                Runnable task = () -> ran.set(true);
+                subtask.add(scope.fork(task));
+                scope.join();
+              }
+            });
+    assertThat(ran).isTrue();
+    assertThat(subtask.get(0).state()).isEqualTo(Subtask.State.SUCCESS);
+    assertThat(subtask.get(0).get()).isNull();
+    assertThat(eventNames(events)).containsExactlyInAnyOrder(OPENED, FORKED, SUCCEEDED, CLOSED);
+  }
+
+  @Test
+  void forkRunnableFailureEmitsTaskFailedAndThrowsLikeAPlainScope() throws Exception {
+    var failure = new IllegalStateException("runnable boom");
+    Runnable failing =
+        () -> {
+          throw failure;
+        };
+    Throwable plain;
+    try (var scope = StructuredTaskScope.open()) {
+      scope.fork(failing);
+      plain = catchJoin(scope::join);
+    }
+    var name = "fork-runnable-failure";
+    var traced = new Throwable[1];
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope = TracedScope.open(name)) {
+                scope.fork(failing);
+                traced[0] = catchJoin(scope::join);
+              }
+            });
+    assertSameFailure(plain, traced[0], ExecutionException.class, failure);
+    assertThat(eventsOfType(events, FAILED))
+        .singleElement()
+        .satisfies(
+            e -> {
+              assertThat(e.getString("exceptionType"))
+                  .isEqualTo(IllegalStateException.class.getName());
+              assertThat(e.getString("exceptionMessage")).isEqualTo("runnable boom");
+            });
+    assertThat(eventsOfType(events, SUCCEEDED)).isEmpty();
+  }
+
+  /** A lambda {@code Runnable} gets the caller frame as its label and call site. */
+  @Test
+  void forkRunnableLambdaCapturesCallSite() throws Exception {
+    var name = "fork-runnable-callsite";
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope = TracedScope.open(name)) {
+                Runnable task = () -> {};
+                scope.fork(task);
+                scope.join();
+              }
+            });
+    var event = eventsOfType(events, FORKED).get(0);
+    assertThat(event.getString("callSiteClassName")).isEqualTo(SELF);
+    assertThat(event.getString("callSiteMethodName"))
+        .isEqualTo("forkRunnableLambdaCapturesCallSite");
+    assertThat(event.getInt("callSiteLine")).isPositive();
+    assertThat(event.getString("taskName"))
+        .isEqualTo(
+            "TracedScopeTest#forkRunnableLambdaCapturesCallSite:" + event.getInt("callSiteLine"));
+  }
+
+  /**
+   * A named {@code Runnable} class gets the calling frame as its label and call site, not its
+   * class: the agent sees only the JDK's wrapper around a plain scope's {@code Runnable} and
+   * records the calling frame, and the two producers stamp the same ({@code ProducerCallSiteIT} in
+   * the agent checks it).
+   */
+  @Test
+  void forkRunnableClassCapturesTheCallingFrame() throws Exception {
+    var name = "fork-runnable-class";
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope = TracedScope.open(name)) {
+                scope.fork(new NamedRunnable());
+                scope.join();
+              }
+            });
+    var event = eventsOfType(events, FORKED).get(0);
+    assertThat(event.getString("callSiteClassName")).isEqualTo(SELF);
+    assertThat(event.getString("callSiteMethodName"))
+        .isEqualTo("forkRunnableClassCapturesTheCallingFrame");
+    assertThat(event.getInt("callSiteLine")).isPositive();
+    assertThat(event.getString("taskName"))
+        .isEqualTo(
+            "TracedScopeTest#forkRunnableClassCapturesTheCallingFrame:"
+                + event.getInt("callSiteLine"));
+  }
+
+  /** Callable, Runnable and labelled forks share one task-id sequence. */
+  @Test
+  void forkRunnableTakesTheNextTaskId() throws Exception {
+    var name = "fork-mixed-ids";
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope = TracedScope.open(name)) {
+                scope.fork(() -> "callable");
+                scope.fork(new NamedRunnable());
+                scope.fork("labelled", () -> "labelled");
+                scope.join();
+              }
+            });
+    var labels = new TreeMap<Long, String>();
+    eventsOfType(events, FORKED)
+        .forEach(e -> labels.put(e.getLong("taskId"), e.getString("taskName")));
+    assertThat(labels).containsOnlyKeys(1L, 2L, 3L);
+    assertThat(labels.get(1L)).startsWith("TracedScopeTest#forkRunnableTakesTheNextTaskId:");
+    assertThat(labels.get(2L)).startsWith("TracedScopeTest#forkRunnableTakesTheNextTaskId:");
+    assertThat(labels.get(3L)).isEqualTo("labelled");
+    assertThat(eventsOfType(events, SUCCEEDED)).hasSize(3);
+  }
+
+  /** Forking null throws what a plain scope throws, before anything is emitted. */
+  @Test
+  void forkingNullThrowsLikeAPlainScopeAndEmitsNothing() throws Exception {
+    Callable<Object> noCallable = null;
+    Runnable noRunnable = null;
+    Throwable plainCallable;
+    Throwable plainRunnable;
+    try (var scope = StructuredTaskScope.open()) {
+      plainCallable = catchThrowable(() -> scope.fork(noCallable));
+      plainRunnable = catchThrowable(() -> scope.fork(noRunnable));
+      scope.join();
+    }
+    assertThat(plainCallable).isInstanceOf(NullPointerException.class);
+    assertThat(plainRunnable).isInstanceOf(NullPointerException.class);
+
+    var name = "fork-null";
+    var events =
+        capture(
+            name,
+            () -> {
+              try (var scope = TracedScope.open(name)) {
+                assertThat(catchThrowable(() -> scope.fork(noCallable)))
+                    .hasSameClassAs(plainCallable);
+                assertThat(catchThrowable(() -> scope.fork(noRunnable)))
+                    .hasSameClassAs(plainRunnable);
+                assertThat(catchThrowable(() -> scope.fork("label", noCallable)))
+                    .hasSameClassAs(plainCallable);
+                scope.join();
+              }
+            });
+    assertThat(eventNames(events)).containsExactlyInAnyOrder(OPENED, CLOSED);
+  }
+
+  /**
+   * {@code isCancelled()} agrees with a plain scope before {@code join}, after a joiner cancels the
+   * scope, and after {@code close}; it emits nothing.
+   */
+  @Test
+  void isCancelledAgreesWithAPlainScope() throws Exception {
+    var plain = new ArrayList<Boolean>();
+    var plainScope = StructuredTaskScope.open(Joiner.<String>anySuccessfulOrThrow());
+    try (plainScope) {
+      plain.add(plainScope.isCancelled());
+      plainScope.fork(() -> "first");
+      plainScope.join();
+      plain.add(plainScope.isCancelled());
+    }
+    plain.add(plainScope.isCancelled());
+
+    var name = "is-cancelled";
+    var traced = new ArrayList<Boolean>();
+    var events =
+        capture(
+            name,
+            () -> {
+              var scope = TracedScope.open(name, Joiner.<String>anySuccessfulOrThrow());
+              try (scope) {
+                traced.add(scope.isCancelled());
+                scope.fork(() -> "first");
+                scope.join();
+                traced.add(scope.isCancelled());
+              }
+              traced.add(scope.isCancelled());
+            });
+    assertThat(plain).containsExactly(false, true, true);
+    assertThat(traced).isEqualTo(plain);
+    assertThat(eventNames(events)).containsExactlyInAnyOrder(OPENED, FORKED, SUCCEEDED, CLOSED);
+  }
+
+  /**
+   * Under the default joiner a successful scope is never cancelled, not even by {@code close()}
+   * after {@code join()}; {@code close()} before {@code join()} cancels it. As on a plain scope.
+   */
+  @Test
+  void isCancelledUnderTheDefaultJoinerAgreesWithAPlainScope() throws Exception {
+    var plain = new ArrayList<Boolean>();
+    var plainJoined = StructuredTaskScope.open();
+    try (plainJoined) {
+      plain.add(plainJoined.isCancelled());
+      plainJoined.fork(() -> "x");
+      plainJoined.join();
+      plain.add(plainJoined.isCancelled());
+    }
+    plain.add(plainJoined.isCancelled());
+    var plainUnjoined = StructuredTaskScope.open();
+    plainUnjoined.close();
+    plain.add(plainUnjoined.isCancelled());
+
+    var traced = new ArrayList<Boolean>();
+    var tracedJoined = TracedScope.open("is-cancelled-default");
+    try (tracedJoined) {
+      traced.add(tracedJoined.isCancelled());
+      tracedJoined.fork(() -> "x");
+      tracedJoined.join();
+      traced.add(tracedJoined.isCancelled());
+    }
+    traced.add(tracedJoined.isCancelled());
+    var tracedUnjoined = TracedScope.open("is-cancelled-unjoined");
+    tracedUnjoined.close();
+    traced.add(tracedUnjoined.isCancelled());
+
+    assertThat(plain).containsExactly(false, false, false, true);
+    assertThat(traced).isEqualTo(plain);
+  }
+
+  /** A named Runnable class, which {@code fork(Runnable)} still labels by the calling frame. */
+  private static final class NamedRunnable implements Runnable {
+    @Override
+    public void run() {}
+  }
+
   // --- helpers ---
 
   private List<RecordedEvent> capture(String scopeName, ThrowingRunnable action) throws Exception {
+    return filterByScopeName(captureAll(scopeName, action), scopeName);
+  }
+
+  /** Every scope-tracer event recorded while {@code action} ran, whatever its scope name. */
+  private List<RecordedEvent> captureAll(String fileName, ThrowingRunnable action)
+      throws Exception {
     try (var recording = new Recording()) {
       recording.enable("com.ionutbanu.scopetracer.*");
       recording.start();
@@ -765,9 +1715,9 @@ class TracedScopeTest {
       } finally {
         recording.stop();
       }
-      var dump = tempDir.resolve("jfr-" + scopeName + ".jfr");
+      var dump = tempDir.resolve("jfr-" + fileName + ".jfr");
       recording.dump(dump);
-      return filterByScopeName(readEvents(dump), scopeName);
+      return readEvents(dump);
     }
   }
 
