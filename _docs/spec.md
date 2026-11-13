@@ -104,7 +104,7 @@ user-facing and is kept exact; this section does not repeat it.
 
 | Event | When | `taskId` |
 | --- | --- | --- |
-| `ScopeOpenedEvent` | scope constructed | 0 |
+| `ScopeOpenedEvent` | scope opened | 0 |
 | `TaskForkedEvent` | `fork()`, on the caller thread | ≥1 |
 | `TaskSucceededEvent` | task returns normally | same as fork |
 | `TaskFailedEvent` | task throws | same as fork |
@@ -282,18 +282,19 @@ or SLF4J version, is the same with the agent as without.
 
 - `premain` only; there is no `agentmain` (no dynamic attach).
 - `premain` sets ByteBuddy's experimental property to `true`.
-  ByteBuddy 1.18.11 reads Java 27 class files without it; it is kept
-  so a JDK newer than the ByteBuddy release is still instrumented
-  rather than refused. In the fat-jar the property
-  is relocated with ByteBuddy (`com.ionutbanu.scopetracer.shaded.net.bytebuddy.experimental`),
-  so the application's own `net.bytebuddy.experimental` is untouched.
+  The pinned ByteBuddy (`<bytebuddy.version>`) reads Java 27 class
+  files without it; it is kept so a JDK newer than the ByteBuddy
+  release is still instrumented rather than refused. In the fat-jar
+  the property is relocated with ByteBuddy
+  (`com.ionutbanu.scopetracer.shaded.net.bytebuddy.experimental`), so
+  the application's own `net.bytebuddy.experimental` is untouched.
 - Three matcher chains: every public static
   `StructuredTaskScope.open` overload (`ScopeOpenAdvice`); the private
-  3-arg constructor of
-  `StructuredTaskScopeImpl` (`ScopeConstructorAdvice`, captures
-  `Config.withName()` into a `ThreadLocal`); and `fork(Callable)` and
-  `close()` on both. `fork(Callable)` is matched by parameter type to
-  avoid `fork(Runnable)`.
+  3-arg constructor of `StructuredTaskScopeImpl`
+  (`ScopeConstructorAdvice`, captures `Configuration.withName()` into
+  a `ThreadLocal`); and `fork(Callable)` and `close()` on both.
+  `fork(Callable)` is matched by parameter type to avoid
+  `fork(Runnable)`.
 - One `open` call is one decision and at most one `ScopeOpened`.
   `open()`, `open(Joiner)` and `open(UnaryOperator)` call
   `open(Joiner, UnaryOperator)`, so the same scope leaves two advised
@@ -390,19 +391,20 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-13, dbf57b2, JDK 27) |
+| Suite | Runner | Count (2026-11-13, cc2c111, JDK 27) |
 | --- | --- | --- |
-| core unit | surefire | 35 |
-| analyzer unit | surefire | 86 |
-| agent unit | surefire | 69 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 65 |
+| core unit | surefire | 106 |
+| analyzer unit | surefire | 91 |
+| agent unit | surefire | 77 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 75 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 32 |
+| plugin `:model` | Gradle | 60 |
 
-`mvn -q verify` runs the first four: 255 tests (surefire plus
-failsafe, measured on 2026-11-13 at dbf57b2 on Temurin 27). The figures are a
-snapshot, not a target; the stress row is the number of test methods,
-as that profile needs an `install` to run. A change must leave the
+`mvn -q verify` runs the first four: 349 tests (surefire plus
+failsafe, measured on 2026-11-13 at cc2c111 on Temurin 27; the
+`:model` row from `./gradlew build` in `scope-tracer-plugin`). The
+figures are a snapshot, not a target; the stress row is the number of
+test methods, as that profile needs an `install` to run. A change must leave the
 count the same or higher than `main` had before it. CI runs `verify`
 on every push and PR; the stress profile runs on PRs to `main`.
 
@@ -454,8 +456,9 @@ try (var file = new RecordingFile(tempPath)) {
   (`stress.yml`) use Temurin 27, one JDK and no matrix; the plugin
   job adds JDK 21 for Gradle. The Maven enforcer refuses a JDK older
   than 27 before anything is compiled.
-- maven-shade-plugin runs with ASM 9.10.1 in place of its own 9.9.1,
-  which cannot read class-file major 71 (`shade.asm.version`).
+- maven-shade-plugin runs with the ASM named by `shade.asm.version`
+  (9.11.1) in place of its own 9.9.1, which cannot read class-file
+  major 71.
 - Releases are cut by tagging `v*.*.*`; `.github/workflows/release.yml`
   deploys to Maven Central and creates a GitHub Release from the
   matching `CHANGELOG.md` section. Steps are in `CONTRIBUTING.md`.
@@ -478,7 +481,7 @@ Milestones, in order. Each is a GitHub milestone; its issues carry
 the detail.
 
 1. **M1 — Release 0.3.0** - the first release on JDK 27 (#54, decided
-   2026-10-16); still open: #53, #54 and #40.
+   2026-10-16).
 2. **M2 — Plugin: beyond the viewer** - the plugin runs the user's
    code with the agent attached and opens the trace, instead of only
    opening a `.jfr` recorded by hand.
@@ -487,7 +490,8 @@ the detail.
    and JEP 543 finalizes the API in JDK 28 without further change, so
    what remains is watching the JDK internals the agent instruments.
 4. **M4 — Try it in one minute** - the project has no outside users
-   yet, and the quick start begins with a build from source.
+   yet, and the quick start's analyzer step needs a clone and a Maven
+   build.
 5. **M5 — Plugin on the Marketplace** - the IDE is where §1 says the
    tool should reach people, and the Marketplace is a discovery
    channel of its own.
