@@ -8,8 +8,8 @@ import net.bytebuddy.asm.Advice;
  * ThreadFactory, String)} constructor. Runs before the constructor body and captures the
  * user-configured scope name (the third argument) into {@link AgentState#PENDING_SCOPE_NAME}.
  *
- * <p>The name is {@code null} when the user did not call {@code Config.withName()} — in that case
- * {@link ScopeOpenAdvice} falls back to the call-site stack-walker name.
+ * <p>The name is {@code null} when the user did not call {@code Configuration.withName()} — in that
+ * case {@link ScopeOpenAdvice} falls back to the call-site stack-walker name.
  *
  * <p>Thread-safety: {@link AgentState#PENDING_SCOPE_NAME} is a {@link ThreadLocal}, so concurrent
  * scope creations on different threads do not interfere. Nested scope creations on the same thread
