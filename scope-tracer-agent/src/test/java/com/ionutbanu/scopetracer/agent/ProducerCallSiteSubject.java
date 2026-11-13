@@ -41,6 +41,7 @@ public final class ProducerCallSiteSubject {
       subject.failFast();
       subject.anySuccessful();
       subject.nested();
+      subject.forkRunnables();
       recording.stop();
       recording.dump(Path.of(args[0]));
     }
@@ -111,6 +112,20 @@ public final class ProducerCallSiteSubject {
     }
   }
 
+  /**
+   * {@code fork(Runnable)}: a lambda and a named {@code Runnable} class. The agent sees only the
+   * JDK's internal wrapper, so this checks that {@code TracedScope.fork(Runnable)} stamps what the
+   * agent stamps.
+   */
+  private void forkRunnables() throws Exception {
+    Runnable lambda = () -> {};
+    try (var s = Scope.open("producer-runnables")) {
+      var viaLambda = traced ? s.ts.fork(lambda) : s.ps.fork(lambda);
+      var viaNamed = traced ? s.ts.fork(new NamedRunnable()) : s.ps.fork(new NamedRunnable());
+      s.join();
+    }
+  }
+
   private Integer middle() throws Exception {
     try (var s = Scope.open("producer-middle")) {
       var middle = traced ? s.ts.fork(this::inner) : s.ps.fork(this::inner);
@@ -170,6 +185,12 @@ public final class ProducerCallSiteSubject {
     public Integer call() {
       return 10;
     }
+  }
+
+  /** A named {@code Runnable} that is a nested class. */
+  static final class NamedRunnable implements Runnable {
+    @Override
+    public void run() {}
   }
 
   /** Forks from a method of a nested class. */
