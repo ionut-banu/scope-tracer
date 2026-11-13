@@ -79,7 +79,7 @@ import net.bytebuddy.utility.OpenedClassReader;
  * <p><b>Requirements:</b>
  *
  * <ul>
- *   <li>JDK 26+ with {@code --enable-preview} (StructuredTaskScope is a preview API).
+ *   <li>JDK 27+ with {@code --enable-preview} (StructuredTaskScope is a preview API).
  *   <li>The agent fat-jar is listed on {@code Boot-Class-Path} in its own manifest — this is
  *       pre-configured by the Maven build.
  * </ul>
@@ -105,8 +105,10 @@ public final class ScopeTracerAgent {
    * @param inst the JVM instrumentation handle.
    */
   public static void premain(String args, Instrumentation inst) {
-    // Allow ByteBuddy to instrument Java 26 class files even though this version of
-    // ByteBuddy officially supports up to Java 23. Remove once ByteBuddy adds Java 26 support.
+    // ByteBuddy 1.18.11 reads class files up to Java 27 (major 71) on its own: on JDK 27 the agent
+    // ITs pass without this property (checked for #54), and only AgentIsolationIT, which asserts
+    // the property, fails. It is kept so a JDK newer than the ByteBuddy release (28 early-access
+    // builds, #55) is still instrumented rather than refused.
     // The fat-jar relocates ByteBuddy, and Shade rewrites this inlined constant exactly as it does
     // inside ByteBuddy: the agent sets the relocated name its own ByteBuddy reads and leaves the
     // application's ByteBuddy alone. AgentIsolationIT checks it.

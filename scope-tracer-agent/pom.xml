@@ -11,7 +11,7 @@
   <artifactId>scope-tracer-agent</artifactId>
 
   <name>scope-tracer-agent</name>
-  <description>Java agent that instruments StructuredTaskScope at the bytecode level so any JDK 26+ application is traced without source changes.</description>
+  <description>Java agent that instruments StructuredTaskScope at the bytecode level so any JDK 27+ application is traced without source changes.</description>
 
   <dependencies>
     <dependency>
