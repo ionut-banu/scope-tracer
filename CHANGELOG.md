@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-14
+
 ### Added
 
 - **Agent capture filters & sampling.** Five new `-javaagent` arguments let operators
@@ -251,6 +253,8 @@ public API may change without notice until the first tagged release.
 - License: PolyForm Noncommercial 1.0.0.
 - `docs/jfr-events.md` documents the JFR event schema.
 
+[Unreleased]: https://github.com/ionut-banu/scope-tracer/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.1.0-SNAPSHOT...v0.1.0
 [0.1.0-SNAPSHOT]: https://github.com/ionut-banu/scope-tracer/releases/tag/v0.1.0-SNAPSHOT
