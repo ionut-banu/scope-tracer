@@ -2,8 +2,10 @@ package com.ionutbanu.scopetracer.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class AgentConfigTest {
 
@@ -152,5 +154,97 @@ class AgentConfigTest {
     assertThat(cfg.generateHtml()).isFalse();
     assertThat(cfg.outputDir()).isEqualTo(Path.of("/tmp"));
     assertThat(cfg.minScopes()).isEqualTo(5);
+  }
+
+  // --- record / record=<path> (issue #56) ---
+
+  @Test
+  void recordAbsentStartsNoRecordingOfTheAgentsOwn() {
+    assertThat(AgentConfig.parse(null).record()).isFalse();
+    assertThat(AgentConfig.parse("html=false,verbose").record()).isFalse();
+  }
+
+  @Test
+  void bareRecordUsesTheDefaultLocation() {
+    var cfg = AgentConfig.parse("record");
+    assertThat(cfg.record()).isTrue();
+    assertThat(cfg.recordPath()).isNull();
+  }
+
+  @Test
+  void emptyRecordValueBehavesAsBareRecord() {
+    var cfg = AgentConfig.parse("record=");
+    assertThat(cfg.record()).isTrue();
+    assertThat(cfg.recordPath()).isNull();
+  }
+
+  @Test
+  void recordWithAFilePathKeepsThePath() {
+    var cfg = AgentConfig.parse("record=/tmp/traces/run.jfr");
+    assertThat(cfg.record()).isTrue();
+    assertThat(cfg.recordPath()).isEqualTo(Path.of("/tmp/traces/run.jfr"));
+  }
+
+  @Test
+  void recordWithAnExistingDirectoryPutsTheDefaultNameInIt(@TempDir Path dir) throws Exception {
+    var cfg = AgentConfig.parse("record=" + dir);
+    assertThat(cfg.record()).isTrue();
+
+    Path dest =
+        AgentRecording.resolveDestination(cfg.recordPath(), Path.of("/unused"), "default.jfr");
+
+    assertThat(dest).isEqualTo(dir.resolve("default.jfr"));
+  }
+
+  @Test
+  void recordWithAnInvalidPathStartsNoRecordingAndDoesNotThrow() {
+    var cfg = AgentConfig.parse("record=bad\0path");
+    assertThat(cfg.record()).isFalse();
+    assertThat(cfg.recordPath()).isNull();
+  }
+
+  @Test
+  void recordCombinesWithHtmlFalseAndOutputDir() {
+    var quiet = AgentConfig.parse("record,html=false");
+    assertThat(quiet.record()).isTrue();
+    assertThat(quiet.generateHtml()).isFalse();
+
+    var routed = AgentConfig.parse("record=/tmp/r.jfr,output.dir=/tmp/reports");
+    assertThat(routed.recordPath()).isEqualTo(Path.of("/tmp/r.jfr"));
+    assertThat(routed.outputDir()).isEqualTo(Path.of("/tmp/reports"));
+    assertThat(routed.generateHtml()).isTrue();
+  }
+
+  @Test
+  void invalidOutputDirIsIgnoredRatherThanThrown() {
+    var cfg = AgentConfig.parse("output.dir=bad\0dir");
+    assertThat(cfg.outputDir()).isNull();
+  }
+
+  @Test
+  void defaultFileNameHasThePidAndJfrsTimestampFormat() {
+    assertThat(
+            AgentRecording.defaultFileName(4242, java.time.LocalDateTime.of(2026, 11, 14, 9, 5, 7)))
+        .isEqualTo("scope-tracer-4242-2026_11_14_09_05_07.jfr");
+  }
+
+  @Test
+  void defaultNameIsNeverWrittenOverAnExistingFile(@TempDir Path dir) throws Exception {
+    Files.writeString(dir.resolve("scope-tracer-1-x.jfr"), "keep me");
+
+    Path dest = AgentRecording.resolveDestination(null, dir, "scope-tracer-1-x.jfr");
+
+    assertThat(dest).isEqualTo(dir.resolve("scope-tracer-1-x-1.jfr"));
+    assertThat(dest).exists().isEmptyFile();
+    assertThat(dir.resolve("scope-tracer-1-x.jfr")).hasContent("keep me");
+  }
+
+  @Test
+  void relativeRecordPathIsResolvedAgainstTheWorkingDirectoryWithParentsCreated(@TempDir Path dir)
+      throws Exception {
+    Path dest = AgentRecording.resolveDestination(Path.of("a/b/run.jfr"), dir, "unused.jfr");
+
+    assertThat(dest).isEqualTo(dir.resolve("a/b/run.jfr"));
+    assertThat(dir.resolve("a/b")).isDirectory();
   }
 }
