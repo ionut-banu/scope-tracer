@@ -462,8 +462,8 @@ try (var file = new RecordingFile(tempPath)) {
 - Releases are cut by tagging `v*.*.*`; `.github/workflows/release.yml`
   deploys to Maven Central and creates a GitHub Release from the
   matching `CHANGELOG.md` section. Steps are in `CONTRIBUTING.md`.
-- Released: 0.1.0 (2026-05-14), 0.2.0 (2026-05-24). `main` is
-  0.3.0-SNAPSHOT.
+- Released: 0.1.0 (2026-05-14), 0.2.0 (2026-05-24), 0.3.0
+  (2026-11-14). `main` is 0.4.0-SNAPSHOT.
 - GitHub Pages serves `docs/` (landing page and a real example
   report). `docs/` is published; `_docs/` is not.
 - Dependabot opens weekly PRs; they are merged by a human outside the
