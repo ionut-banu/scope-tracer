@@ -281,6 +281,10 @@ lines go nowhere and the application's logging, whatever its layout
 or SLF4J version, is the same with the agent as without.
 
 - `premain` only; there is no `agentmain` (no dynamic attach).
+- `premain` never throws: an exception out of it aborts JVM startup.
+  Each step (configuration, instrumentation, the auto-HTML listener,
+  the agent's own recording) catches `Throwable`, logs one warning
+  line and loses only what it would have added.
 - `premain` sets ByteBuddy's experimental property to `true`.
   The pinned ByteBuddy (`<bytebuddy.version>`) reads Java 27 class
   files without it; it is kept so a JDK newer than the ByteBuddy
@@ -325,7 +329,8 @@ Agent arguments, parsed by `AgentConfig`:
 
 | Argument | Effect |
 | --- | --- |
-| `html=false` | no auto-HTML on `JFR.stop` |
+| `record` / `record=<path>` | start the agent's own recording (below) |
+| `html=false` | no auto-HTML on `JFR.stop` or at exit |
 | `verbose` | log each instrumented class |
 | `output.dir=<path>` | write auto-HTML here (created if missing) |
 | `output.suffix=<ext>` | replaces `.jfr` (default `.html`) |
@@ -339,7 +344,39 @@ all, for its whole lifetime. Exclude beats include; sampling runs
 last. Globs support `*`, `**`, `?` and are not segment-aware.
 
 **Auto-HTML.** A `FlightRecorderListener` writes an HTML report next
-to any recording started with `filename=` the moment it stops.
+to any recording that has a destination the moment it stops: on
+`jcmd JFR.stop` or `Recording.stop()`, and when the JVM exits for a
+`dumponexit` recording (`-XX:StartFlightRecording=...,dumponexit=true`,
+with or without `filename=`, and the agent's own recording). At exit
+JFR calls the listener from its shutdown hook, after the dump; the
+agent sees that the JVM is shutting down (`addShutdownHook` refuses)
+and writes the report on that thread, so exit waits for it - about
+3 s for 10,000 scopes. Otherwise it writes on a thread of its own. A
+recording without scope-tracer events, or with fewer than
+`min.scopes`, gets no report. The report goes to a temporary file in
+the target directory and is moved into place, so a JVM halted
+mid-write leaves no partial `.html`; every failure is one
+`[scope-tracer]` warning line. `kill -9` and `Runtime.halt` run no
+shutdown hooks and get no report.
+
+**The agent's own recording.** `record` makes `premain` start a JFR
+recording (`AgentRecording`), so `-javaagent:...=record` alone leaves
+a `.jfr` and its report at exit. It is named `scope-tracer`, enables
+only the six scope-tracer events with their own defaults, has
+`dumponexit`, is on disk and capped at `maxsize` 250 MB (JFR's own
+default for `-XX:StartFlightRecording`). The destination is
+`scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr` in `user.dir` for
+`record` and `record=`; the same name inside `<path>` when it is an
+existing directory; otherwise `<path>` itself, its parents created and
+an existing file replaced. The default name is claimed by creating
+the file, adding `-1`, `-2`, ... when it exists, so it never replaces
+one. Both absolute paths are printed on stderr (`recording to ...` at
+startup, `HTML report written to ...` at exit). A location that cannot
+be written, or a value that is not a path, gives one warning and no
+recording; instrumentation is unaffected. The agent cannot tell at
+`premain` whether `-XX:StartFlightRecording` was also given (no
+recording exists yet), so both together give two recordings, which
+share JFR's buffers: each file holds the other's events too.
 
 ### Plugin
 
@@ -366,7 +403,8 @@ is used; one older than 27 is refused with a message naming 27.
   chooser; a recording without the fields falls back to parsing
   `taskName` and a short-name lookup with a chooser),
   and Tools → "Run with Scope Tracer", which runs the selected Java
-  application configuration with the bundled agent jar, `--enable-preview`
+  application configuration with the bundled agent jar (with
+  `html=false`: the plugin renders the trace itself), `--enable-preview`
   and a JFR recording added to its VM options (`TracedLaunch` decides
   which, and refuses for JDK < 27, an already-attached agent or an
   existing `-XX:StartFlightRecording`), then opens the recording when
@@ -391,17 +429,17 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-13, cc2c111, JDK 27) |
+| Suite | Runner | Count (2026-11-14, #56, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 91 |
-| agent unit | surefire | 77 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 75 |
+| agent unit | surefire | 94 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 118 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 60 |
+| plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first four: 349 tests (surefire plus
-failsafe, measured on 2026-11-13 at cc2c111 on Temurin 27; the
+`mvn -q verify` runs the first four: 409 tests (surefire plus
+failsafe, measured on 2026-11-14 on the branch of #56 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
