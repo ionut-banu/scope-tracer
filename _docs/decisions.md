@@ -445,3 +445,47 @@ trace itself, and an unread report would only delay the IDE.
 
 `premain` was also made to never throw, since an exception out of it
 aborts JVM startup; every step now catches `Throwable` and warns.
+
+2026-11-14 - A renamed agent jar puts itself on the bootstrap class path
+
+Decided by the maintainer on #113. The fat-jar's `Boot-Class-Path`
+names its own original file, which the JVM resolves beside the
+`-javaagent` jar and silently skips when it is missing. A renamed
+copy (`agent.jar`, a Dockerfile's `COPY`) was therefore loaded by the
+application class loader, ByteBuddy still transformed
+`StructuredTaskScope`, and every advice call died with a swallowed
+`NoClassDefFoundError`: the program ran, `recording to` was printed,
+and the `.jfr` was empty.
+
+The agent now fixes it rather than only warning. Renaming a jar is
+what build scripts and copy-pastes do, and M4 is "try it in one
+minute"; a warning would still have left the first-time user with a
+second step. `Boot-Class-Path` stays, so the original name behaves
+exactly as before, with no new line. When `ScopeTracerAgent` is not
+loaded by the bootstrap loader, its first `premain` appends the jar
+found from its code source (not from `-javaagent:` in the JVM's
+input arguments, which would load `java.management`) and calls
+`premain` again on the bootstrap copy. The first copy does nothing
+else: its classes are not the ones the advice sees, and parsing the
+arguments there would print every warning twice. It loads `AgentLog`
+before the append, because afterwards the application loader would
+find the bootstrap copy, whose package-private methods it cannot
+call.
+
+The append alone was not enough. `Advice.to(type)` reads the advice
+bytes through the class's own loader, and the bootstrap loader serves
+no resources from a jar appended at runtime, so the transformation
+failed silently. The four `Advice.to` calls now look in the advice
+class's loader and then the system class loader, which has every
+`-javaagent` jar on its path. A locator over the agent's own file was
+the alternative; the bootstrap copy does not know that file's path.
+
+The cost is one line HotSpot prints in the renamed case, `Sharing is
+only supported for boot loader classes because bootstrap classpath
+has been appended`. The agent cannot suppress it, start-up was not
+measurably slower (281 vs 286 ms, median of 7), and it does not touch
+what the traced code returns, throws or cancels, which is what
+"tracing never changes behaviour" protects. It is accepted and
+documented, with the original name or `-Xbootclasspath/a:` as the way
+to avoid it. The agent prints one `[scope-tracer]` info line when it
+appends, so the JVM's line does not appear unexplained.
