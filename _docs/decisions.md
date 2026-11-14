@@ -401,3 +401,47 @@ The `fork` methods now check for a null task before emitting
 emitted `TaskForked`, was wrapped, and failed inside the task, so
 `join()` threw `ExecutionException` where a plain scope's `fork`
 throws `NullPointerException`.
+
+2026-11-14 - The agent writes the report at exit, and records on its own with `record`
+
+Decided by the maintainer on #56. Two changes to the agent, one
+reason: a first-time user should get a report from one flag.
+
+The report at exit. A `dumponexit` recording reaches `STOPPED` at JVM
+exit, and the agent's `FlightRecorderListener` is called then, on
+JFR's shutdown hook thread, after the file is written (measured on
+Temurin 27.0.1). The listener used to start a new thread for the
+report, and the JVM does not wait for a thread started during
+shutdown, so no report appeared. It now writes synchronously when the
+JVM is shutting down, detected by `Runtime.addShutdownHook` refusing,
+which is decided before any hook runs. A flag set by a hook of the
+agent's own was rejected: hooks run concurrently and JFR's was seen
+both before and after another hook. The synchronous write is why exit
+waits for the report (about 3 s for 10,000 scopes, 30 MB of HTML);
+there is no timeout, by decision, until that number is shown to
+matter. The report is written to a temporary file and moved into
+place, so a halt mid-write leaves no partial `.html`.
+
+`record` is opt-in. On by default, everyone who already drives JFR
+with `jcmd` or `-XX:StartFlightRecording` would get a second recording
+and two more files, and the agent cannot tell at `premain` whether
+`-XX:StartFlightRecording` was given: no recording exists yet then.
+One flag stays one flag: `=record` replaces the JFR option.
+
+The default location is the working directory, as for
+`-XX:StartFlightRecording` without `filename=`, and the name follows
+JFR's `hotspot-pid-...` convention:
+`scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr`. It is never written
+over an existing file; an explicit `record=<path>` is replaced, as
+JFR's `filename=` is. `maxsize` is 250 MB, JFR's own default, so a
+long-running service cannot fill the disk; there is no argument for
+it. `java.io.tmpdir` was the alternative, rejected as harder to find.
+
+The behaviour change for 0.3.0 users - the README's own command now
+leaves an `.html` at exit and waits for it - was accepted as the fix
+the missing report always was, with `html=false` as the way back. The
+plugin's "Run with Scope Tracer" passes `html=false`: it renders the
+trace itself, and an unread report would only delay the IDE.
+
+`premain` was also made to never throw, since an exception out of it
+aborts JVM startup; every step now catches `Throwable` and warns.

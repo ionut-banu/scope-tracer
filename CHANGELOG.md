@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Agent `record` argument.** `-javaagent:scope-tracer-agent-<v>-agent.jar=record` makes
+  the agent start a JFR recording of its own in `premain`, so no `-XX:StartFlightRecording`
+  is needed: when the program exits there is a `.jfr` and its HTML report on disk, and both
+  absolute paths are printed on stderr. By default the file is
+  `scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr` in the working directory, never written over
+  an existing file; `record=<path>` names the file (or a directory for the default name).
+  The recording is named `scope-tracer`, holds only scope-tracer events, and is capped at
+  250 MB. A location that cannot be written gives one warning and no recording; the program
+  runs and is instrumented as without the argument. Opt-in: without `record` nothing changes.
+
+### Changed
+
+- **The agent writes the HTML report when the JVM exits.** A recording with a destination
+  that is stopped by JVM exit (`-XX:StartFlightRecording=filename=...,dumponexit=true`, or the
+  agent's own `record`) now gets its report, as one stopped with `jcmd JFR.stop` always did.
+  Before, the report was started on a thread the JVM did not wait for, and none appeared.
+  This applies to the README's own 0.3.0 command: it now leaves an `.html` beside the `.jfr`,
+  and exit waits while the report is written (about 3 s for 10,000 scopes). `html=false`
+  restores the 0.3.0 behaviour; `output.dir`, `output.suffix` and `min.scopes` apply to the
+  report at exit as on `JFR.stop`. A report is written to a temporary file and moved into
+  place, so it is never left half-written.
+- **The agent never aborts JVM startup.** A failure in `premain` (an `output.dir` that is
+  not a valid path, for example) is one `[scope-tracer]` warning and loses only what that
+  step would have added. Before, the exception left `premain`, which aborts JVM startup.
+- **IntelliJ plugin:** "Run with Scope Tracer" attaches the agent with `html=false`. The
+  plugin shows the trace itself, so no `.html` is written beside its recording and the IDE
+  does not wait for one at exit.
+
 ## [0.3.0] - 2026-11-14
 
 ### Added

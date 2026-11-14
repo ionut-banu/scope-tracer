@@ -173,14 +173,64 @@ breadcrumb showing which task spawned them.
 Don't want to change source code? Use the agent. It instruments `StructuredTaskScope` at
 the bytecode level — any JDK 27+ application is traced without touching its source.
 
+One flag is enough: with the `record` argument the agent starts a JFR recording of its own,
+and when the program exits it writes the `.jfr` and an HTML report next to it.
+
 ```bash
 VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+java --enable-preview \
+     -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar=record \
+     -cp <your-classpath> \
+     com.example.MyApp
+```
+
+```text
+[scope-tracer] recording to /work/scope-tracer-4242-2026_11_14_10_30_00.jfr
+... your program's own output ...
+[scope-tracer] HTML report written to /work/scope-tracer-4242-2026_11_14_10_30_00.html
+```
+
+The agent's lines go to stderr, prefixed `[scope-tracer]`; nothing is added to stdout. The
+recording is named `scope-tracer`, holds only scope-tracer events and is capped at 250 MB.
+`jcmd <pid> JFR.stop name=scope-tracer` writes both files at once instead of at exit.
+
+A recording you start yourself gets its report at exit too, the same as one stopped with
+`jcmd <pid> JFR.stop`:
+
+```bash
 java --enable-preview \
      -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar \
      -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
      -cp <your-classpath> \
      com.example.MyApp
+# leaves myapp.jfr and myapp.html
 ```
+
+The report is written while the JVM shuts down, so a large recording delays exit (about 3 s
+for 10,000 scopes, measured on a laptop). `html=false` turns it off. A JVM killed outright
+(`kill -9`, `Runtime.halt`) runs no shutdown hooks and gets no report; JFR leaves an empty
+`.jfr` at the recording's path, and never a half-written report.
+
+| Argument | Meaning |
+|----------|---------|
+| `record` | Start the agent's own recording: `scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr` in the working directory, never written over an existing file. |
+| `record=<path>` | The same, written to `<path>` (parent directories created, an existing file replaced). An existing directory means the default file name in it. |
+| `html=false` | No HTML report, neither on `JFR.stop` nor at exit. |
+| `output.dir=<path>` | Write the report to this directory (created if missing) instead of beside the `.jfr`. |
+| `output.suffix=<ext>` | Report file suffix in place of `.jfr` (default `.html`). |
+| `min.scopes=<N>` | No report for a recording with fewer than N scopes. |
+
+Arguments are comma-separated: `-javaagent:...agent.jar=record,html=false`. If the `record`
+location cannot be written, the agent prints one warning and runs without its own recording;
+the program is still traced into any other recording.
+
+Running `record` together with `-XX:StartFlightRecording` gives two recordings and two
+reports. JFR shares its buffers between running recordings, so each file then also holds the
+other's events: the agent's file gets the JDK events of the `-XX` recording, and the `-XX`
+file gets the scope-tracer events whatever its own settings say.
+
+With `TracedScope` (no agent attached) nothing writes a report at exit: the recording is
+only the `.jfr`, and the analyzer CLI (step 4 of the quick start) turns it into the report.
 
 The agent:
 - Uses the name supplied to `Configuration.withName("my-scope")` when set (for example
