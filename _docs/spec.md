@@ -268,6 +268,19 @@ Attached with `-javaagent:scope-tracer-agent-<v>-agent.jar[=args]`.
 The fat-jar (shade classifier `agent`) lists itself in
 `Boot-Class-Path`, because `StructuredTaskScope` is loaded by the
 bootstrap classloader and advice must be visible there.
+When the jar is not under the name its manifest lists, `premain`
+adds the jar it was loaded from to the bootstrap search path itself,
+so the jar works under any name. (The JVM resolves that name beside
+the `-javaagent` jar and ignores a missing file.) The application
+loader's copy of `ScopeTracerAgent` does only that, in
+`BootstrapEntry`: it prints one `[scope-tracer]` line naming the jar
+and calls `premain` on the bootstrap copy, which does everything
+else. The `Advice.to` calls read advice bytes from the advice class's
+loader and then the system class loader, because the bootstrap loader
+serves no resources from a jar appended at runtime. The JVM prints
+its own class-data-sharing warning then, which the original name or
+`-Xbootclasspath/a:` avoids. A jar that cannot be found, opened or
+appended gives one `WARN not tracing` line naming both fixes.
 The bootstrap classloader is asked first by every other loader, so a
 package in the fat-jar replaces the application's own copy of it.
 The jar therefore exposes no top-level entry (package, resource or
@@ -429,17 +442,17 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-14, #56, JDK 27) |
+| Suite | Runner | Count (2026-11-14, #113, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 91 |
-| agent unit | surefire | 94 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 118 |
+| agent unit | surefire | 101 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 134 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first four: 409 tests (surefire plus
-failsafe, measured on 2026-11-14 on the branch of #56 on Temurin 27; the
+`mvn -q verify` runs the first four: 432 tests (surefire plus
+failsafe, measured on 2026-11-14 on the branch of #113 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

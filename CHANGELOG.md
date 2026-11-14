@@ -37,6 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plugin shows the trace itself, so no `.html` is written beside its recording and the IDE
   does not wait for one at exit.
 
+### Fixed
+
+- **A renamed agent jar traces.** The fat-jar's `Boot-Class-Path` names its original file,
+  so a copy under another name (`agent.jar`) used to be instrumented but record nothing, with
+  no warning. The agent now adds the jar it was loaded from to the bootstrap class path
+  itself and prints one `[scope-tracer]` line saying so; arguments, `record`,
+  `-XX:StartFlightRecording` and the report work as under the original name. The JVM prints
+  its own `Sharing is only supported for boot loader classes because bootstrap classpath has
+  been appended` warning in that case; the original name or `-Xbootclasspath/a:<jar>` avoids
+  it. If the jar cannot be added, one `WARN not tracing` line names the reason and the fix.
+
 ## [0.3.0] - 2026-11-14
 
 ### Added

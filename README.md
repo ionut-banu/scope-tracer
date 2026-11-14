@@ -275,7 +275,14 @@ java --enable-preview \
 Replace `<your-classpath>` and `com.acme.Main` with your own classpath and main class.
 
 > **Note:** The agent jar is self-bootstrapped via `Boot-Class-Path` in its manifest. No
-> extra JVM flags are needed for the bootstrap classloader setup.
+> extra JVM flags are needed for the bootstrap classloader setup. The jar can be renamed
+> or copied (`COPY ... /agent.jar` in a Dockerfile, say): under another name the agent adds
+> the jar to the bootstrap class path itself and says so in one `[scope-tracer]` line. The
+> JVM then prints a warning of its own, `Sharing is only supported for boot loader classes
+> because bootstrap classpath has been appended`, which only means class-data sharing is
+> off for the application's classes. Keeping the original name
+> (`scope-tracer-agent-<v>-agent.jar`), or adding `-Xbootclasspath/a:<path to the jar>`
+> beside `-javaagent`, avoids it.
 
 ---
 
