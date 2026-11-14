@@ -8,6 +8,7 @@ import java.lang.instrument.Instrumentation;
 import jdk.jfr.FlightRecorder;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
+import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.matcher.ElementMatchers;
 import net.bytebuddy.utility.OpenedClassReader;
 
@@ -100,6 +101,15 @@ import net.bytebuddy.utility.OpenedClassReader;
  *   <li>JDK 27+ with {@code --enable-preview} (StructuredTaskScope is a preview API).
  *   <li>The agent fat-jar is listed on {@code Boot-Class-Path} in its own manifest — this is
  *       pre-configured by the Maven build.
+ *   <li>The jar can be renamed or copied ({@code -javaagent:/opt/agent.jar}). Under a name other
+ *       than {@code scope-tracer-agent-<v>-agent.jar} the agent adds the jar to the bootstrap class
+ *       path itself and prints one line saying so:
+ *       <pre>{@code
+ * [scope-tracer] added /opt/agent.jar to the bootstrap class path, because the jar is not named scope-tracer-agent-<v>-agent.jar
+ * }</pre>
+ *       The JVM then prints its own {@code Sharing is only supported for boot loader classes
+ *       because bootstrap classpath has been appended} warning. Keeping the original name, or
+ *       adding {@code -Xbootclasspath/a:<path to the jar>} beside {@code -javaagent}, avoids it.
  * </ul>
  *
  * <p><b>Limitations:</b>
@@ -123,6 +133,18 @@ public final class ScopeTracerAgent {
    * @param inst the JVM instrumentation handle.
    */
   public static void premain(String args, Instrumentation inst) {
+    // Not loaded by the bootstrap loader: the jar is not under the name Boot-Class-Path lists. Put
+    // it on the bootstrap path and let the bootstrap loader's copy of this class do the work; this
+    // copy does nothing else, or every argument warning would be printed twice (#113).
+    if (ScopeTracerAgent.class.getClassLoader() != null) {
+      try {
+        BootstrapEntry.enter(
+            args, inst, ScopeTracerAgent.class.getProtectionDomain().getCodeSource());
+      } catch (Throwable t) {
+        // enter never throws; this is for the getProtectionDomain() call
+      }
+      return;
+    }
     // premain must never throw: an exception out of it aborts JVM startup. Each step that fails
     // loses what it would have added (tracing, reports, the agent's recording) and nothing else.
     AgentConfig config;
@@ -202,7 +224,7 @@ public final class ScopeTracerAgent {
         .transform(
             (b, typeDescription, classLoader, module, protectionDomain) ->
                 b.visit(
-                    Advice.to(ScopeOpenAdvice.class)
+                    advice(ScopeOpenAdvice.class)
                         .on(
                             ElementMatchers.named("open")
                                 .and(ElementMatchers.isStatic())
@@ -212,7 +234,7 @@ public final class ScopeTracerAgent {
         .transform(
             (b, typeDescription, classLoader, module, protectionDomain) ->
                 b.visit(
-                    Advice.to(ScopeConstructorAdvice.class)
+                    advice(ScopeConstructorAdvice.class)
                         .on(
                             ElementMatchers.isConstructor()
                                 .and(ElementMatchers.takesArguments(3))
@@ -224,7 +246,7 @@ public final class ScopeTracerAgent {
         .transform(
             (b, typeDescription, classLoader, module, protectionDomain) ->
                 b.visit(
-                        Advice.to(ForkAdvice.class)
+                        advice(ForkAdvice.class)
                             .on(
                                 ElementMatchers.named("fork")
                                     .and(ElementMatchers.not(ElementMatchers.isStatic()))
@@ -237,11 +259,27 @@ public final class ScopeTracerAgent {
                                             ElementMatchers.named(
                                                 "java.util.concurrent.Callable")))))
                     .visit(
-                        Advice.to(ScopeCloseAdvice.class)
+                        advice(ScopeCloseAdvice.class)
                             .on(
                                 ElementMatchers.named("close")
                                     .and(ElementMatchers.not(ElementMatchers.isStatic()))
                                     .and(ElementMatchers.isPublic()))))
         .installOn(inst);
+  }
+
+  /**
+   * {@code Advice.to(type)}, reading the advice class's bytes from its own loader first and from
+   * the system class loader second. Under the original name the bootstrap loader finds them in the
+   * jar {@code Boot-Class-Path} added before the VM started, exactly as before. A jar appended at
+   * runtime by {@link BootstrapEntry} defines classes but its resources are not visible through the
+   * bootstrap loader, so ByteBuddy would fail the transformation silently; the system class loader
+   * has every {@code -javaagent} jar on its path and finds the same bytes.
+   */
+  private static Advice advice(Class<?> type) {
+    return Advice.to(
+        type,
+        new ClassFileLocator.Compound(
+            ClassFileLocator.ForClassLoader.of(type.getClassLoader()),
+            ClassFileLocator.ForClassLoader.ofSystemLoader()));
   }
 }
