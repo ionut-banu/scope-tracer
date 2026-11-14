@@ -130,7 +130,9 @@ git commit -am "release: $VERSION"
 git tag v$VERSION
 git push origin release/$VERSION v$VERSION
 
-# 4. Open and merge the release PR to main
+# 4. Open the release PR and merge it with "Create a merge commit", not rebase or squash:
+#    both rewrite the commit, and the tag must point at a commit on main
+#    (check afterwards: git merge-base --is-ancestor vX.Y.Z origin/main)
 
 # 5. Bump to next SNAPSHOT on main
 git checkout main && git pull
