@@ -12,9 +12,9 @@ import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
 
 /**
- * A program that ends in a chosen way, run under the agent by {@link AgentReportAtExitIT} and
- * {@link AgentRecordIT}. It starts no recording of its own: the recording comes from {@code
- * -XX:StartFlightRecording} or from the agent's {@code record} argument.
+ * A program that ends in a chosen way, run under the agent by {@link AgentReportAtExitIT}, {@link
+ * AgentRecordIT} and {@link AgentRenamedJarIT}. It starts no recording of its own: the recording
+ * comes from {@code -XX:StartFlightRecording} or from the agent's {@code record} argument.
  *
  * <p>{@code args[0]} is the mode:
  *
@@ -26,6 +26,9 @@ import java.util.concurrent.StructuredTaskScope.Joiner;
  *       joiner, one task throws while its sibling is still running), {@value #TREE_NEST} whose task
  *       opens {@value #TREE_LEVEL_1} whose task opens {@value #TREE_LEVEL_2}, and {@value
  *       #TREE_TWIN} opened twice.
+ *   <li>{@code mixed} - {@value #MIXED_SCOPE} (default joiner) with one task that returns and, once
+ *       it has, one that throws.
+ *   <li>{@code mixed-tree} - {@code mixed}, then {@code tree}.
  *   <li>{@code many <n>} - {@code n} closed scopes of one task each.
  *   <li>{@code stdin} - one closed scope, prints {@value #READY}, returns after a line on stdin.
  *   <li>Exit paths, each after one closed scope {@value #EXIT_SCOPE}: {@code return}; {@code exit}
@@ -52,6 +55,7 @@ public final class ExitSubject {
   static final String TREE_LEVEL_1 = "tree-level-1";
   static final String TREE_LEVEL_2 = "tree-level-2";
   static final String TREE_TWIN = "tree-twin";
+  static final String MIXED_SCOPE = "mixed";
   static final String FAILURE = "task failed on purpose";
   static final String MAIN_FAILURE = "main failed on purpose";
   static final String MARKER_PROPERTY = "exitsubject.marker";
@@ -91,6 +95,15 @@ public final class ExitSubject {
         System.out.println(DONE);
       }
       case "tree" -> {
+        tree();
+        System.out.println(DONE);
+      }
+      case "mixed" -> {
+        mixed();
+        System.out.println(DONE);
+      }
+      case "mixed-tree" -> {
+        mixed();
         tree();
         System.out.println(DONE);
       }
@@ -167,6 +180,31 @@ public final class ExitSubject {
               }
             });
     running.await();
+  }
+
+  /**
+   * One task returns, then the other throws: the first has already returned when the scope is
+   * cancelled, so it ends {@code TaskSucceeded} and the second {@code TaskFailed}.
+   */
+  private static void mixed() throws InterruptedException {
+    var returned = new CountDownLatch(1);
+    try (var scope =
+        StructuredTaskScope.open(
+            Joiner.awaitAllSuccessfulOrThrow(), c -> c.withName(MIXED_SCOPE))) {
+      scope.fork(
+          () -> {
+            returned.countDown();
+            return "returned";
+          });
+      scope.fork(
+          () -> {
+            returned.await();
+            throw new IllegalStateException(FAILURE);
+          });
+      scope.join();
+    } catch (java.util.concurrent.ExecutionException expected) {
+      // the failure is the point
+    }
   }
 
   private static void tree() throws Exception {
