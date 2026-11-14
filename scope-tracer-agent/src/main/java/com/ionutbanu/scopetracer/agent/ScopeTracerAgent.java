@@ -4,15 +4,8 @@ import com.ionutbanu.scopetracer.agent.advice.ForkAdvice;
 import com.ionutbanu.scopetracer.agent.advice.ScopeCloseAdvice;
 import com.ionutbanu.scopetracer.agent.advice.ScopeConstructorAdvice;
 import com.ionutbanu.scopetracer.agent.advice.ScopeOpenAdvice;
-import com.ionutbanu.scopetracer.analyzer.HtmlRenderer;
-import com.ionutbanu.scopetracer.analyzer.JfrParser;
 import java.lang.instrument.Instrumentation;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import jdk.jfr.FlightRecorder;
-import jdk.jfr.FlightRecorderListener;
-import jdk.jfr.Recording;
-import jdk.jfr.RecordingState;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.matcher.ElementMatchers;
@@ -26,21 +19,46 @@ import net.bytebuddy.utility.OpenedClassReader;
  * (scope open/close, task fork/succeed/fail/cancel). The resulting {@code .jfr} recording is
  * compatible with the standard {@code scope-tracer-analyzer} pipeline.
  *
- * <p><b>Auto-HTML generation:</b> When a JFR recording that was started with a destination file
- * (e.g. {@code jcmd JFR.start filename=/tmp/orders.jfr}) transitions to {@code STOPPED}, the agent
- * automatically parses the file and writes an HTML report alongside it ({@code /tmp/orders.html}).
- * A message is printed to {@code stderr}:
+ * <p><b>One flag:</b> with the {@code record} argument the agent starts a JFR recording of its own,
+ * so nothing else is needed to get a trace and its report:
+ *
+ * <pre>{@code
+ * java --enable-preview -javaagent:scope-tracer-agent-<v>-agent.jar=record -jar app.jar
+ * [scope-tracer] recording to /work/scope-tracer-4242-2026_11_14_10_30_00.jfr
+ * ...
+ * [scope-tracer] HTML report written to /work/scope-tracer-4242-2026_11_14_10_30_00.html
+ * }</pre>
+ *
+ * <p>The recording is named {@code scope-tracer}, holds only scope-tracer events, is capped at 250
+ * MB and is written when the JVM exits (or at {@code jcmd <pid> JFR.stop name=scope-tracer}).
+ *
+ * <p><b>Auto-HTML generation:</b> When a JFR recording that has a destination file transitions to
+ * {@code STOPPED}, the agent parses the file and writes an HTML report alongside it ({@code
+ * /tmp/orders.jfr} gives {@code /tmp/orders.html}). That happens when the recording is stopped with
+ * {@code jcmd <pid> JFR.stop} or {@code Recording.stop()}, and when the JVM exits for a recording
+ * with {@code dumponexit}: {@code -XX:StartFlightRecording=filename=...,dumponexit=true} or the
+ * agent's own {@code record}. At exit the report is written before the JVM halts, so a large
+ * recording delays exit; {@code html=false} turns it off. Once written, a message is printed to
+ * {@code stderr}:
  *
  * <pre>{@code
  * [scope-tracer] HTML report written to /tmp/orders.html
  * }</pre>
  *
- * <p>If the recording contains no scope-tracer events the HTML step is skipped.
+ * <p>If the recording contains no scope-tracer events the HTML step is skipped. A JVM killed
+ * outright ({@code kill -9}, {@code Runtime.halt}) runs no shutdown hooks and gets no report; a
+ * report is never left half-written.
  *
  * <p><b>Agent arguments</b> ({@code -javaagent:agent.jar=key=value,...}):
  *
  * <ul>
- *   <li>{@code html=false} — disable auto-HTML generation.
+ *   <li>{@code record} or {@code record=<path>} — start the agent's own recording. Without a path
+ *       (or with an existing directory) the file is {@code
+ *       scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr} in the working directory (or that directory),
+ *       never written over an existing file; a file path is used as is, its parent directories
+ *       created and an existing file replaced. A location that cannot be written gives a warning
+ *       and no recording; the program still runs and is still instrumented.
+ *   <li>{@code html=false} — disable auto-HTML generation, on {@code JFR.stop} and at exit.
  *   <li>{@code verbose} — print every instrumented class to {@code stderr} (same as {@code
  *       -Dscopetracer.agent.verbose=true}).
  *   <li>{@code output.dir=<path>} — write the HTML report to this directory instead of alongside
@@ -105,17 +123,47 @@ public final class ScopeTracerAgent {
    * @param inst the JVM instrumentation handle.
    */
   public static void premain(String args, Instrumentation inst) {
-    // ByteBuddy 1.18.11 reads class files up to Java 27 (major 71) on its own: on JDK 27 the agent
-    // ITs pass without this property (checked for #54), and only AgentIsolationIT, which asserts
-    // the property, fails. It is kept so a JDK newer than the ByteBuddy release (28 early-access
-    // builds, #55) is still instrumented rather than refused.
-    // The fat-jar relocates ByteBuddy, and Shade rewrites this inlined constant exactly as it does
-    // inside ByteBuddy: the agent sets the relocated name its own ByteBuddy reads and leaves the
-    // application's ByteBuddy alone. AgentIsolationIT checks it.
-    System.setProperty(OpenedClassReader.EXPERIMENTAL_PROPERTY, "true");
+    // premain must never throw: an exception out of it aborts JVM startup. Each step that fails
+    // loses what it would have added (tracing, reports, the agent's recording) and nothing else.
+    AgentConfig config;
+    try {
+      // ByteBuddy 1.18.11 reads class files up to Java 27 (major 71) on its own: on JDK 27 the
+      // agent
+      // ITs pass without this property (checked for #54), and only AgentIsolationIT, which asserts
+      // the property, fails. It is kept so a JDK newer than the ByteBuddy release (28 early-access
+      // builds, #55) is still instrumented rather than refused.
+      // The fat-jar relocates ByteBuddy, and Shade rewrites this inlined constant exactly as it
+      // does
+      // inside ByteBuddy: the agent sets the relocated name its own ByteBuddy reads and leaves the
+      // application's ByteBuddy alone. AgentIsolationIT checks it.
+      System.setProperty(OpenedClassReader.EXPERIMENTAL_PROPERTY, "true");
 
-    AgentConfig config = AgentConfig.parse(args);
-    AgentState.FILTER = config.filter();
+      config = AgentConfig.parse(args);
+      AgentState.FILTER = config.filter();
+    } catch (Throwable t) {
+      AgentLog.warn("not tracing: agent startup failed: " + AgentRecording.describe(t));
+      return;
+    }
+    try {
+      instrument(config, inst);
+    } catch (Throwable t) {
+      AgentLog.warn("not tracing: instrumentation failed: " + AgentRecording.describe(t));
+    }
+    // A report for every recording with a destination that stops: after jcmd JFR.stop or a
+    // programmatic stop(), and at JVM exit for a dumponexit recording. The listener fires for all
+    // recordings; AutoHtml skips any that hold no scope-tracer events.
+    if (config.generateHtml()) {
+      try {
+        FlightRecorder.addListener(AutoHtml.listener(config));
+      } catch (Throwable t) {
+        AgentLog.warn("no auto-HTML: " + AgentRecording.describe(t));
+      }
+    }
+    // Last, so the recording starts after the instrumentation is in place and still before main.
+    AgentRecording.startIfRequested(config);
+  }
+
+  private static void instrument(AgentConfig config, Instrumentation inst) {
 
     // Fork/close are implemented in StructuredTaskScopeImpl (the non-public concrete class
     // returned by open()), not in the public StructuredTaskScope API class. We match the
@@ -195,59 +243,5 @@ public final class ScopeTracerAgent {
                                     .and(ElementMatchers.not(ElementMatchers.isStatic()))
                                     .and(ElementMatchers.isPublic()))))
         .installOn(inst);
-
-    // Register a FlightRecorderListener that auto-generates an HTML report whenever a
-    // recording with a destination file transitions to STOPPED (e.g. after jcmd JFR.stop).
-    // The listener fires for ALL recordings; the maybeWriteHtml guard skips any that contain
-    // no scope-tracer events, so unrelated JFR recordings produce no spurious output.
-    // FlightRecorderListener has only default methods (not a functional interface), so we
-    // use an anonymous class and override only recordingStateChanged.
-    if (config.generateHtml()) {
-      FlightRecorder.addListener(
-          new FlightRecorderListener() {
-            @Override
-            public void recordingStateChanged(Recording recording) {
-              if (recording.getState() != RecordingState.STOPPED) return;
-              Path dest = recording.getDestination();
-              if (dest == null) return; // no destination → no-ops (e.g. programmatic dumps)
-              // Run I/O on a separate thread to avoid blocking the JFR callback thread.
-              new Thread(() -> maybeWriteHtml(dest, config), "scope-tracer-html-gen").start();
-            }
-          });
-    }
-  }
-
-  private static void maybeWriteHtml(Path dest, AgentConfig config) {
-    try {
-      var model = JfrParser.parse(dest);
-      if (model.scopes().size() < config.minScopes()) {
-        AgentLog.debug(
-            "skipping auto-HTML: "
-                + model.scopes().size()
-                + " scope(s) is below min.scopes="
-                + config.minScopes());
-        return;
-      }
-      Path html = resolveHtmlPath(dest, config);
-      Path parent = html.getParent();
-      if (parent != null && !Files.exists(parent)) {
-        Files.createDirectories(parent);
-      }
-      Files.writeString(html, HtmlRenderer.render(model));
-      AgentLog.info("HTML report written to " + html.toAbsolutePath());
-    } catch (Exception e) {
-      AgentLog.warn("auto-HTML generation failed for " + dest, e);
-    }
-  }
-
-  private static Path resolveHtmlPath(Path dest, AgentConfig config) {
-    String filename = dest.getFileName().toString();
-    String htmlFilename =
-        filename.endsWith(".jfr")
-            ? filename.substring(0, filename.length() - 4) + config.outputSuffix()
-            : filename + config.outputSuffix();
-    return config.outputDir() != null
-        ? config.outputDir().resolve(htmlFilename)
-        : dest.resolveSibling(htmlFilename);
   }
 }

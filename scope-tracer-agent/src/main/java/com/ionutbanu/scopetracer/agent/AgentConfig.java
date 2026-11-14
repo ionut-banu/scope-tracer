@@ -1,6 +1,7 @@
 package com.ionutbanu.scopetracer.agent;
 
 import com.ionutbanu.scopetracer.agent.util.Glob;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.regex.Pattern;
 
@@ -8,7 +9,13 @@ import java.util.regex.Pattern;
  * Parsed agent arguments. Constructed via {@link #parse(String)} from the raw {@code -javaagent}
  * argument string. Unknown keys are ignored. Malformed values for typed keys (e.g. {@code
  * min.scopes=abc}, {@code sample.rate=abc}) fall back to the default and log a warning via {@link
- * AgentLog}.
+ * AgentLog}. A value that is not a valid path ({@code output.dir}, {@code record}) is ignored the
+ * same way, so parsing never throws: {@code premain} must not.
+ *
+ * @param record whether the agent starts its own recording ({@code record} or {@code
+ *     record=<path>}).
+ * @param recordPath where that recording goes as given, or {@code null} for the default file name
+ *     in the working directory; resolved by {@link AgentRecording#resolveDestination}.
  */
 record AgentConfig(
     boolean verbose,
@@ -16,7 +23,9 @@ record AgentConfig(
     Path outputDir,
     String outputSuffix,
     int minScopes,
-    CaptureFilter filter) {
+    CaptureFilter filter,
+    boolean record,
+    Path recordPath) {
 
   static AgentConfig parse(String args) {
     boolean verbose = Boolean.getBoolean("scopetracer.agent.verbose");
@@ -29,6 +38,8 @@ record AgentConfig(
     Pattern includePackage = null;
     Pattern excludePackage = null;
     double sampleRate = 1.0;
+    boolean record = false;
+    Path recordPath = null;
 
     if (args != null) {
       for (String token : args.split(",")) {
@@ -39,7 +50,7 @@ record AgentConfig(
           case "verbose" -> verbose = true;
           case "html" -> generateHtml = value.isEmpty() || !value.equalsIgnoreCase("false");
           case "output.dir" -> {
-            if (!value.isEmpty()) outputDir = Path.of(value);
+            if (!value.isEmpty()) outputDir = toPath(key, value, outputDir);
           }
           case "output.suffix" -> {
             if (!value.isEmpty()) outputSuffix = value.startsWith(".") ? value : "." + value;
@@ -65,6 +76,16 @@ record AgentConfig(
               AgentLog.warn("ignoring malformed sample.rate value: " + value);
             }
           }
+          case "record" -> {
+            if (value.isEmpty()) {
+              record = true;
+              recordPath = null;
+            } else {
+              Path path = toPath(key, value, null);
+              record = path != null;
+              recordPath = path;
+            }
+          }
           default -> {
             // ignore unknown keys for forward compatibility
           }
@@ -84,7 +105,17 @@ record AgentConfig(
           new CaptureFilter(includeName, excludeName, includePackage, excludePackage, sampleRate);
     }
 
-    return new AgentConfig(verbose, generateHtml, outputDir, outputSuffix, minScopes, filter);
+    return new AgentConfig(
+        verbose, generateHtml, outputDir, outputSuffix, minScopes, filter, record, recordPath);
+  }
+
+  private static Path toPath(String key, String value, Path current) {
+    try {
+      return Path.of(value);
+    } catch (InvalidPathException e) {
+      AgentLog.warn("ignoring " + key + " value that is not a valid path: " + e.getReason());
+      return current;
+    }
   }
 
   private static Pattern compileGlob(String key, String value, Pattern current) {
