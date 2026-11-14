@@ -61,7 +61,9 @@ public final class TracedLaunch {
       }
     }
     var extra = new ArrayList<String>();
-    extra.add("-javaagent:" + agentJar);
+    // html=false: the plugin renders the trace itself, so a report beside the recording would go
+    // unread, and writing it at exit would delay the moment the IDE can open the trace.
+    extra.add("-javaagent:" + agentJar + "=html=false");
     if (!existingVmArgs.contains("--enable-preview")) {
       extra.add("--enable-preview");
     }

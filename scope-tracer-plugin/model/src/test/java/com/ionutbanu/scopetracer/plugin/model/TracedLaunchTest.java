@@ -27,9 +27,22 @@ class TracedLaunchTest {
 
     assertThat(extra)
         .containsExactly(
-            "-javaagent:" + AGENT,
+            "-javaagent:" + AGENT + "=html=false",
             "--enable-preview",
             "-XX:StartFlightRecording=filename=" + JFR + ",dumponexit=true");
+  }
+
+  /**
+   * The plugin renders the trace itself, so the agent is told not to write an HTML report: it would
+   * lie unread beside the recording, and the IDE would wait for it before opening the trace.
+   */
+  @Test
+  void tellsTheAgentNotToWriteAnHtmlReport() {
+    var extra = applied(TracedLaunch.plan(List.of(), 27, AGENT, JFR));
+
+    assertThat(extra)
+        .filteredOn(a -> a.startsWith("-javaagent:"))
+        .containsExactly("-javaagent:" + AGENT + "=html=false");
   }
 
   @Test
