@@ -267,6 +267,24 @@ class AgentRenamedJarIT {
     }
   }
 
+  @Test
+  void debugLineFollowsVerboseUnderTheRenamedJar(@TempDir Path dir) throws Exception {
+    Path jar = copyAs(dir, "agent.jar");
+    String skip = ChildJvm.AGENT_PREFIX + " DEBUG skipping auto-HTML:";
+    String record = "record=" + dir.resolve("t.jfr") + ",min.scopes=99";
+    var verbose = ChildJvm.run(dir, List.of(javaagent(jar, record + ",verbose")), "mixed");
+    var off =
+        ChildJvm.run(
+            dir,
+            List.of("-Dscopetracer.agent.verbose=true", javaagent(jar, record + ",verbose=false")),
+            "mixed");
+
+    assertThat(verbose.stderr().lines().filter(l -> l.startsWith(skip)))
+        .containsExactly(skip + " 1 scope(s) is below min.scopes=99");
+    assertThat(off.stderr().lines().filter(l -> l.startsWith(skip))).isEmpty();
+    assertThat(off.stderr()).doesNotContain("[Byte Buddy]");
+  }
+
   // --- criterion 6 ---
 
   @Test

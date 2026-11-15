@@ -91,4 +91,53 @@ class AutoHtmlTest {
     }
     return jfr;
   }
+
+  /**
+   * What {@code AutoHtml.write} prints on stderr for {@code dest} with the gate set to {@code v}.
+   */
+  private static String stderrOfWrite(Path dest, Boolean v) {
+    var captured = new java.io.ByteArrayOutputStream();
+    var original = System.err;
+    System.setErr(new java.io.PrintStream(captured, true, java.nio.charset.StandardCharsets.UTF_8));
+    try {
+      AgentLog.setVerbose(v);
+      AutoHtml.write(dest, AgentConfig.parse(null));
+    } finally {
+      AgentLog.setVerbose(null);
+      System.setErr(original);
+    }
+    return captured.toString(java.nio.charset.StandardCharsets.UTF_8);
+  }
+
+  @Test
+  void nothingRecordedLineFollowsTheGateSetAfterAgentLogInitialised(@TempDir Path dir) {
+    Path missing = dir.resolve("missing.jfr");
+    String line = "[scope-tracer] DEBUG skipping auto-HTML: nothing recorded in " + missing;
+
+    assertThat(stderrOfWrite(missing, true).strip()).isEqualTo(line);
+    assertThat(stderrOfWrite(missing, false)).isEmpty();
+    assertThat(stderrOfWrite(missing, true).strip()).isEqualTo(line);
+  }
+
+  @Test
+  void theGateOverridesTheProperty(@TempDir Path dir) {
+    Path missing = dir.resolve("missing.jfr");
+    // the property is not set in this JVM, so null (property) prints nothing; false stays quiet
+    assertThat(stderrOfWrite(missing, null)).isEmpty();
+    assertThat(stderrOfWrite(missing, false)).isEmpty();
+  }
+
+  @Test
+  void aRecordingWithoutScopesSaysSoAndNotBelowMinScopes(@TempDir Path dir) throws Exception {
+    Path jfr = dir.resolve("noscopes.jfr");
+    try (var r = new Recording()) {
+      r.setDestination(jfr);
+      r.start();
+      r.stop();
+    }
+    String err = stderrOfWrite(jfr, true);
+
+    assertThat(err.strip())
+        .isEqualTo("[scope-tracer] DEBUG skipping auto-HTML: no scopes recorded in " + jfr);
+  }
 }
