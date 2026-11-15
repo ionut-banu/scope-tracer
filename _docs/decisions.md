@@ -515,3 +515,51 @@ value at 100 characters, so one is always one line. The unknown-key
 line names the key, not the whole token, so a path in the value is not
 repeated. Since #113 parsing runs only in the bootstrap copy of the
 agent, so each warning appears once, also under a renamed jar.
+
+2026-11-15 - Under a renamed jar, advice bytes come from the agent's own jar (#123)
+
+#113 made the `Advice.to` calls read the advice bytes from the advice
+class's loader and then the system class loader. Under a renamed jar
+the first finds nothing, so the system class loader answered, and it
+searches `-cp` first. QA found that a `-cp` jar with its own
+`ScopeOpenAdvice` was inlined into `StructuredTaskScope.open`: its
+body ran, and nothing was traced. Grooming measured worse: with an
+advice method of another name or descriptor, ByteBuddy takes the
+method from the loaded class and the code from the located bytes,
+and the JDK rejects the transformed class (`ClassFormatError:
+Illegal exception table range`). The program's first `open` throws
+and it exits 1. `suppress = Throwable.class` cannot help, because the
+class file itself is broken before any advice runs. That breaks
+"tracing never changes behaviour".
+
+The #113 alternative, a locator over the agent's own file, is now
+taken. It was rejected because the bootstrap copy did not know that
+file's path. `BootstrapEntry` does know it, and now hands it over as
+an argument of a package-private method of the bootstrap copy,
+reached by reflection (both copies are in unnamed modules). No system
+property and no public method: nothing new reaches the application.
+The second locator under a renamed jar is
+`ClassFileLocator.ForJarFile` on that jar. Under the original name
+and with `-Xbootclasspath/a:` the bootstrap loader serves the bytes
+from the startup boot path, ahead of `-cp`, and the locator is as
+before.
+
+If the jar cannot be read when the locator is built, the agent does
+not trace: one `WARN not tracing` line naming the jar and the reason.
+Falling back to the system class loader would reopen exactly this
+hole, and a run that traces nothing with a warning is better than one
+that inlines unknown bytes (maintainer, open question 1).
+
+The four `Advice` objects are built once in `premain`, before
+`installOn`, and the jar is closed after it (open question 2).
+`StructuredTaskScope` loads after `premain` returns, so with
+`Advice.to` inside the transformers, closing the jar recorded zero
+events with no warning; `Advice.to` reads the bytes when called and
+keeps them. A broken advice class now fails at startup with the
+existing `instrumentation failed` warning instead of silently at the
+first `open`. Under the original name this changes when the bytes are
+read, not which, nor anything printed or recorded.
+
+A whole scope-tracer jar on `-cp` under a renamed jar is not covered:
+the JVM loads `Premain-Class` through the system class loader, so that
+jar's agent runs instead. It needs its own design (#128).
