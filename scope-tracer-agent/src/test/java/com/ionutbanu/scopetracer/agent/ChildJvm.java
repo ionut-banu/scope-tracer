@@ -59,13 +59,25 @@ final class ChildJvm implements AutoCloseable {
    */
   static ChildJvm start(Path workDir, List<String> jvmArgs, String... subjectArgs)
       throws IOException {
+    return start(workDir, jvmArgs, List.of(), subjectArgs);
+  }
+
+  /**
+   * {@link #start(Path, List, String...)} with {@code classPathBefore} on {@code -cp} ahead of the
+   * test classes.
+   */
+  static ChildJvm start(
+      Path workDir, List<String> jvmArgs, List<String> classPathBefore, String... subjectArgs)
+      throws IOException {
     var command = new ArrayList<String>();
     command.add(javaHome().resolve("bin").resolve("java").toString());
     command.add("--enable-preview");
     command.add("-Xlog:jfr+startup=off");
     command.addAll(jvmArgs);
     command.add("-cp");
-    command.add(testClassesDir());
+    var classPath = new ArrayList<>(classPathBefore);
+    classPath.add(testClassesDir());
+    command.add(String.join(java.io.File.pathSeparator, classPath));
     command.add(ExitSubject.class.getName());
     command.addAll(List.of(subjectArgs));
     return new ChildJvm(new ProcessBuilder(command).directory(workDir.toFile()).start());
@@ -74,6 +86,15 @@ final class ChildJvm implements AutoCloseable {
   /** Runs to the end and returns what it did. */
   static Result run(Path workDir, List<String> jvmArgs, String... subjectArgs) throws Exception {
     try (var child = start(workDir, jvmArgs, subjectArgs)) {
+      return child.finish();
+    }
+  }
+
+  /** {@link #run(Path, List, String...)} with {@code classPathBefore} ahead of the test classes. */
+  static Result run(
+      Path workDir, List<String> jvmArgs, List<String> classPathBefore, String... subjectArgs)
+      throws Exception {
+    try (var child = start(workDir, jvmArgs, classPathBefore, subjectArgs)) {
       return child.finish();
     }
   }
