@@ -600,3 +600,23 @@ make the step print `not tracing: instrumentation failed` while
 tracing was on, or hide the exception that did stop it. A failing
 close is now ignored and prints nothing (question 1): it loses one
 file handle and nothing else.
+
+## 2026-11-15 - The agent's DEBUG lines follow the verbose argument (#126)
+
+The two `skipping auto-HTML` lines were gated on
+`-Dscopetracer.agent.verbose` alone, read once into a constant,
+while the ByteBuddy listing followed the parsed `verbose` value
+since #114. So `verbose` printed no skip line and `verbose=false`
+did not silence it: one switch with two precedence rules, which is
+what #114 set out to remove. The lines now follow the parsed value;
+the property is the default when the argument is absent or
+malformed, and until `start` sets the gate.
+
+They stay verbose-only, not `info` (maintainer): a recording with
+`-XX:StartFlightRecording` in a program that opens no scope reaches
+the line, and as `info` it would appear for every unrelated
+recording. A recording with no scopes now says `no scopes recorded
+in <file>`, since `0 scope(s) is below min.scopes=1` reads as a
+threshold problem when nothing was recorded. The gate is set in the
+bootstrap copy's `start` and is volatile, because the html-gen and
+shutdown-hook threads read it. `-Dscopetracer.agent.verbose` stays.
