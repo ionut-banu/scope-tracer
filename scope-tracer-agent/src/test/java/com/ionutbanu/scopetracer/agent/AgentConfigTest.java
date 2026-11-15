@@ -2,12 +2,41 @@ package com.ionutbanu.scopetracer.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class AgentConfigTest {
+
+  private static final String KNOWN =
+      "record, html, verbose, output.dir, output.suffix, min.scopes, include.name, exclude.name,"
+          + " include.package, exclude.package, sample.rate";
+
+  /** What {@code parse} wrote to stderr through {@link AgentLog}, line by line. */
+  private record Parsed(AgentConfig config, List<String> warnings) {}
+
+  private static Parsed parseCapturing(String args) {
+    var bytes = new ByteArrayOutputStream();
+    PrintStream original = System.err;
+    System.setErr(new PrintStream(bytes, true, StandardCharsets.UTF_8));
+    AgentConfig config;
+    try {
+      config = AgentConfig.parse(args);
+    } finally {
+      System.setErr(original);
+    }
+    return new Parsed(config, bytes.toString(StandardCharsets.UTF_8).lines().toList());
+  }
+
+  private static String warn(String text) {
+    return "[scope-tracer] WARN " + text;
+  }
 
   @Test
   void nullArgsYieldsDefaults() {
@@ -246,5 +275,335 @@ class AgentConfigTest {
 
     assertThat(dest).isEqualTo(dir.resolve("a/b/run.jfr"));
     assertThat(dir.resolve("a/b")).isDirectory();
+  }
+
+  // --- argument warnings (issue #114) ---
+
+  @Test
+  void unknownKeyWarnsOnceListingTheKnownKeysAndStartsNoRecording() {
+    var p = parseCapturing("recrod");
+    assertThat(p.warnings())
+        .containsExactly(
+            warn("ignoring unknown agent argument 'recrod'; known arguments: " + KNOWN));
+    assertThat(p.config().record()).isFalse();
+  }
+
+  @Test
+  void theKnownKeysInTheWarningAreTheOnesTheParserAccepts() {
+    // every listed key parses without the unknown-key warning
+    for (String key : AgentConfig.KNOWN_KEYS) {
+      assertThat(parseCapturing(key + "=1").warnings())
+          .as(key)
+          .noneMatch(w -> w.contains("unknown agent argument"));
+    }
+    assertThat(String.join(", ", AgentConfig.KNOWN_KEYS)).isEqualTo(KNOWN);
+  }
+
+  @Test
+  void keysAreCaseSensitive() {
+    for (String key : List.of("RECORD", "Record")) {
+      var p = parseCapturing(key);
+      assertThat(p.warnings()).hasSize(1);
+      assertThat(p.warnings().get(0))
+          .startsWith(warn("ignoring unknown agent argument '" + key + "'"));
+      assertThat(p.config().record()).isFalse();
+    }
+  }
+
+  @Test
+  void anUnknownKeyDoesNotStopTheOthers() {
+    var p = parseCapturing("recrod,record=/tmp/t.jfr,foo=bar,html=flase");
+    assertThat(p.warnings()).hasSize(3);
+    assertThat(p.warnings().get(0)).contains("unknown agent argument 'recrod'");
+    assertThat(p.warnings().get(1)).contains("unknown agent argument 'foo'");
+    assertThat(p.warnings().get(2))
+        .isEqualTo(warn("ignoring malformed html value: 'flase' (expected true or false)"));
+    assertThat(p.config().record()).isTrue();
+    assertThat(p.config().recordPath()).isEqualTo(Path.of("/tmp/t.jfr"));
+    assertThat(p.config().generateHtml()).isTrue();
+  }
+
+  @Test
+  void aValueWithNoKeyWarnsAndEmptyTokensDoNot() {
+    assertThat(parseCapturing("=x").warnings())
+        .containsExactly(warn("ignoring agent argument with no key: '=x'"));
+    var p = parseCapturing("record,=x");
+    assertThat(p.warnings()).containsExactly(warn("ignoring agent argument with no key: '=x'"));
+    assertThat(p.config().record()).isTrue();
+    for (String quiet : List.of("record,,", "record,", ",", "=", " = ", ",,=,", "")) {
+      assertThat(parseCapturing(quiet).warnings()).as(quiet).isEmpty();
+    }
+    assertThat(parseCapturing("record,,").config().record()).isTrue();
+  }
+
+  @Test
+  void aWarningIsOneLineWhateverTheArgumentContains() {
+    var p = parseCapturing("a\tb\rc\u0000d\u0001e\u202ef");
+    assertThat(p.warnings()).hasSize(1);
+    assertThat(p.warnings().get(0))
+        .contains("'a\\tb\\rc\\u0000d\\u0001e\\u202ef'")
+        .doesNotContain("\t")
+        .doesNotContain("\r");
+    var noKey = parseCapturing("=a\tb\r\nc");
+    assertThat(noKey.warnings())
+        .containsExactly(warn("ignoring agent argument with no key: '=a\\tb\\r\\nc'"));
+  }
+
+  @Test
+  void aHugeArgumentIsShortenedInItsWarning() {
+    var p = parseCapturing("x".repeat(1_000_000));
+    assertThat(p.warnings()).hasSize(1);
+    assertThat(p.warnings().get(0).length()).isLessThan(500);
+  }
+
+  @Test
+  void recordTrueIsBareRecordIgnoringCase() {
+    for (String v : List.of("record=true", "record=TRUE", "record=True")) {
+      var p = parseCapturing(v);
+      assertThat(p.warnings()).as(v).isEmpty();
+      assertThat(p.config().record()).as(v).isTrue();
+      assertThat(p.config().recordPath()).as(v).isNull();
+    }
+  }
+
+  @Test
+  void recordFalseIsAsIfAbsentAndSilent() {
+    for (String v : List.of("record=false", "record=False", "record=FALSE")) {
+      var p = parseCapturing(v);
+      assertThat(p.warnings()).as(v).isEmpty();
+      assertThat(p.config().record()).as(v).isFalse();
+      assertThat(p.config().recordPath()).as(v).isNull();
+    }
+    assertThat(parseCapturing("record=/tmp/a.jfr,record=false").config().record()).isFalse();
+  }
+
+  @Test
+  void aFileNamedTrueOrFalseIsStillReachableWithADotSlash() {
+    assertThat(AgentConfig.parse("record=./false").recordPath()).isEqualTo(Path.of("./false"));
+    assertThat(AgentConfig.parse("record=./false").record()).isTrue();
+    assertThat(AgentConfig.parse("record=./true").recordPath()).isEqualTo(Path.of("./true"));
+  }
+
+  @Test
+  void htmlTakesTrueFalseAndBareMeansTrue() {
+    for (String v : List.of("html", "html=true", "html=TRUE", "html=")) {
+      var p = parseCapturing(v);
+      assertThat(p.warnings()).as(v).isEmpty();
+      assertThat(p.config().generateHtml()).as(v).isTrue();
+    }
+    for (String v : List.of("html=false", "html=False")) {
+      var p = parseCapturing(v);
+      assertThat(p.warnings()).as(v).isEmpty();
+      assertThat(p.config().generateHtml()).as(v).isFalse();
+    }
+  }
+
+  @Test
+  void htmlWithAnyOtherValueWarnsAndKeepsTheReportOn() {
+    for (String bad : List.of("flase", "no", "0")) {
+      var p = parseCapturing("html=" + bad);
+      assertThat(p.warnings())
+          .containsExactly(
+              warn("ignoring malformed html value: '" + bad + "' (expected true or false)"));
+      assertThat(p.config().generateHtml()).isTrue();
+    }
+  }
+
+  @Test
+  void verboseFalseTurnsVerboseOffAndBareOrTrueTurnsItOn() {
+    assertThat(parseCapturing("verbose=false").config().verbose()).isFalse();
+    assertThat(parseCapturing("verbose=FALSE").warnings()).isEmpty();
+    for (String v : List.of("verbose", "verbose=true", "verbose=True")) {
+      var p = parseCapturing(v);
+      assertThat(p.warnings()).as(v).isEmpty();
+      assertThat(p.config().verbose()).as(v).isTrue();
+    }
+  }
+
+  @Test
+  void verboseWithAnotherValueWarnsAndLeavesItOff() {
+    var p = parseCapturing("verbose=maybe");
+    assertThat(p.warnings())
+        .containsExactly(
+            warn("ignoring malformed verbose value: 'maybe' (expected true or false)"));
+    assertThat(p.config().verbose()).isFalse();
+  }
+
+  @Test
+  void anExplicitVerboseArgumentBeatsTheSystemProperty() {
+    withVerbosePropertyOn(
+        () -> {
+          assertThat(parseCapturing(null).config().verbose()).isTrue();
+          assertThat(parseCapturing("verbose=false").config().verbose()).isFalse();
+          assertThat(parseCapturing("verbose=false").warnings()).isEmpty();
+          return null;
+        });
+  }
+
+  private static void withVerbosePropertyOn(Supplier<Void> body) {
+    String key = "scopetracer.agent.verbose";
+    String before = System.getProperty(key);
+    System.setProperty(key, "true");
+    try {
+      body.get();
+    } finally {
+      if (before == null) System.clearProperty(key);
+      else System.setProperty(key, before);
+    }
+  }
+
+  @Test
+  void minScopesBelowOneWarnsAndBehavesAsOne() {
+    for (String v : List.of("0", "-3")) {
+      var p = parseCapturing("min.scopes=" + v);
+      assertThat(p.warnings()).containsExactly(warn("min.scopes must be at least 1, using 1"));
+      assertThat(p.config().minScopes()).isEqualTo(1);
+    }
+    assertThat(parseCapturing("min.scopes=1").warnings()).isEmpty();
+  }
+
+  @Test
+  void sampleRateOutOfRangeWarnsAndIsClampedAsBefore() {
+    var high = parseCapturing("sample.rate=5");
+    assertThat(high.warnings())
+        .containsExactly(warn("sample.rate must be between 0.0 and 1.0, using 1.0"));
+    assertThat(high.config().filter().sampleRate()).isEqualTo(1.0);
+    var low = parseCapturing("sample.rate=-0.5");
+    assertThat(low.warnings())
+        .containsExactly(warn("sample.rate must be between 0.0 and 1.0, using 0.0"));
+    assertThat(low.config().filter().sampleRate()).isEqualTo(0.0);
+    assertThat(parseCapturing("sample.rate=0").warnings()).isEmpty();
+    assertThat(parseCapturing("sample.rate=1").warnings()).isEmpty();
+  }
+
+  @Test
+  void sampleRateNaNIsMalformedAndKeepsOne() {
+    var p = parseCapturing("sample.rate=NaN");
+    assertThat(p.warnings()).containsExactly(warn("ignoring malformed sample.rate value: NaN"));
+    assertThat(p.config().filter().sampleRate()).isEqualTo(1.0);
+    assertThat(p.config().filter()).isSameAs(CaptureFilter.PASSTHROUGH);
+  }
+
+  @Test
+  void aKeyThatNeedsAValueWarnsWithoutOneAndKeepsTheDefault() {
+    for (String key :
+        List.of(
+            "output.dir",
+            "output.suffix",
+            "min.scopes",
+            "sample.rate",
+            "include.name",
+            "exclude.name",
+            "include.package",
+            "exclude.package")) {
+      for (String arg : List.of(key + "=", key)) {
+        var p = parseCapturing(arg);
+        assertThat(p.warnings())
+            .as(arg)
+            .containsExactly(warn("ignoring " + key + " with no value"));
+        assertThat(p.config().outputDir()).as(arg).isNull();
+        assertThat(p.config().outputSuffix()).as(arg).isEqualTo(".html");
+        assertThat(p.config().minScopes()).as(arg).isEqualTo(1);
+        assertThat(p.config().filter()).as(arg).isSameAs(CaptureFilter.PASSTHROUGH);
+      }
+    }
+    for (String ok : List.of("record", "record=")) {
+      assertThat(parseCapturing(ok).warnings()).as(ok).isEmpty();
+      assertThat(parseCapturing(ok).config().record()).as(ok).isTrue();
+    }
+  }
+
+  @Test
+  void validArgumentsGiveNoWarning() {
+    for (String ok :
+        List.of(
+            "html=false",
+            "record,html=false",
+            "record=/tmp/r.jfr,output.dir=/tmp/reports,output.suffix=.report.html,min.scopes=2",
+            "include.name=checkout-*,exclude.name=*-debug,include.package=com.acme.**,"
+                + "exclude.package=com.noisy.**,sample.rate=0.25",
+            " record ",
+            "verbose,html=false,output.dir=/tmp,min.scopes=5")) {
+      assertThat(parseCapturing(ok).warnings()).as(ok).isEmpty();
+    }
+  }
+
+  @Test
+  void theExistingMalformedValueWarningsKeepTheirTextAndAppearOnce() {
+    assertThat(parseCapturing("min.scopes=abc").warnings())
+        .containsExactly(warn("ignoring malformed min.scopes value: abc"));
+    assertThat(parseCapturing("sample.rate=abc").warnings())
+        .containsExactly(warn("ignoring malformed sample.rate value: abc"));
+    assertThat(parseCapturing("include.name=[").warnings()).isEmpty();
+    var path = parseCapturing("output.dir=bad\0dir");
+    assertThat(path.warnings()).hasSize(1);
+    assertThat(path.warnings().get(0))
+        .startsWith(warn("ignoring output.dir value that is not a valid path: "));
+    var rec = parseCapturing("record=bad\0path");
+    assertThat(rec.warnings()).hasSize(1);
+    assertThat(rec.warnings().get(0))
+        .startsWith(warn("ignoring record value that is not a valid path: "));
+  }
+
+  @Test
+  void aKeyGivenTwiceKeepsTheLastValueWithoutAWarning() {
+    var p = parseCapturing("record=/tmp/a.jfr,record=/tmp/b.jfr,min.scopes=3,min.scopes=4");
+    assertThat(p.warnings()).isEmpty();
+    assertThat(p.config().recordPath()).isEqualTo(Path.of("/tmp/b.jfr"));
+    assertThat(p.config().minScopes()).isEqualTo(4);
+  }
+
+  @Test
+  void hostileInputAlwaysYieldsAConfig() {
+    var inputs = new java.util.ArrayList<String>();
+    inputs.add(null);
+    inputs.add("");
+    inputs.add(",".repeat(10_000));
+    inputs.add("=");
+    inputs.add("=".repeat(10_000));
+    inputs.add("\0");
+    inputs.add("record=\0,html=\0,\0=\0");
+    inputs.add("x".repeat(1_000_000));
+    inputs.add("=" + "x".repeat(1_000_000));
+    inputs.add("a=b,".repeat(100_000));
+    String huge = "9".repeat(1_000_000);
+    String[] badValues = {
+      "",
+      "\0",
+      "NaN",
+      "-NaN",
+      "Infinity",
+      "-Infinity",
+      "1e999",
+      "-1e999",
+      "abc",
+      "-1",
+      "0",
+      "99999999999999999999",
+      "\t\r\n",
+      "[",
+      "***",
+      huge,
+      "x".repeat(1_000_000),
+      "true",
+      "false",
+      "\ud800"
+    };
+    for (String key : AgentConfig.KNOWN_KEYS) {
+      inputs.add(key);
+      inputs.add(key + "=");
+      for (String bad : badValues) inputs.add(key + "=" + bad);
+    }
+    var original = System.err;
+    System.setErr(new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8));
+    try {
+      for (String in : inputs) {
+        assertThat(AgentConfig.parse(in))
+            .as("input of length %s", in == null ? -1 : in.length())
+            .isNotNull();
+      }
+    } finally {
+      System.setErr(original);
+    }
   }
 }
