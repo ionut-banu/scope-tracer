@@ -214,8 +214,9 @@ for 10,000 scopes, measured on a laptop). `html=false` turns it off. A JVM kille
 | Argument | Meaning |
 |----------|---------|
 | `record` | Start the agent's own recording: `scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr` in the working directory, never written over an existing file. |
-| `record=<path>` | The same, written to `<path>` (parent directories created, an existing file replaced). An existing directory means the default file name in it. |
-| `html=false` | No HTML report, neither on `JFR.stop` nor at exit. |
+| `record=<path>` | The same, written to `<path>` (parent directories created, an existing file replaced). An existing directory means the default file name in it. `record=true` is `record`; `record=false` turns the recording off, as if the argument were absent (a file called `true` or `false` is `record=./true`). |
+| `html=false` | No HTML report, neither on `JFR.stop` nor at exit. `html` and `html=true` keep it. |
+| `verbose` | Print every instrumented class (`verbose=false`, the default, does not). |
 | `output.dir=<path>` | Write the report to this directory (created if missing) instead of beside the `.jfr`. |
 | `output.suffix=<ext>` | Report file suffix in place of `.jfr` (default `.html`). |
 | `min.scopes=<N>` | No report for a recording with fewer than N scopes. |
@@ -223,6 +224,14 @@ for 10,000 scopes, measured on a laptop). `html=false` turns it off. A JVM kille
 Arguments are comma-separated: `-javaagent:...agent.jar=record,html=false`. If the `record`
 location cannot be written, the agent prints one warning and runs without its own recording;
 the program is still traced into any other recording.
+
+A mistyped argument is never silent. An unknown key (`recrod`, `RECORD`: keys are case-sensitive),
+a value with no key (`=x`), a `record`, `html` or `verbose` value that is not `true` or `false`
+(ignoring case), a key that needs a value and has none (`output.dir=`), `min.scopes` below 1,
+and `sample.rate` outside 0.0-1.0 or `NaN` each print one `[scope-tracer] WARN` line naming the
+argument (the unknown-key line lists the known keys), and the agent carries on with the other
+arguments. The JVM always starts and the program is unchanged. Out-of-range numbers are
+clamped as before, and an `html` or `verbose` value that is not a boolean keeps the default.
 
 Running `record` together with `-XX:StartFlightRecording` gives two recordings and two
 reports. JFR shares its buffers between running recordings, so each file then also holds the

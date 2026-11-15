@@ -489,3 +489,29 @@ what the traced code returns, throws or cancels, which is what
 documented, with the original name or `-Xbootclasspath/a:` as the way
 to avoid it. The agent prints one `[scope-tracer]` info line when it
 appends, so the JVM's line does not appear unexplained.
+
+2026-11-15 - Agent arguments that do nothing are warned about, not refused (#114)
+
+`-javaagent:...=recrod` used to give a run that looked fine and
+recorded nothing, `verbose=false` turned verbose on and `record=false`
+wrote a file called `false`. An argument is now either understood or
+named in one WARN line, and the agent carries on with the rest. It
+does not stop: an exception out of `premain` aborts the JVM, and a
+typo in an optional key should not cost the whole trace when the
+warning already makes it visible. There is no strict mode.
+
+Keys stay exact. Accepting any case would make a second spelling of
+every key permanent, and the unknown-key line lists the known keys,
+built from the one list the parser's `switch` also uses, so the fix is
+on the same line and adding a key cannot leave the list stale.
+`record`, `html` and `verbose` are booleans, ignoring case, the bare
+key meaning true; `record=false` is as if absent and silent, so a
+build script can write `record=${flag}`, and a file called `true` or
+`false` is `record=./true`. A bad boolean keeps the default.
+Out-of-range numbers warn and keep the clamped result they always had;
+`sample.rate=NaN` is malformed, because NaN survived the clamp and
+dropped every scope. Warnings escape control characters and cut a
+value at 100 characters, so one is always one line. The unknown-key
+line names the key, not the whole token, so a path in the value is not
+repeated. Since #113 parsing runs only in the bootstrap copy of the
+agent, so each warning appears once, also under a renamed jar.

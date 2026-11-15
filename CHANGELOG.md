@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The agent warns about arguments that did nothing.** An unknown key (`recrod`; keys are
+  case-sensitive, so `RECORD` too), a value with no key (`=x`), a `record`, `html` or
+  `verbose` value that is not `true`/`false`, a key that needs a value and has none
+  (`output.dir=`), `min.scopes` below 1, and `sample.rate` outside 0.0-1.0 now each print one
+  `[scope-tracer] WARN` line naming the argument, and the agent carries on with the others.
+  `sample.rate=NaN` is rejected (it used to drop every scope silently). Two behaviours change
+  for existing users: `verbose=false` now means off (it used to turn verbose on), and
+  `record=true` / `record=false` are booleans, no longer a file of that name - `record=false`
+  records nothing of the agent's own, and a file called `true` or `false` needs `./true` or
+  `./false`. `html=no` and `html=flase` still keep the report, now with a warning.
 - **The agent writes the HTML report when the JVM exits.** A recording with a destination
   that is stopped by JVM exit (`-XX:StartFlightRecording=filename=...,dumponexit=true`, or the
   agent's own `record`) now gets its report, as one stopped with `jcmd JFR.stop` always did.

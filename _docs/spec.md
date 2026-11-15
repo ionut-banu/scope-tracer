@@ -342,15 +342,35 @@ Agent arguments, parsed by `AgentConfig`:
 
 | Argument | Effect |
 | --- | --- |
-| `record` / `record=<path>` | start the agent's own recording (below) |
-| `html=false` | no auto-HTML on `JFR.stop` or at exit |
-| `verbose` | log each instrumented class |
+| `record` / `record=<path>` | start the agent's own recording (below); `record=true` is `record`, `record=false` is as if absent |
+| `html` / `html=false` | `html=false`: no auto-HTML on `JFR.stop` or at exit |
+| `verbose` / `verbose=false` | log each instrumented class (`verbose=false` is off, beating `-Dscopetracer.agent.verbose=true`) |
 | `output.dir=<path>` | write auto-HTML here (created if missing) |
 | `output.suffix=<ext>` | replaces `.jfr` (default `.html`) |
 | `min.scopes=<N>` | skip auto-HTML below N scopes |
 | `include.name=` / `exclude.name=<glob>` | filter by scope name |
 | `include.package=` / `exclude.package=<glob>` | filter by opening class's package |
 | `sample.rate=<0.0-1.0>` | keep this fraction of surviving scopes |
+
+A mistyped or meaningless argument is never silent. Keys are exact
+and case-sensitive; an unknown key (`recrod`, `RECORD`) or a token
+with a value and no key (`=x`) gives one `[scope-tracer] WARN` line
+(the unknown-key line lists the known keys, from one list that the
+parser's `switch` also uses) and is ignored; the other arguments
+still apply. `record`, `html` and `verbose` take `true` or `false`
+ignoring case, and the bare key (or an empty value) means `true`;
+`record=false` records nothing of the agent's own and prints nothing;
+a file really called `true` or `false` is `record=./true`. Any other
+value for `html` or `verbose` warns and keeps the default (report on,
+verbose as `-Dscopetracer.agent.verbose` says). A key that needs a
+value (`output.dir`, `output.suffix`, `min.scopes`, `sample.rate`, the
+four globs) given none warns and keeps the default; `record=` stays
+`record`. `min.scopes` below 1 and `sample.rate` outside 0.0-1.0 warn
+and are clamped; `sample.rate=NaN` is malformed and keeps 1.0 (it
+would otherwise drop every scope). Escaped and cut to 100 characters,
+a warning is always one line. A key given twice keeps the last value.
+Parsing never throws, and runs only in the bootstrap copy of the
+agent, so each warning appears once, also under a renamed jar.
 
 Filtering happens at scope open. A filtered scope emits no events at
 all, for its whole lifetime. Exclude beats include; sampling runs
@@ -442,17 +462,17 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-14, #113, JDK 27) |
+| Suite | Runner | Count (2026-11-14, #114, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 91 |
-| agent unit | surefire | 101 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 134 |
+| agent unit | surefire | 124 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 209 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first four: 432 tests (surefire plus
-failsafe, measured on 2026-11-14 on the branch of #113 on Temurin 27; the
+`mvn -q verify` runs the first four: 530 tests (surefire plus
+failsafe, measured on 2026-11-15 on the branch of #114 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

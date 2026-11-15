@@ -50,18 +50,24 @@ import net.bytebuddy.utility.OpenedClassReader;
  * outright ({@code kill -9}, {@code Runtime.halt}) runs no shutdown hooks and gets no report; a
  * report is never left half-written.
  *
- * <p><b>Agent arguments</b> ({@code -javaagent:agent.jar=key=value,...}):
+ * <p><b>Agent arguments</b> ({@code -javaagent:agent.jar=key=value,...}). Keys are exact and
+ * case-sensitive. An unknown key, a value with no key, a boolean ({@code record}, {@code html},
+ * {@code verbose}: {@code true} or {@code false} ignoring case, the bare key meaning {@code true})
+ * with another value, a key that needs a value and has none, and a number out of range each print
+ * one {@code [scope-tracer] WARN} line and the agent carries on with the other arguments:
  *
  * <ul>
  *   <li>{@code record} or {@code record=<path>} — start the agent's own recording. Without a path
  *       (or with an existing directory) the file is {@code
  *       scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr} in the working directory (or that directory),
  *       never written over an existing file; a file path is used as is, its parent directories
- *       created and an existing file replaced. A location that cannot be written gives a warning
- *       and no recording; the program still runs and is still instrumented.
+ *       created and an existing file replaced. {@code record=true} is {@code record}; {@code
+ *       record=false} records nothing of the agent's own, silently. A location that cannot be
+ *       written gives a warning and no recording; the program still runs and is still instrumented.
  *   <li>{@code html=false} — disable auto-HTML generation, on {@code JFR.stop} and at exit.
  *   <li>{@code verbose} — print every instrumented class to {@code stderr} (same as {@code
- *       -Dscopetracer.agent.verbose=true}).
+ *       -Dscopetracer.agent.verbose=true}); {@code verbose=false} turns it off, even with the
+ *       property.
  *   <li>{@code output.dir=<path>} — write the HTML report to this directory instead of alongside
  *       the {@code .jfr} file. The directory is created if it does not exist; non-writable paths
  *       cause the HTML step to be skipped with a warning.
