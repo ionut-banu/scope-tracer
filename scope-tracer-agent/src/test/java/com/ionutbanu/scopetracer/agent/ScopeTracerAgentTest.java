@@ -168,8 +168,38 @@ class ScopeTracerAgentTest {
         .containsExactly(
             WARN_NOT_TRACING
                 + "instrumentation failed: IllegalStateException: Could not install class file"
-                + " transformer");
+                + " transformer; caused by IllegalStateException: "
+                + INSTALL_FAILURE);
     assertThat(lines.get(0)).doesNotContain("IOException").doesNotContain(CLOSE_FAILURE);
     assertThat(calls).as("Instrumentation calls").contains("addTransformer");
+  }
+
+  // --- issue #132, line D: a cause, and an escaped path ---
+
+  @Test
+  void adviceJarThatCannotBeOpenedNamesTheCauseAndEscapesThePath(@TempDir Path dir) {
+    Path jar = dir.resolve("a\nb.jar");
+    var bytes = new ByteArrayOutputStream();
+    PrintStream original = System.err;
+    System.setErr(new PrintStream((OutputStream) bytes, true, StandardCharsets.UTF_8));
+    try {
+      ScopeTracerAgent.start(
+          "html=false",
+          fakeInstrumentation(new ArrayList<>(), false),
+          jar,
+          j -> {
+            throw new IllegalStateException("cannot open", new IOException("disk gone"));
+          });
+    } finally {
+      System.setErr(original);
+    }
+
+    assertThat(bytes.toString(StandardCharsets.UTF_8).lines().toList())
+        .containsExactly(
+            WARN_NOT_TRACING
+                + "cannot read the advice classes from "
+                + dir
+                + "/a\\nb.jar: IllegalStateException: cannot open; caused by IOException: disk"
+                + " gone");
   }
 }

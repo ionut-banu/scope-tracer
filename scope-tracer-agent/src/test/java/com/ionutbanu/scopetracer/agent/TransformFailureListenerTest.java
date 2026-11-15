@@ -109,6 +109,39 @@ class TransformFailureListenerTest {
   }
 
   @Test
+  void anAnonymousThrowableWhoseMessageThrowsIsNamedByItsBinaryName() {
+    var hostile =
+        new IllegalStateException() {
+          @Override
+          public String getMessage() {
+            throw new UnsupportedOperationException("no message");
+          }
+        };
+    List<String> lines =
+        stderrOf(
+            () -> error(new TransformFailureListener(), TransformFailureListener.SCOPE, hostile));
+
+    assertThat(lines)
+        .containsExactly(
+            LINE + TransformFailureListener.SCOPE + INCOMPLETE + hostile.getClass().getName());
+  }
+
+  @Test
+  void theCauseChainIsPartOfTheLine() {
+    var t = new IllegalStateException("outer", new UnsupportedOperationException("inner"));
+    List<String> lines =
+        stderrOf(
+            () -> error(new TransformFailureListener(), TransformFailureListener.SCOPE_IMPL, t));
+
+    assertThat(lines)
+        .containsExactly(
+            LINE
+                + TransformFailureListener.SCOPE_IMPL
+                + INCOMPLETE
+                + "IllegalStateException: outer; caused by UnsupportedOperationException: inner");
+  }
+
+  @Test
   void aNullMessageOrANullThrowableGivesOneLine() {
     List<String> nullMessage =
         stderrOf(
@@ -142,7 +175,7 @@ class TransformFailureListenerTest {
             LINE
                 + TransformFailureListener.SCOPE_IMPL
                 + INCOMPLETE
-                + "IllegalStateException: first second third  fourth");
+                + "IllegalStateException: first\\nsecond\\rthird\\r\\nfourth");
   }
 
   @Test

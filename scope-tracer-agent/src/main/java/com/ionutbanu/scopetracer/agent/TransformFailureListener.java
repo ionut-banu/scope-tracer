@@ -53,19 +53,12 @@ final class TransformFailureListener extends AgentBuilder.Listener.Adapter {
       }
       if (!reported.compareAndSet(false, true)) return;
       AgentLog.warn(
-          "cannot instrument " + typeName + ", the trace will be incomplete: " + reason(throwable));
+          "cannot instrument "
+              + typeName
+              + ", the trace will be incomplete: "
+              + AgentLog.describe(throwable));
     } catch (Throwable ignored) {
       // a listener that throws would end up in ByteBuddy's own error handling; lose the line
-    }
-  }
-
-  /** {@link AgentRecording#describe}, or only the exception's type when its message throws. */
-  private static String reason(Throwable throwable) {
-    if (throwable == null) return "unknown error";
-    try {
-      return AgentRecording.describe(throwable);
-    } catch (Throwable t) {
-      return throwable.getClass().getSimpleName();
     }
   }
 }

@@ -205,13 +205,13 @@ public final class ScopeTracerAgent {
       // it.
       AgentLog.setVerbose(config.verbose());
     } catch (Throwable t) {
-      AgentLog.warn("not tracing: agent startup failed: " + AgentRecording.describe(t));
+      AgentLog.warn("not tracing: agent startup failed: " + AgentLog.describe(t));
       return;
     }
     try {
       instrument(config, inst, appendedJar, jarLocators);
     } catch (Throwable t) {
-      AgentLog.warn("not tracing: instrumentation failed: " + AgentRecording.describe(t));
+      AgentLog.warn("not tracing: instrumentation failed: " + AgentLog.describe(t));
     }
     // A report for every recording with a destination that stops: after jcmd JFR.stop or a
     // programmatic stop(), and at JVM exit for a dumponexit recording. The listener fires for all
@@ -220,7 +220,7 @@ public final class ScopeTracerAgent {
       try {
         FlightRecorder.addListener(AutoHtml.listener(config));
       } catch (Throwable t) {
-        AgentLog.warn("no auto-HTML: " + AgentRecording.describe(t));
+        AgentLog.warn("no auto-HTML: " + AgentLog.describe(t));
       }
     }
     // Last, so the recording starts after the instrumentation is in place and still before main.
@@ -242,9 +242,9 @@ public final class ScopeTracerAgent {
       } catch (Throwable t) {
         AgentLog.warn(
             "not tracing: cannot read the advice classes from "
-                + appendedJar
+                + AgentLog.path(appendedJar)
                 + ": "
-                + AgentRecording.describe(t));
+                + AgentLog.describe(t));
         return;
       }
     }

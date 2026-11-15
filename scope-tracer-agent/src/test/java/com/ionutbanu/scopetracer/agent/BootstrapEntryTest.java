@@ -191,4 +191,24 @@ class BootstrapEntryTest {
 
     assertThat(lines.get(0)).endsWith("not named scope-tracer-agent-<version>-agent.jar");
   }
+
+  // --- issue #132, line J: a cause, and an escaped path ---
+
+  @Test
+  void appendThatThrowsWithACauseNamesTheCauseAndEscapesThePaths(@TempDir Path dir)
+      throws Exception {
+    Path jar = jarListing(dir.resolve("a\nb.jar"), "scope-tracer-agent-9.9.9-agent.jar");
+    var inst = new FakeInstrumentation();
+    inst.failure = new UnsupportedOperationException("outer", new java.io.IOException("inner"));
+    List<String> lines = enter(new CodeSource(jar.toUri().toURL(), (Certificate[]) null), inst);
+
+    assertThat(lines)
+        .singleElement()
+        .asString()
+        .startsWith(WARN_NOT_TRACING + "the agent jar is not on the bootstrap class path, and")
+        .contains("cannot add " + dir + "/a\\nb.jar to it: UnsupportedOperationException: outer;")
+        .endsWith(FIX_FLAG + dir + "/a\\nb.jar");
+    assertThat(lines.get(0))
+        .contains("; caused by IOException: inner; rename the jar to scope-tracer-agent-9.9.9");
+  }
 }

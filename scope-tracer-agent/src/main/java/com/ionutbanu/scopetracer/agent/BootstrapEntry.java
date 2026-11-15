@@ -64,9 +64,9 @@ final class BootstrapEntry {
       entry.invoke(null, args, inst, jar);
     } catch (InvocationTargetException e) {
       // premain never throws, so this is only for safety: an exception out of it aborts the JVM.
-      AgentLog.warn("not tracing: agent startup failed: " + describe(e.getCause()));
+      AgentLog.warn("not tracing: agent startup failed: " + AgentLog.describe(e.getCause()));
     } catch (Throwable t) {
-      AgentLog.warn("not tracing: agent startup failed: " + describe(t));
+      AgentLog.warn("not tracing: agent startup failed: " + AgentLog.describe(t));
     }
   }
 
@@ -81,7 +81,10 @@ final class BootstrapEntry {
       return null;
     }
     if (!"file".equalsIgnoreCase(url.getProtocol())) {
-      notTracing("it was loaded from " + url + ", which is not a local file", GENERIC_NAME, null);
+      notTracing(
+          "it was loaded from " + AgentLog.path(url) + ", which is not a local file",
+          GENERIC_NAME,
+          null);
       return null;
     }
     Path jar = null;
@@ -96,7 +99,12 @@ final class BootstrapEntry {
       }
     } catch (Throwable t) {
       notTracing(
-          "cannot add " + (jar != null ? jar : url) + " to it: " + describe(t), expectedName, jar);
+          "cannot add "
+              + AgentLog.path(jar != null ? jar : url)
+              + " to it: "
+              + AgentLog.describe(t),
+          expectedName,
+          jar);
       return null;
     }
     AgentLog.info(
@@ -126,16 +134,8 @@ final class BootstrapEntry {
         "not tracing: the agent jar is not on the bootstrap class path, and "
             + reason
             + "; rename the jar to "
-            + expectedName
+            + AgentLog.path(expectedName)
             + ", or add -Xbootclasspath/a:"
-            + (jar != null ? jar : "<path to the jar>"));
-  }
-
-  /** One line: the exception's simple class name and message. */
-  private static String describe(Throwable t) {
-    if (t == null) return "unknown error";
-    String msg = t.getMessage();
-    String line = t.getClass().getSimpleName() + (msg == null ? "" : ": " + msg);
-    return line.replace('\n', ' ').replace('\r', ' ');
+            + (jar != null ? AgentLog.path(jar) : "<path to the jar>"));
   }
 }

@@ -60,6 +60,54 @@ class AutoHtmlTest {
   }
 
   @Test
+  void warningsEscapeThePathsTheyName(@TempDir Path dir) throws Exception {
+    Path jfr = record(dir.resolve("r.jfr"), "escaped-scope");
+    Path outDir = Files.createDirectory(dir.resolve("x\ny"));
+    Files.createDirectory(outDir.resolve("r.html"));
+    var config = AgentConfig.parse("output.dir=" + outDir);
+
+    var captured = new java.io.ByteArrayOutputStream();
+    var original = System.err;
+    System.setErr(new java.io.PrintStream(captured, true, java.nio.charset.StandardCharsets.UTF_8));
+    try {
+      AutoHtml.write(jfr, config);
+    } finally {
+      System.setErr(original);
+    }
+
+    assertThat(captured.toString(java.nio.charset.StandardCharsets.UTF_8).lines().toList())
+        .containsExactly(
+            "[scope-tracer] WARN cannot write HTML report to "
+                + dir
+                + "/x\\ny/r.html: a directory is in the way");
+  }
+
+  @Test
+  void aReportThatCannotBeWrittenNamesTheEscapedPathAndTheReason(@TempDir Path dir)
+      throws Exception {
+    Path jfr = record(dir.resolve("r.jfr"), "unwritable-scope");
+    Path file = Files.writeString(dir.resolve("a\nfile"), "x");
+    var config = AgentConfig.parse("output.dir=" + file.resolve("sub"));
+
+    var captured = new java.io.ByteArrayOutputStream();
+    var original = System.err;
+    System.setErr(new java.io.PrintStream(captured, true, java.nio.charset.StandardCharsets.UTF_8));
+    try {
+      AutoHtml.write(jfr, config);
+    } finally {
+      System.setErr(original);
+    }
+
+    assertThat(captured.toString(java.nio.charset.StandardCharsets.UTF_8).lines().toList())
+        .singleElement()
+        .asString()
+        .startsWith(
+            "[scope-tracer] WARN cannot write HTML report to " + dir + "/a\\nfile/sub/r.html: ")
+        .contains("FileSystemException: ")
+        .contains("a\\nfile/sub");
+  }
+
+  @Test
   void emptyRecordingFileGivesNoReport(@TempDir Path dir) throws Exception {
     Path jfr = Files.createFile(dir.resolve("empty.jfr"));
 

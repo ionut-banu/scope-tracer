@@ -620,3 +620,39 @@ in <file>`, since `0 scope(s) is below min.scopes=1` reads as a
 threshold problem when nothing was recorded. The gate is set in the
 bootstrap copy's `start` and is volatile, because the html-gen and
 shutdown-hook threads read it. `-Dscopetracer.agent.verbose` stays.
+
+## 2026-11-15 - A WARN reason is the cause chain, one bounded escaped line (#132)
+
+The agent's WARN lines named only the top exception, so a real
+`installOn` failure printed ByteBuddy's wrapper (`Could not install
+class file transformer`) and dropped the JDK's reason, and a
+throwable with an empty simple name or message left the line ending
+in `: ` or nothing. Two formatters existed, one a copy in
+`BootstrapEntry`, and neither escaped anything but `\n` and `\r`.
+
+One formatter, `AgentLog.describe`, serves all ten lines. It lives in
+`AgentLog` because `BootstrapEntry`, which runs from the application
+class loader's copy, already pre-loads it before appending the jar,
+so no second class crosses the two copies. Maintainer decisions
+(2026-11-15): the format is `Type: message; caused by Type: message`,
+as Java's own `Caused by:` reads; at most four entries, then `; caused
+by ...` (printing only the root would lose the useful middle, such as
+`UncheckedIOException: reading t.jfr`); a message equal to the cause's
+`toString()` is not printed twice; 300 characters per type or
+message, because real `FileSystemException` messages run to about 170
+and keep their reason at the end, which #114's 100 would cut; `\n` is
+written as `\n` like `AgentConfig.shown` instead of a space; the
+binary name is shown only when the simple name is empty, so a line
+without a cause is byte-identical to before. Suppressed exceptions
+and stack traces are never printed, and the unused
+`AgentLog.warn(String, Throwable)` is deleted. Paths in WARN
+prefixes are escaped and never cut, because a cut path is useless;
+INFO lines keep printing paths raw, as users copy them (#135).
+
+The JDK's answer differs from what grooming expected in one place:
+with `--limit-modules java.base,java.instrument`, the lines for
+`jdk/jfr/Recording` and `FlightRecorderListener` have no cause. The
+agent's classes are on the bootstrap loader, and a class that loader
+cannot find is a `NoClassDefFoundError` with no `ClassNotFoundException`
+under it; a probe loaded by the application loader sees one. Those
+lines stay as they were.
