@@ -365,7 +365,7 @@ Agent arguments, parsed by `AgentConfig`:
 | --- | --- |
 | `record` / `record=<path>` | start the agent's own recording (below); `record=true` is `record`, `record=false` is as if absent |
 | `html` / `html=false` | `html=false`: no auto-HTML on `JFR.stop` or at exit |
-| `verbose` / `verbose=false` | log each instrumented class (`verbose=false` is off, beating `-Dscopetracer.agent.verbose=true`) |
+| `verbose` / `verbose=false` | print each instrumented class (the ByteBuddy listing) and why an auto-HTML report was skipped (`skipping auto-HTML: ...`); `verbose=false` turns all of it off, beating `-Dscopetracer.agent.verbose=true` |
 | `output.dir=<path>` | write auto-HTML here (created if missing) |
 | `output.suffix=<ext>` | replaces `.jfr` (default `.html`) |
 | `min.scopes=<N>` | skip auto-HTML below N scopes |
@@ -483,17 +483,17 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-15, #121, JDK 27) |
+| Suite | Runner | Count (2026-11-15, #126, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 91 |
-| agent unit | surefire | 136 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 235 |
+| agent unit | surefire | 139 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 255 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first four: 568 tests (surefire plus
-failsafe, measured on 2026-11-15 on the branch of #121 on Temurin 27; the
+`mvn -q verify` runs the first four: 591 tests (surefire plus
+failsafe, measured on 2026-11-15 on the branch of #126 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

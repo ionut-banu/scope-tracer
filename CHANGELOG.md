@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`verbose` also prints why a report was skipped.** The `[scope-tracer] DEBUG skipping
+  auto-HTML: ...` lines now follow the parsed `verbose` argument, as the ByteBuddy listing does:
+  `verbose` prints them, `verbose=false` silences them even with
+  `-Dscopetracer.agent.verbose=true`, and without the argument (or with a malformed value) the
+  property decides, as before. They stay verbose-only. A recording with no scopes now says
+  `skipping auto-HTML: no scopes recorded in <file>` instead of `0 scope(s) is below
+  min.scopes=1`; one with scopes but fewer than `min.scopes` keeps `<n> scope(s) is below
+  min.scopes=<N>`.
 - **The agent warns about arguments that did nothing.** An unknown key (`recrod`; keys are
   case-sensitive, so `RECORD` too), a value with no key (`=x`), a `record`, `html` or
   `verbose` value that is not `true`/`false`, a key that needs a value and has none

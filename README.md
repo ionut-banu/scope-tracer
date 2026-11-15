@@ -216,7 +216,7 @@ for 10,000 scopes, measured on a laptop). `html=false` turns it off. A JVM kille
 | `record` | Start the agent's own recording: `scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr` in the working directory, never written over an existing file. |
 | `record=<path>` | The same, written to `<path>` (parent directories created, an existing file replaced). An existing directory means the default file name in it. `record=true` is `record`; `record=false` turns the recording off, as if the argument were absent (a file called `true` or `false` is `record=./true`). |
 | `html=false` | No HTML report, neither on `JFR.stop` nor at exit. `html` and `html=true` keep it. |
-| `verbose` | Print every instrumented class (`verbose=false`, the default, does not). |
+| `verbose` | Print every instrumented class and why an auto-HTML report was skipped (`verbose=false`, the default, prints neither, and beats `-Dscopetracer.agent.verbose=true`). |
 | `output.dir=<path>` | Write the report to this directory (created if missing) instead of beside the `.jfr`. |
 | `output.suffix=<ext>` | Report file suffix in place of `.jfr` (default `.html`). |
 | `min.scopes=<N>` | No report for a recording with fewer than N scopes. |
