@@ -168,6 +168,7 @@
           <systemPropertyVariables>
             <agentJar>${project.build.directory}/scope-tracer-agent-${project.version}-agent.jar</agentJar>
             <testClassesDir>${project.build.testOutputDirectory}</testClassesDir>
+            <analyzerExecutableJar>${project.basedir}/../scope-tracer-analyzer/target/scope-tracer-analyzer-${project.version}-executable.jar</analyzerExecutableJar>
           </systemPropertyVariables>
         </configuration>
         <executions>
