@@ -57,6 +57,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its own `Sharing is only supported for boot loader classes because bootstrap classpath has
   been appended` warning in that case; the original name or `-Xbootclasspath/a:<jar>` avoids
   it. If the jar cannot be added, one `WARN not tracing` line names the reason and the fix.
+- **Under a renamed agent jar, advice comes from the agent's own jar.** The advice inlined
+  into `StructuredTaskScope` used to be read through the system class loader, `-cp` first,
+  so an application class named like a scope-tracer advice class was inlined instead of the
+  agent's: nothing was traced, or, with another method signature, the program's first
+  `StructuredTaskScope.open` threw `ClassFormatError` and the program exited 1. The advice
+  bytes are now read from the jar the agent added to the bootstrap class path. If that jar
+  cannot be read, one `WARN not tracing` line names it and the agent instruments nothing.
+  Nothing changes under the original name or with `-Xbootclasspath/a:`.
 
 ## [0.3.0] - 2026-11-14
 

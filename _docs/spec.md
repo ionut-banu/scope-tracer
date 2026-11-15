@@ -274,10 +274,21 @@ so the jar works under any name. (The JVM resolves that name beside
 the `-javaagent` jar and ignores a missing file.) The application
 loader's copy of `ScopeTracerAgent` does only that, in
 `BootstrapEntry`: it prints one `[scope-tracer]` line naming the jar
-and calls `premain` on the bootstrap copy, which does everything
-else. The `Advice.to` calls read advice bytes from the advice class's
-loader and then the system class loader, because the bootstrap loader
-serves no resources from a jar appended at runtime. The JVM prints
+and enters the bootstrap copy, which does everything else, handing
+it the jar's path as an argument of a package-private method (no
+system property, no public method). The `Advice.to` calls read advice
+bytes from the advice class's loader and then from that jar, because
+the bootstrap loader serves no resources from a jar appended at
+runtime. The system class loader is never asked for them under a
+renamed jar: it searches `-cp` first, and an advice class there would
+be inlined instead of the agent's, or, with another method name or
+descriptor, make the JDK reject `StructuredTaskScope` with a
+`ClassFormatError`. The four `Advice` objects are built once, before
+`installOn`, and the jar handle is closed after it. If the jar cannot
+be read then, the agent prints one `WARN not tracing` line naming the
+jar and the reason and instruments nothing. Under the original name,
+or with `-Xbootclasspath/a:`, the second source stays the system
+class loader, as before. The JVM prints
 its own class-data-sharing warning then, which the original name or
 `-Xbootclasspath/a:` avoids. A jar that cannot be found, opened or
 appended gives one `WARN not tracing` line naming both fixes.
@@ -462,17 +473,17 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-14, #114, JDK 27) |
+| Suite | Runner | Count (2026-11-15, #123, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 91 |
-| agent unit | surefire | 124 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 209 |
+| agent unit | surefire | 126 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 223 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first four: 530 tests (surefire plus
-failsafe, measured on 2026-11-15 on the branch of #114 on Temurin 27; the
+`mvn -q verify` runs the first four: 546 tests (surefire plus
+failsafe, measured on 2026-11-15 on the branch of #123 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
