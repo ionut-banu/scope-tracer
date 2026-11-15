@@ -563,3 +563,40 @@ read, not which, nor anything printed or recorded.
 A whole scope-tracer jar on `-cp` under a renamed jar is not covered:
 the JVM loads `Premain-Class` through the system class loader, so that
 jar's agent runs instead. It needs its own design (#128).
+
+2026-11-15 - A scope class the agent cannot transform is named on one line (#121)
+
+When ByteBuddy could not apply the advice to `StructuredTaskScope`
+or `StructuredTaskScopeImpl`, the agent said nothing unless `verbose`
+was set: the program ran, and the recording was empty or held only
+`ScopeOpened`. That was the one failure in §3's "each step ... logs
+one warning line" that did not. A changed JDK is the likely cause,
+which is what M3 watches for.
+
+The line is printed with or without `verbose` (maintainer, open
+question 3). It is a `warn`, not a debug line: a trace that will be
+incomplete is the thing a user needs to know, and under `verbose`
+it is the greppable `[scope-tracer]` line next to ByteBuddy's own
+report and stack trace, which it does not replace. Its text is
+`WARN cannot instrument <class>, the trace will be incomplete:
+<reason>` (question 4), not `not tracing`, because when only
+`StructuredTaskScopeImpl` fails the scopes are still recorded as
+opened.
+
+One line per class, at most once per JVM (question 2). The two
+classes fail independently and lose different events, so the name
+says which. ByteBuddy reports a class again on every retransformation
+(three reports measured with a later agent retransforming twice), so
+a listener that printed every report would repeat itself. The state
+is one flag per class name in one shared listener; it keeps no
+`Class` or `ClassLoader`.
+
+Not covered: a class that loads but in which no advised method
+matches (#130), and a transformed class the JVM rejects (#131).
+ByteBuddy reports no error for either, so a listener cannot see them.
+
+Closing the jar locator after `installOn` (#123) could throw and
+make the step print `not tracing: instrumentation failed` while
+tracing was on, or hide the exception that did stop it. A failing
+close is now ignored and prints nothing (question 1): it loses one
+file handle and nothing else.

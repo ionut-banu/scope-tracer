@@ -233,6 +233,12 @@ argument (the unknown-key line lists the known keys), and the agent carries on w
 arguments. The JVM always starts and the program is unchanged. Out-of-range numbers are
 clamped as before, and an `html` or `verbose` value that is not a boolean keeps the default.
 
+If the agent cannot instrument `StructuredTaskScope` or `StructuredTaskScopeImpl` (ByteBuddy
+reports an error transforming it, as a JDK that changed these classes could cause), it prints
+one `[scope-tracer] WARN cannot instrument <class>, the trace will be incomplete: <reason>`
+line per class, with or without `verbose`, and the program runs unchanged. A class that loads
+but in which none of the instrumented methods is found gives no such line.
+
 Running `record` together with `-XX:StartFlightRecording` gives two recordings and two
 reports. JFR shares its buffers between running recordings, so each file then also holds the
 other's events: the agent's file gets the JDK events of the `-XX` recording, and the `-XX`
