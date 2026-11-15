@@ -71,7 +71,10 @@ final class AgentRecording {
       return dest;
     } catch (Throwable t) {
       AgentLog.warn(
-          "not recording: cannot record to " + (dest != null ? dest : where) + ": " + describe(t));
+          "not recording: cannot record to "
+              + AgentLog.path(dest != null ? dest : where)
+              + ": "
+              + AgentLog.describe(t));
       if (recording != null) {
         try {
           recording.close();
@@ -145,12 +148,5 @@ final class AgentRecording {
       }
     }
     throw new FileAlreadyExistsException(dir.resolve(defaultName).toString());
-  }
-
-  /** One line: the exception's simple class name and message, never a stack trace. */
-  static String describe(Throwable t) {
-    String msg = t.getMessage();
-    String line = t.getClass().getSimpleName() + (msg == null ? "" : ": " + msg);
-    return line.replace('\n', ' ').replace('\r', ' ');
   }
 }

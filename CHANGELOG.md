@@ -21,6 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Agent warnings name the cause.** Every `[scope-tracer] WARN` line that names an exception
+  now ends in the whole cause chain: `IllegalStateException: Could not install class file
+  transformer; caused by UnsupportedOperationException: adding retransformable transformers is
+  not supported in this environment`, at most four entries and then `; caused by ...`, each
+  type and message cut at 300 characters. A reason is never empty (an anonymous class is shown
+  by its binary name, a blank message is left out), line breaks and control characters in a
+  reason or in a path in the line's prefix are written as `\n`, `\uXXXX` and so on, and a line
+  without a cause and with a plain message is unchanged. One formatter now serves all of them;
+  the unused stack-trace `AgentLog.warn` is gone.
 - **`verbose` also prints why a report was skipped.** The `[scope-tracer] DEBUG skipping
   auto-HTML: ...` lines now follow the parsed `verbose` argument, as the ByteBuddy listing does:
   `verbose` prints them, `verbose=false` silences them even with

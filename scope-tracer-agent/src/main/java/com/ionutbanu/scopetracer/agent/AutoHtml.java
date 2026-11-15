@@ -48,7 +48,7 @@ final class AutoHtml {
             new Thread(() -> write(dest, config), "scope-tracer-html-gen").start();
           }
         } catch (Throwable t) {
-          AgentLog.warn("auto-HTML generation failed: " + AgentRecording.describe(t));
+          AgentLog.warn("auto-HTML generation failed: " + AgentLog.describe(t));
         }
       }
     };
@@ -96,7 +96,8 @@ final class AutoHtml {
       }
       html = htmlPath(dest, config).toAbsolutePath();
       if (Files.isDirectory(html)) {
-        AgentLog.warn("cannot write HTML report to " + html + ": a directory is in the way");
+        AgentLog.warn(
+            "cannot write HTML report to " + AgentLog.path(html) + ": a directory is in the way");
         return;
       }
       String report = HtmlRenderer.render(model);
@@ -107,10 +108,10 @@ final class AutoHtml {
     } catch (Throwable t) {
       AgentLog.warn(
           (html != null
-                  ? "cannot write HTML report to " + html
-                  : "auto-HTML generation failed for " + dest.toAbsolutePath())
+                  ? "cannot write HTML report to " + AgentLog.path(html)
+                  : "auto-HTML generation failed for " + AgentLog.path(dest.toAbsolutePath()))
               + ": "
-              + AgentRecording.describe(t));
+              + AgentLog.describe(t));
     }
   }
 

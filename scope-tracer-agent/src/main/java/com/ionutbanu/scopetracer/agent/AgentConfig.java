@@ -183,32 +183,7 @@ record AgentConfig(
    * {@code s} as one safe line: control and other non-printable characters escaped, and cut short.
    */
   static String shown(String s) {
-    var sb = new StringBuilder();
-    int i = 0;
-    while (i < s.length() && sb.length() < MAX_SHOWN) {
-      int cp = s.codePointAt(i);
-      i += Character.charCount(cp);
-      switch (cp) {
-        case '\t' -> sb.append("\\t");
-        case '\r' -> sb.append("\\r");
-        case '\n' -> sb.append("\\n");
-        default -> {
-          int type = Character.getType(cp);
-          boolean printable =
-              !Character.isISOControl(cp)
-                  && type != Character.FORMAT
-                  && type != Character.UNASSIGNED
-                  && type != Character.SURROGATE
-                  && type != Character.LINE_SEPARATOR
-                  && type != Character.PARAGRAPH_SEPARATOR
-                  && type != Character.PRIVATE_USE;
-          if (printable) sb.appendCodePoint(cp);
-          else sb.append(String.format("\\u%04x", cp > 0xFFFF ? 0xFFFD : cp));
-        }
-      }
-    }
-    if (i < s.length()) sb.append("...");
-    return sb.toString();
+    return AgentLog.escape(s, MAX_SHOWN);
   }
 
   private static Path toPath(String key, String value, Path current) {

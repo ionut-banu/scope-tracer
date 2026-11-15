@@ -319,6 +319,23 @@ or SLF4J version, is the same with the agent as without.
   It only prints. A class in which no advised method matches gives
   ByteBuddy no error and no line (#130), nor does a transformed class
   the JVM rejects (#131).
+- Every `[scope-tracer] WARN` line that names an exception ends in
+  the same `<reason>`, built by one formatter in `AgentLog`: `Type:
+  message`, then `; caused by Type: message` for each cause, at most
+  four entries (the throwable and three causes) and then `; caused by
+  ...`. `Type` is the simple class name, or the binary name when that
+  is empty (an anonymous class). A `null` or blank message is left out
+  with its `: `, and so is one that only repeats `cause.toString()`.
+  Each type and message is escaped as an argument value is (`\t`, `\r`,
+  `\n`, `\uXXXX` for other control characters) and cut at 300
+  characters with `...`. The chain stops at a throwable already
+  printed. Suppressed exceptions and stack traces are never printed,
+  and `toString()` and `getLocalizedMessage()` of the throwable are
+  never called, so a hostile throwable gives a shorter reason, never
+  an exception. The paths in a WARN prefix are escaped and never cut;
+  `INFO` lines are not changed (#135). The JVM gives no cause for a
+  class the bootstrap loader cannot find (`NoClassDefFoundError`),
+  so those lines have none.
 - `premain` sets ByteBuddy's experimental property to `true`.
   The pinned ByteBuddy (`<bytebuddy.version>`) reads Java 27 class
   files without it; it is kept so a JDK newer than the ByteBuddy
@@ -388,8 +405,9 @@ value (`output.dir`, `output.suffix`, `min.scopes`, `sample.rate`, the
 four globs) given none warns and keeps the default; `record=` stays
 `record`. `min.scopes` below 1 and `sample.rate` outside 0.0-1.0 warn
 and are clamped; `sample.rate=NaN` is malformed and keeps 1.0 (it
-would otherwise drop every scope). Escaped and cut to 100 characters,
-a warning is always one line. A key given twice keeps the last value.
+would otherwise drop every scope). An argument value is escaped and cut
+to 100 characters, so a warning is always one line (a reason is cut at
+300, see below). A key given twice keeps the last value.
 Parsing never throws, and runs only in the bootstrap copy of the
 agent, so each warning appears once, also under a renamed jar.
 
@@ -483,17 +501,17 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-15, #126, JDK 27) |
+| Suite | Runner | Count (2026-11-15, #132, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 91 |
-| agent unit | surefire | 139 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 255 |
+| agent unit | surefire | 166 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 263 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first four: 591 tests (surefire plus
-failsafe, measured on 2026-11-15 on the branch of #126 on Temurin 27; the
+`mvn -q verify` runs the first four: 626 tests (surefire plus
+failsafe, measured on 2026-11-15 on the branch of #132 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

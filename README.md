@@ -237,7 +237,10 @@ If the agent cannot instrument `StructuredTaskScope` or `StructuredTaskScopeImpl
 reports an error transforming it, as a JDK that changed these classes could cause), it prints
 one `[scope-tracer] WARN cannot instrument <class>, the trace will be incomplete: <reason>`
 line per class, with or without `verbose`, and the program runs unchanged. A class that loads
-but in which none of the instrumented methods is found gives no such line.
+but in which none of the instrumented methods is found gives no such line. The `<reason>` of
+this line and of every other `WARN` that names an exception includes the exception's causes
+(`IllegalStateException: Could not install class file transformer; caused by
+UnsupportedOperationException: ...`), at most four entries, each cut at 300 characters.
 
 Running `record` together with `-XX:StartFlightRecording` gives two recordings and two
 reports. JFR shares its buffers between running recordings, so each file then also holds the
