@@ -5,6 +5,7 @@ import com.ionutbanu.scopetracer.agent.advice.ScopeCloseAdvice;
 import com.ionutbanu.scopetracer.agent.advice.ScopeConstructorAdvice;
 import com.ionutbanu.scopetracer.agent.advice.ScopeOpenAdvice;
 import java.lang.instrument.Instrumentation;
+import java.nio.file.Path;
 import jdk.jfr.FlightRecorder;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
@@ -151,6 +152,26 @@ public final class ScopeTracerAgent {
       }
       return;
     }
+    start(args, inst, null);
+  }
+
+  /**
+   * What {@link BootstrapEntry} calls, by reflection, on the bootstrap loader's copy once it has
+   * appended {@code appendedJar} to the bootstrap search path. Not public: the path is handed over
+   * as an argument, with no system property, no public method and no static field written from the
+   * application class loader's copy.
+   *
+   * @param appendedJar the jar {@code BootstrapEntry} appended; the advice bytes are read from it.
+   */
+  static void premainFromAppendedJar(String args, Instrumentation inst, Path appendedJar) {
+    start(args, inst, appendedJar);
+  }
+
+  /**
+   * The real {@code premain}. {@code appendedJar} is {@code null} when the JVM put the jar on the
+   * bootstrap class path itself ({@code Boot-Class-Path} or {@code -Xbootclasspath/a:}).
+   */
+  private static void start(String args, Instrumentation inst, Path appendedJar) {
     // premain must never throw: an exception out of it aborts JVM startup. Each step that fails
     // loses what it would have added (tracing, reports, the agent's recording) and nothing else.
     AgentConfig config;
@@ -173,7 +194,7 @@ public final class ScopeTracerAgent {
       return;
     }
     try {
-      instrument(config, inst);
+      instrument(config, inst, appendedJar);
     } catch (Throwable t) {
       AgentLog.warn("not tracing: instrumentation failed: " + AgentRecording.describe(t));
     }
@@ -191,7 +212,44 @@ public final class ScopeTracerAgent {
     AgentRecording.startIfRequested(config);
   }
 
-  private static void instrument(AgentConfig config, Instrumentation inst) {
+  private static void instrument(AgentConfig config, Instrumentation inst, Path appendedJar)
+      throws Exception {
+    // Where the advice bytes are read from after the advice class's own loader. Under a renamed
+    // jar that is the jar BootstrapEntry appended, never the system class loader: -cp may hold
+    // other classes under the advice classes' names (#123).
+    ClassFileLocator adviceSource;
+    if (appendedJar == null) {
+      adviceSource = ClassFileLocator.ForClassLoader.ofSystemLoader();
+    } else {
+      try {
+        adviceSource = ClassFileLocator.ForJarFile.of(appendedJar.toFile());
+      } catch (Throwable t) {
+        AgentLog.warn(
+            "not tracing: cannot read the advice classes from "
+                + appendedJar
+                + ": "
+                + AgentRecording.describe(t));
+        return;
+      }
+    }
+    try {
+      install(config, inst, adviceSource);
+    } finally {
+      // Every Advice is built, its bytes read, before install returns, so nothing reads the jar
+      // after this; the JVM keeps its own handle on it for class loading.
+      if (appendedJar != null) adviceSource.close();
+    }
+  }
+
+  private static void install(
+      AgentConfig config, Instrumentation inst, ClassFileLocator adviceSource) {
+    // Built once, here, before installOn: Advice.to reads the advice class's bytes when it is
+    // called and keeps them. StructuredTaskScope is first loaded after premain has returned, so an
+    // Advice built inside the transformers would read the jar after it was closed.
+    Advice openAdvice = advice(ScopeOpenAdvice.class, adviceSource);
+    Advice constructorAdvice = advice(ScopeConstructorAdvice.class, adviceSource);
+    Advice forkAdvice = advice(ForkAdvice.class, adviceSource);
+    Advice closeAdvice = advice(ScopeCloseAdvice.class, adviceSource);
 
     // Fork/close are implemented in StructuredTaskScopeImpl (the non-public concrete class
     // returned by open()), not in the public StructuredTaskScope API class. We match the
@@ -230,62 +288,60 @@ public final class ScopeTracerAgent {
         .transform(
             (b, typeDescription, classLoader, module, protectionDomain) ->
                 b.visit(
-                    advice(ScopeOpenAdvice.class)
-                        .on(
-                            ElementMatchers.named("open")
-                                .and(ElementMatchers.isStatic())
-                                .and(ElementMatchers.isPublic()))))
+                    openAdvice.on(
+                        ElementMatchers.named("open")
+                            .and(ElementMatchers.isStatic())
+                            .and(ElementMatchers.isPublic()))))
         // --- constructor advice: captures the configured name into a ThreadLocal ---
         .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScopeImpl"))
         .transform(
             (b, typeDescription, classLoader, module, protectionDomain) ->
                 b.visit(
-                    advice(ScopeConstructorAdvice.class)
-                        .on(
-                            ElementMatchers.isConstructor()
-                                .and(ElementMatchers.takesArguments(3))
-                                .and(
-                                    ElementMatchers.takesArgument(
-                                        2, ElementMatchers.named("java.lang.String"))))))
+                    constructorAdvice.on(
+                        ElementMatchers.isConstructor()
+                            .and(ElementMatchers.takesArguments(3))
+                            .and(
+                                ElementMatchers.takesArgument(
+                                    2, ElementMatchers.named("java.lang.String"))))))
         // --- fork() and close() on both the API class and its concrete impl ---
         .type(forkAndCloseMatcher)
         .transform(
             (b, typeDescription, classLoader, module, protectionDomain) ->
                 b.visit(
-                        advice(ForkAdvice.class)
-                            .on(
-                                ElementMatchers.named("fork")
-                                    .and(ElementMatchers.not(ElementMatchers.isStatic()))
-                                    .and(ElementMatchers.isPublic())
-                                    // Match only fork(Callable); fork(Runnable) delegates to it
-                                    // internally so it is covered automatically.
-                                    .and(
-                                        ElementMatchers.takesArgument(
-                                            0,
-                                            ElementMatchers.named(
-                                                "java.util.concurrent.Callable")))))
+                        forkAdvice.on(
+                            ElementMatchers.named("fork")
+                                .and(ElementMatchers.not(ElementMatchers.isStatic()))
+                                .and(ElementMatchers.isPublic())
+                                // Match only fork(Callable); fork(Runnable) delegates to it
+                                // internally so it is covered automatically.
+                                .and(
+                                    ElementMatchers.takesArgument(
+                                        0,
+                                        ElementMatchers.named("java.util.concurrent.Callable")))))
                     .visit(
-                        advice(ScopeCloseAdvice.class)
-                            .on(
-                                ElementMatchers.named("close")
-                                    .and(ElementMatchers.not(ElementMatchers.isStatic()))
-                                    .and(ElementMatchers.isPublic()))))
+                        closeAdvice.on(
+                            ElementMatchers.named("close")
+                                .and(ElementMatchers.not(ElementMatchers.isStatic()))
+                                .and(ElementMatchers.isPublic()))))
         .installOn(inst);
   }
 
   /**
    * {@code Advice.to(type)}, reading the advice class's bytes from its own loader first and from
-   * the system class loader second. Under the original name the bootstrap loader finds them in the
-   * jar {@code Boot-Class-Path} added before the VM started, exactly as before. A jar appended at
-   * runtime by {@link BootstrapEntry} defines classes but its resources are not visible through the
-   * bootstrap loader, so ByteBuddy would fail the transformation silently; the system class loader
-   * has every {@code -javaagent} jar on its path and finds the same bytes.
+   * {@code second} second. Under the original name, or with {@code -Xbootclasspath/a:}, the
+   * bootstrap loader finds them in the jar the JVM put on the bootstrap class path before the VM
+   * started, and {@code second} is the system class loader, exactly as before. A jar appended at
+   * runtime by {@link BootstrapEntry} defines classes, but its resources are not visible through
+   * the bootstrap loader; {@code second} is then that jar itself, read through {@code
+   * ClassFileLocator.ForJarFile}. It is never the system class loader under a renamed jar: that
+   * loader searches {@code -cp} first, and an advice class there would be inlined in place of the
+   * agent's, or, with another method name or descriptor, make the JDK reject {@code
+   * StructuredTaskScope} with a {@code ClassFormatError} (#123).
    */
-  private static Advice advice(Class<?> type) {
+  private static Advice advice(Class<?> type, ClassFileLocator second) {
     return Advice.to(
         type,
         new ClassFileLocator.Compound(
-            ClassFileLocator.ForClassLoader.of(type.getClassLoader()),
-            ClassFileLocator.ForClassLoader.ofSystemLoader()));
+            ClassFileLocator.ForClassLoader.of(type.getClassLoader()), second));
   }
 }

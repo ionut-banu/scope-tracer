@@ -2,6 +2,7 @@ package com.ionutbanu.scopetracer.agent;
 
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.file.Path;
 import java.security.CodeSource;
@@ -17,10 +18,12 @@ import java.util.jar.JarFile;
  * that loader, so nothing would be traced.
  *
  * <p>{@link #enter} is what {@code premain} does in that case, and all it does: it appends the jar
- * the agent was loaded from to the bootstrap search path, then runs {@code premain} again in the
- * bootstrap loader's copy of {@code ScopeTracerAgent}, which does the real work. It touches no
- * other agent class, because this copy's classes are not the ones the advice will see: state set
- * here would be invisible there, and package-private access between the two copies fails.
+ * the agent was loaded from to the bootstrap search path, then enters the bootstrap loader's copy
+ * of {@code ScopeTracerAgent}, which does the real work, and hands it the jar's path: that copy
+ * reads the advice bytes from this jar, because the bootstrap loader serves no resources from a jar
+ * appended at runtime. It touches no other agent class, because this copy's classes are not the
+ * ones the advice will see: state set here would be invisible there, and package-private access
+ * between the two copies fails.
  *
  * <p>It never throws. When the jar cannot be found, opened or appended it prints one {@code WARN
  * not tracing} line naming the reason and the two fixes, and starts nothing.
@@ -36,7 +39,7 @@ final class BootstrapEntry {
 
   /**
    * Appends the jar {@code source} names to the bootstrap search path and calls {@code
-   * ScopeTracerAgent.premain(args, inst)} on the bootstrap loader's copy.
+   * ScopeTracerAgent.premainFromAppendedJar(args, inst, jar)} on the bootstrap loader's copy.
    *
    * @param source the code source of the application class loader's {@code ScopeTracerAgent}.
    */
@@ -47,12 +50,18 @@ final class BootstrapEntry {
       // bootstrap copy, and a first call from here to that copy's package-private AgentLog would
       // fail with IllegalAccessError: neither the info line nor a warning would be printed.
       Class.forName(AgentLog.class.getName(), true, BootstrapEntry.class.getClassLoader());
-      if (!appendOwnJar(source, inst)) {
+      Path jar = appendOwnJar(source, inst);
+      if (jar == null) {
         return;
       }
-      Class.forName(ScopeTracerAgent.class.getName(), true, null)
-          .getMethod("premain", String.class, Instrumentation.class)
-          .invoke(null, args, inst);
+      // Package-private, on the other copy: both are in unnamed modules, so setAccessible is
+      // allowed. The path goes over as an argument, so the advice bytes come from this jar (#123).
+      Method entry =
+          Class.forName(ScopeTracerAgent.class.getName(), true, null)
+              .getDeclaredMethod(
+                  "premainFromAppendedJar", String.class, Instrumentation.class, Path.class);
+      entry.setAccessible(true);
+      entry.invoke(null, args, inst, jar);
     } catch (InvocationTargetException e) {
       // premain never throws, so this is only for safety: an exception out of it aborts the JVM.
       AgentLog.warn("not tracing: agent startup failed: " + describe(e.getCause()));
@@ -62,18 +71,18 @@ final class BootstrapEntry {
   }
 
   /**
-   * Appends the agent's own jar to the bootstrap search path and prints the info line, or prints
-   * the warning and returns {@code false}.
+   * Appends the agent's own jar to the bootstrap search path, prints the info line and returns the
+   * jar's absolute path, or prints the warning and returns {@code null}.
    */
-  private static boolean appendOwnJar(CodeSource source, Instrumentation inst) {
+  private static Path appendOwnJar(CodeSource source, Instrumentation inst) {
     URL url = source == null ? null : source.getLocation();
     if (url == null) {
       notTracing("the jar it was loaded from is unknown", GENERIC_NAME, null);
-      return false;
+      return null;
     }
     if (!"file".equalsIgnoreCase(url.getProtocol())) {
       notTracing("it was loaded from " + url + ", which is not a local file", GENERIC_NAME, null);
-      return false;
+      return null;
     }
     Path jar = null;
     String expectedName = GENERIC_NAME;
@@ -88,14 +97,14 @@ final class BootstrapEntry {
     } catch (Throwable t) {
       notTracing(
           "cannot add " + (jar != null ? jar : url) + " to it: " + describe(t), expectedName, jar);
-      return false;
+      return null;
     }
     AgentLog.info(
         "added "
             + jar
             + " to the bootstrap class path, because the jar is not named "
             + expectedName);
-    return true;
+    return jar;
   }
 
   /** The file name the manifest's {@code Boot-Class-Path} gives, or {@link #GENERIC_NAME}. */
