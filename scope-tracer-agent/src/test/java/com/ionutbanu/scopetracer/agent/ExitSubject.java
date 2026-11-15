@@ -29,6 +29,8 @@ import java.util.concurrent.StructuredTaskScope.Joiner;
  *   <li>{@code mixed} - {@value #MIXED_SCOPE} (default joiner) with one task that returns and, once
  *       it has, one that throws.
  *   <li>{@code mixed-tree} - {@code mixed}, then {@code tree}.
+ *   <li>{@code properties} - {@code mixed}, then the key of every system property {@code main}
+ *       sees, sorted, one per line as {@code property <key>}.
  *   <li>{@code many <n>} - {@code n} closed scopes of one task each.
  *   <li>{@code stdin} - one closed scope, prints {@value #READY}, returns after a line on stdin.
  *   <li>Exit paths, each after one closed scope {@value #EXIT_SCOPE}: {@code return}; {@code exit}
@@ -100,6 +102,13 @@ public final class ExitSubject {
       }
       case "mixed" -> {
         mixed();
+        System.out.println(DONE);
+      }
+      case "properties" -> {
+        mixed();
+        System.getProperties().stringPropertyNames().stream()
+            .sorted()
+            .forEach(key -> System.out.println("property " + key));
         System.out.println(DONE);
       }
       case "mixed-tree" -> {
