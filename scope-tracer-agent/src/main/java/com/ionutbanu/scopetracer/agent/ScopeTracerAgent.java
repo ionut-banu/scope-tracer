@@ -4,6 +4,7 @@ import com.ionutbanu.scopetracer.agent.advice.ForkAdvice;
 import com.ionutbanu.scopetracer.agent.advice.ScopeCloseAdvice;
 import com.ionutbanu.scopetracer.agent.advice.ScopeConstructorAdvice;
 import com.ionutbanu.scopetracer.agent.advice.ScopeOpenAdvice;
+import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import jdk.jfr.FlightRecorder;
@@ -152,7 +153,7 @@ public final class ScopeTracerAgent {
       }
       return;
     }
-    start(args, inst, null);
+    start(args, inst, null, ScopeTracerAgent::jarLocator);
   }
 
   /**
@@ -164,14 +165,25 @@ public final class ScopeTracerAgent {
    * @param appendedJar the jar {@code BootstrapEntry} appended; the advice bytes are read from it.
    */
   static void premainFromAppendedJar(String args, Instrumentation inst, Path appendedJar) {
-    start(args, inst, appendedJar);
+    start(args, inst, appendedJar, ScopeTracerAgent::jarLocator);
+  }
+
+  /** How the advice bytes are read from an appended jar; a test can replace it. */
+  @FunctionalInterface
+  interface JarLocators {
+    ClassFileLocator open(Path jar) throws IOException;
+  }
+
+  private static ClassFileLocator jarLocator(Path jar) throws IOException {
+    return ClassFileLocator.ForJarFile.of(jar.toFile());
   }
 
   /**
    * The real {@code premain}. {@code appendedJar} is {@code null} when the JVM put the jar on the
-   * bootstrap class path itself ({@code Boot-Class-Path} or {@code -Xbootclasspath/a:}).
+   * bootstrap class path itself ({@code Boot-Class-Path} or {@code -Xbootclasspath/a:}); {@code
+   * jarLocators} then goes unused.
    */
-  private static void start(String args, Instrumentation inst, Path appendedJar) {
+  static void start(String args, Instrumentation inst, Path appendedJar, JarLocators jarLocators) {
     // premain must never throw: an exception out of it aborts JVM startup. Each step that fails
     // loses what it would have added (tracing, reports, the agent's recording) and nothing else.
     AgentConfig config;
@@ -194,7 +206,7 @@ public final class ScopeTracerAgent {
       return;
     }
     try {
-      instrument(config, inst, appendedJar);
+      instrument(config, inst, appendedJar, jarLocators);
     } catch (Throwable t) {
       AgentLog.warn("not tracing: instrumentation failed: " + AgentRecording.describe(t));
     }
@@ -212,7 +224,8 @@ public final class ScopeTracerAgent {
     AgentRecording.startIfRequested(config);
   }
 
-  private static void instrument(AgentConfig config, Instrumentation inst, Path appendedJar)
+  private static void instrument(
+      AgentConfig config, Instrumentation inst, Path appendedJar, JarLocators jarLocators)
       throws Exception {
     // Where the advice bytes are read from after the advice class's own loader. Under a renamed
     // jar that is the jar BootstrapEntry appended, never the system class loader: -cp may hold
@@ -222,7 +235,7 @@ public final class ScopeTracerAgent {
       adviceSource = ClassFileLocator.ForClassLoader.ofSystemLoader();
     } else {
       try {
-        adviceSource = ClassFileLocator.ForJarFile.of(appendedJar.toFile());
+        adviceSource = jarLocators.open(appendedJar);
       } catch (Throwable t) {
         AgentLog.warn(
             "not tracing: cannot read the advice classes from "
@@ -237,7 +250,21 @@ public final class ScopeTracerAgent {
     } finally {
       // Every Advice is built, its bytes read, before install returns, so nothing reads the jar
       // after this; the JVM keeps its own handle on it for class loading.
-      if (appendedJar != null) adviceSource.close();
+      if (appendedJar != null) closeQuietly(adviceSource);
+    }
+  }
+
+  /**
+   * Closes the jar locator and ignores a failure: by then tracing is on (or {@code install}'s own
+   * exception is on its way to the caller), and a failed close loses one file handle and nothing
+   * else. Reporting it would print {@code not tracing} while the agent traces, or hide the
+   * exception that did stop it (#121, from #123's QA).
+   */
+  private static void closeQuietly(ClassFileLocator locator) {
+    try {
+      locator.close();
+    } catch (Throwable ignored) {
+      // nothing is lost but the handle
     }
   }
 
@@ -275,7 +302,10 @@ public final class ScopeTracerAgent {
     } else {
       agentBuilder = redefinable;
     }
+    // Always, beside the verbose listeners: one WARN line per scope class ByteBuddy cannot
+    // transform, which is otherwise silent without verbose (#121).
     agentBuilder
+        .with(TransformFailureListener.INSTANCE)
         .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE)
         .with(AgentBuilder.TypeStrategy.Default.REDEFINE)
         .ignore(ElementMatchers.none()) // instrument JDK classes too
