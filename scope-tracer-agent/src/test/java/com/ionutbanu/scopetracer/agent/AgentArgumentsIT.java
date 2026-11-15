@@ -7,12 +7,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -254,6 +256,126 @@ class AgentArgumentsIT {
             dir, List.of("-Dscopetracer.agent.verbose=true", javaagent("verbose=false")), "mixed");
 
     assertThat(run.stderr()).doesNotContain(BYTE_BUDDY);
+  }
+
+  // --- #126: the DEBUG skip lines follow the parsed verbose value ---
+
+  private static final String DEBUG_SKIP = ChildJvm.AGENT_PREFIX + " DEBUG skipping auto-HTML:";
+
+  private static List<String> debugLines(ChildJvm.Result run) {
+    return run.stderr().lines().filter(l -> l.startsWith(DEBUG_SKIP)).toList();
+  }
+
+  /**
+   * {@code verbose} argument (or none), the property, and whether the DEBUG line and listing show.
+   */
+  @ParameterizedTest(name = "{0} property={1} -> debug={2}")
+  @CsvSource({
+    "verbose, false, true",
+    "verbose=true, false, true",
+    "verbose=TRUE, false, true",
+    "verbose=false, false, false",
+    "verbose=false, true, false",
+    "NONE, true, true",
+    "NONE, false, false",
+    "verbose=maybe, true, true",
+    "verbose=maybe, false, false",
+    "verbose=, false, true",
+    "'verbose=false,verbose', false, true",
+    "'verbose,verbose=false', false, false",
+    "'verbose=false,verbose', true, true",
+    "'verbose,verbose=false', true, false"
+  })
+  void theDebugLineFollowsTheParsedVerboseValue(
+      String verbose, boolean property, boolean expected, @TempDir Path dir) throws Exception {
+    var args = new ArrayList<String>();
+    args.add("record=" + dir.resolve("t.jfr"));
+    args.add("min.scopes=99");
+    if (!verbose.equals("NONE")) args.add(verbose);
+    var jvm = new ArrayList<String>();
+    if (property) jvm.add("-Dscopetracer.agent.verbose=true");
+    jvm.add(javaagent(String.join(",", args)));
+
+    var run = ChildJvm.run(dir, jvm, "mixed");
+    var without = ChildJvm.run(dir, List.of(), "mixed");
+
+    assertThat(run.exitCode()).as(run.stderr()).isZero();
+    assertThat(debugLines(run))
+        .containsExactlyElementsOf(
+            expected ? List.of(DEBUG_SKIP + " 1 scope(s) is below min.scopes=99") : List.of());
+    assertThat(run.stderr().contains(BYTE_BUDDY)).isEqualTo(expected);
+    assertThat(run.stdout()).isEqualTo(without.stdout());
+    assertThat(run.agentLines().stream().filter(l -> l.contains("WARN")))
+        .hasSize(verbose.equals("verbose=maybe") ? 1 : 0);
+  }
+
+  @Test
+  void verboseWithHtmlFalsePrintsNoDebugLine(@TempDir Path dir) throws Exception {
+    var run =
+        ChildJvm.run(
+            dir,
+            List.of(
+                javaagent("record=" + dir.resolve("t.jfr") + ",min.scopes=99,verbose,html=false")),
+            "mixed");
+
+    assertThat(run.exitCode()).as(run.stderr()).isZero();
+    assertThat(debugLines(run)).isEmpty();
+    assertThat(dir.resolve("t.html")).doesNotExist();
+  }
+
+  @Test
+  void theDebugLineIsPrintedAfterAProgrammaticStopToo(@TempDir Path dir) throws Exception {
+    Path jfr = dir.resolve("u.jfr");
+    try (var child =
+        ChildJvm.start(
+            dir,
+            List.of(
+                javaagent("verbose,min.scopes=99"),
+                "-XX:StartFlightRecording=filename=" + jfr + ",dumponexit=true,name=u"),
+            "stdin")) {
+      child.awaitStdout(ExitSubject.READY);
+      Jcmd.run(child.pid(), "JFR.stop", "name=u");
+      child.awaitStderrStartingWith(DEBUG_SKIP);
+      child.writeStdin("");
+      var run = child.finish();
+      assertThat(debugLines(run)).hasSize(1);
+    }
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @ValueSource(strings = {"", ",min.scopes=5"})
+  void aRecordingWithNoScopesSaysSoUnderVerbose(String extra, @TempDir Path dir) throws Exception {
+    Path jfr = dir.resolve("none.jfr");
+    var run =
+        ChildJvm.run(
+            dir,
+            List.of(
+                javaagent("verbose" + extra),
+                "-XX:StartFlightRecording=filename=" + jfr + ",dumponexit=true"),
+            "none");
+    var quiet =
+        ChildJvm.run(
+            dir,
+            List.of(
+                javaagent("verbose=false" + extra),
+                "-XX:StartFlightRecording=filename=" + dir.resolve("q.jfr") + ",dumponexit=true"),
+            "none");
+
+    assertThat(run.exitCode()).as(run.stderr()).isZero();
+    assertThat(debugLines(run)).containsExactly(DEBUG_SKIP + " no scopes recorded in " + jfr);
+    assertThat(run.stderr()).doesNotContain("below min.scopes");
+    assertThat(debugLines(quiet)).isEmpty();
+  }
+
+  @Test
+  void scopesAllRemovedByFiltersCountAsNoScopes(@TempDir Path dir) throws Exception {
+    Path jfr = dir.resolve("f.jfr");
+    var run =
+        ChildJvm.run(dir, List.of(javaagent("record=" + jfr + ",verbose,exclude.name=*")), "mixed");
+
+    assertThat(run.exitCode()).as(run.stderr()).isZero();
+    assertThat(debugLines(run)).containsExactly(DEBUG_SKIP + " no scopes recorded in " + jfr);
+    assertThat(run.stderr()).doesNotContain("below min.scopes");
   }
 
   // --- criteria 10, 11 ---
