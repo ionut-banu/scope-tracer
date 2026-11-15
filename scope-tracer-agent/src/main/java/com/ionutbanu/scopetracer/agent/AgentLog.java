@@ -20,15 +20,29 @@ import java.io.StringWriter;
  *       report written to ...").
  *   <li>{@code warn} — always emitted, with full stack trace when a {@link Throwable} is supplied.
  *       Used for recoverable errors that did not crash the JVM (e.g. auto-HTML failure).
- *   <li>{@code debug} — gated on {@code -Dscopetracer.agent.verbose=true}; otherwise dropped.
+ *   <li>{@code debug} — the verbose-only lines (why an auto-HTML report was skipped). Gated on the
+ *       parsed {@code verbose} agent argument, set by {@code ScopeTracerAgent.start}; until then,
+ *       and when the argument is absent or malformed, on {@code -Dscopetracer.agent.verbose=true}.
+ *       {@code verbose=false} beats the property. Otherwise dropped.
  * </ul>
  */
 final class AgentLog {
 
   private static final String PREFIX = "[scope-tracer] ";
-  private static final boolean DEBUG = Boolean.getBoolean("scopetracer.agent.verbose");
+  private static final boolean PROPERTY = Boolean.getBoolean("scopetracer.agent.verbose");
+
+  /**
+   * The parsed {@code verbose} value, or {@code null} until {@code start} sets it. Volatile: it is
+   * read on the auto-HTML thread and on JFR's shutdown-hook thread.
+   */
+  private static volatile Boolean verbose;
 
   private AgentLog() {}
+
+  /** Sets the debug gate from the parsed arguments; {@code null} goes back to the property. */
+  static void setVerbose(Boolean value) {
+    verbose = value;
+  }
 
   static void info(String msg) {
     System.err.println(PREFIX + msg);
@@ -45,6 +59,7 @@ final class AgentLog {
   }
 
   static void debug(String msg) {
-    if (DEBUG) System.err.println(PREFIX + "DEBUG " + msg);
+    Boolean v = verbose;
+    if (v != null ? v : PROPERTY) System.err.println(PREFIX + "DEBUG " + msg);
   }
 }

@@ -82,6 +82,10 @@ final class AutoHtml {
         return;
       }
       var model = JfrParser.parse(dest);
+      if (model.scopes().isEmpty()) {
+        AgentLog.debug("skipping auto-HTML: no scopes recorded in " + dest);
+        return;
+      }
       if (model.scopes().size() < config.minScopes()) {
         AgentLog.debug(
             "skipping auto-HTML: "

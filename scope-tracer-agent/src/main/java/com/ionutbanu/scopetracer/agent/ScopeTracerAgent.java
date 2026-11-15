@@ -67,9 +67,9 @@ import net.bytebuddy.utility.OpenedClassReader;
  *       record=false} records nothing of the agent's own, silently. A location that cannot be
  *       written gives a warning and no recording; the program still runs and is still instrumented.
  *   <li>{@code html=false} — disable auto-HTML generation, on {@code JFR.stop} and at exit.
- *   <li>{@code verbose} — print every instrumented class to {@code stderr} (same as {@code
- *       -Dscopetracer.agent.verbose=true}); {@code verbose=false} turns it off, even with the
- *       property.
+ *   <li>{@code verbose} — print every instrumented class to {@code stderr}, and why an auto-HTML
+ *       report was skipped (same as {@code -Dscopetracer.agent.verbose=true}); {@code
+ *       verbose=false} turns all of it off, even with the property.
  *   <li>{@code output.dir=<path>} — write the HTML report to this directory instead of alongside
  *       the {@code .jfr} file. The directory is created if it does not exist; non-writable paths
  *       cause the HTML step to be skipped with a warning.
@@ -201,6 +201,9 @@ public final class ScopeTracerAgent {
 
       config = AgentConfig.parse(args);
       AgentState.FILTER = config.filter();
+      // Before the auto-HTML listener is registered, so the html-gen and shutdown-hook threads see
+      // it.
+      AgentLog.setVerbose(config.verbose());
     } catch (Throwable t) {
       AgentLog.warn("not tracing: agent startup failed: " + AgentRecording.describe(t));
       return;
