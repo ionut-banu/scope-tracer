@@ -284,7 +284,8 @@ renamed jar: it searches `-cp` first, and an advice class there would
 be inlined instead of the agent's, or, with another method name or
 descriptor, make the JDK reject `StructuredTaskScope` with a
 `ClassFormatError`. The four `Advice` objects are built once, before
-`installOn`, and the jar handle is closed after it. If the jar cannot
+`installOn`, and the jar handle is closed after it; a failing close
+is ignored and prints nothing. If the jar cannot
 be read then, the agent prints one `WARN not tracing` line naming the
 jar and the reason and instruments nothing. Under the original name,
 or with `-Xbootclasspath/a:`, the second source stays the system
@@ -309,6 +310,15 @@ or SLF4J version, is the same with the agent as without.
   Each step (configuration, instrumentation, the auto-HTML listener,
   the agent's own recording) catches `Throwable`, logs one warning
   line and loses only what it would have added.
+- A transformation of `StructuredTaskScope` or
+  `StructuredTaskScopeImpl` that ByteBuddy cannot apply, when the
+  class loads or is retransformed, gives one `[scope-tracer] WARN
+  cannot instrument <class>, the trace will be incomplete: <reason>`
+  line per class, at most once per JVM, also without `verbose`
+  (`TransformFailureListener`, added beside the `verbose` listeners).
+  It only prints. A class in which no advised method matches gives
+  ByteBuddy no error and no line (#130), nor does a transformed class
+  the JVM rejects (#131).
 - `premain` sets ByteBuddy's experimental property to `true`.
   The pinned ByteBuddy (`<bytebuddy.version>`) reads Java 27 class
   files without it; it is kept so a JDK newer than the ByteBuddy
@@ -473,17 +483,17 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-15, #123, JDK 27) |
+| Suite | Runner | Count (2026-11-15, #121, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 91 |
-| agent unit | surefire | 126 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 223 |
+| agent unit | surefire | 136 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 235 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first four: 546 tests (surefire plus
-failsafe, measured on 2026-11-15 on the branch of #123 on Temurin 27; the
+`mvn -q verify` runs the first four: 568 tests (surefire plus
+failsafe, measured on 2026-11-15 on the branch of #121 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

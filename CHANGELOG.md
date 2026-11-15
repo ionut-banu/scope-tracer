@@ -43,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The agent never aborts JVM startup.** A failure in `premain` (an `output.dir` that is
   not a valid path, for example) is one `[scope-tracer]` warning and loses only what that
   step would have added. Before, the exception left `premain`, which aborts JVM startup.
+- **The agent names a scope class it cannot instrument.** When ByteBuddy cannot transform
+  `StructuredTaskScope` or `StructuredTaskScopeImpl`, one `[scope-tracer] WARN cannot
+  instrument <class>, the trace will be incomplete: <reason>` line per class is printed, at
+  most once per JVM and with or without `verbose`; before, the program ran and the recording
+  was silently empty or held only `ScopeOpened`. A failing close of the agent's jar after
+  instrumenting no longer prints a false `WARN not tracing: instrumentation failed`.
 - **IntelliJ plugin:** "Run with Scope Tracer" attaches the agent with `html=false`. The
   plugin shows the trace itself, so no `.html` is written beside its recording and the IDE
   does not wait for one at exit.
