@@ -656,3 +656,45 @@ agent's classes are on the bootstrap loader, and a class that loader
 cannot find is a `NoClassDefFoundError` with no `ClassNotFoundException`
 under it; a probe loaded by the application loader sees one. Those
 lines stay as they were.
+
+## 2026-11-17 - The CLI's diagnostics are behind --verbose; Logback is optional (#58)
+
+The `-executable` jar bundled Logback with no configuration, so its
+root level was DEBUG and its output went to stdout in the developer
+format. The one WARN left in `JfrParser` reached stdout with a
+timestamp, `[main]` and the logger class, ahead of the report line,
+and any later `log.debug` would have printed on every run. Its text
+said the file "may have been cut short" when the scope had only been
+open at dump time. And `logback-classic` was a compile dependency of
+the analyzer library, so a host with its own binding got SLF4J's
+"multiple providers" warning and Logback took over its logging.
+
+Maintainer decisions (2026-11-17), all six recommendations accepted:
+a `--verbose` flag is the only switch, with no system property or
+environment variable, since a flag shows in the usage, matches the
+agent's `verbose`, and the only programmatic caller (the plugin) can
+edit its argument list; the user-facing lines are printed by
+`AnalyzerMain` from the `TraceModel` and the library's SLF4J output is
+hidden by default, because showing library WARNs would make every
+future log line a user message whether or not it is phrased as one
+(under `--verbose` the incomplete warning appears twice, accepted);
+the empty-recording warning is part of this, being the likeliest
+first-run mistake; `--verbose` gets one DEBUG summary per parse, as
+it would otherwise have nothing to show on a healthy recording;
+options are accepted in any position, a strict relaxation; and
+library users who got Logback through the analyzer lose it, noted in
+the CHANGELOG, because choosing the binding is the host's job.
+
+How: Logback is `<optional>`, so Shade still bundles it into the
+`-executable` jar, and the CLI's `logback.xml` lives in `src/cli/`
+and is added to that jar alone by an `IncludeResourceTransformer`.
+A `logback.xml` in the plain jar would configure a library user's
+Logback. The file reads its root level from a property that
+`AnalyzerMain.main` sets every time, before the first logger is
+created, rather than configuring Logback through its API: `AnalyzerMain`
+is in the plain jar, whose classes must load without Logback. Because
+`main` always overwrites the property, `-D` cannot turn diagnostics
+on. An argument starting with `-` (other than `-` alone) is now an
+option, so an input path starting with `-` is written `./-x.jfr`.
+Exit codes stay as they were, including the two that disagree with
+the Javadoc (#138).

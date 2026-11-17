@@ -162,7 +162,7 @@ plain STS ───agent───────┘                                
 | Module | Build | Depends on | Role |
 | --- | --- | --- | --- |
 | `scope-tracer-core` | Maven | JDK, SLF4J API | `TracedScope`, the six events |
-| `scope-tracer-analyzer` | Maven | core | `.jfr` → `TraceModel` → HTML/JSON |
+| `scope-tracer-analyzer` | Maven | core, SLF4J API (Logback optional, CLI only) | `.jfr` → `TraceModel` → HTML/JSON, the CLI |
 | `scope-tracer-agent` | Maven | core, analyzer, ByteBuddy | bytecode instrumentation, auto-HTML |
 | `scope-tracer-demos` | Maven | core, analyzer | runnable examples, correct and buggy |
 | `scope-tracer-stress-tests` | Maven, `-Pstress` | agent fat-jar | high-volume ITs |
@@ -260,7 +260,39 @@ missing data turns highlighting off for that scope.
 
 `TraceModelJson.toJson` is the JSON wire format consumed by the
 plugin. `AnalyzerMain` is the CLI: `analyzer <in.jfr> <out>
-[--format=json]`, exit codes 0-4 as documented in its Javadoc.
+[--format=json] [--verbose]`, exit codes 0-4 as documented in its
+Javadoc. Options may come before, between or after the two positional
+arguments, each at most once; anything else is usage on stderr and
+exit 1.
+
+- stdout is the one line `Report written to <absolute path>` (or the
+  usage for `-h`/`--help` alone), whatever the recording.
+- stderr holds the existing one-line errors and, after the report is
+  written, warnings a user can act on, printed by `AnalyzerMain` from
+  the `TraceModel`, never by reformatting log output. Each is one line
+  starting `analyzer: warning: ` and names the input file: one for
+  scopes with no `closeTime` and tasks with no completion (counted by
+  scope instance, nested ones included, with both causes - still
+  running when the recording was written, or dropped by JFR - and a
+  link to the buffer-tuning section of `docs/jfr-events.md`), and one
+  for a model with no scopes (no scope-tracer events: no agent or
+  `TracedScope`, or the events were not enabled). Warnings do not
+  change the exit code.
+- The library's SLF4J output is hidden. `--verbose` shows it on
+  stderr at DEBUG and up, as `LEVEL logger - message`, and adds the
+  stack trace after the error line of a run that exits 3 or 4. It is
+  the only switch: no system property or environment variable. With
+  it `JfrParser` logs one DEBUG line per parse: the file, the events
+  read per type, the scopes and tasks in the model and the time taken.
+
+Logback is the CLI's backend and an optional dependency of the
+analyzer, so a library user brings its own binding. The CLI's
+`logback.xml` (`src/cli/`, not a resource directory) is added to the
+`-executable` jar only, by Shade; the plain jar carries no logging
+configuration, and its classes do not need Logback. That file reads
+the root level from a system property that `AnalyzerMain.main` always
+sets before the first logger exists (`DEBUG` with `--verbose`, `OFF`
+otherwise), so a `-D` on the command line is overwritten.
 
 ### Agent
 
@@ -501,17 +533,18 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-15, #132, JDK 27) |
+| Suite | Runner | Count (2026-11-17, #58, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
-| analyzer unit | surefire | 91 |
+| analyzer unit | surefire | 139 |
+| analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 19 |
 | agent unit | surefire | 166 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 263 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 265 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first four: 626 tests (surefire plus
-failsafe, measured on 2026-11-15 on the branch of #132 on Temurin 27; the
+`mvn -q verify` runs the first five: 695 tests (surefire plus
+failsafe, measured on 2026-11-17 on the branch of #58 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
@@ -541,7 +574,9 @@ try (var file = new RecordingFile(tempPath)) {
 - Use `containsExactlyInAnyOrder` for presence and `getStartTime()`
   for order within one thread - never file position (§2, Ordering).
 - Agent ITs fork a child JVM with `-javaagent` pointing at the
-  fat-jar, which is why they run in failsafe after `package`.
+  fat-jar, which is why they run in failsafe after `package`. The
+  analyzer's ITs run its `-executable` jar in a child JVM the same
+  way, because a logging backend is configured once per JVM.
 - `JfrParserTest` is an integration test against live recordings.
   `HtmlRendererTest` builds `TraceModel` objects directly - rendering
   is the one place a hand-built model is the right input.
