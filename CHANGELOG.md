@@ -22,14 +22,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   analyzer's own log lines on stderr at DEBUG and up, with level and logger name, including one
   summary line per parse (events read by type, scopes and tasks, time taken), and adds the
   stack trace to a run that exits 3 or 4. It is the only switch; no system property or
-  environment variable turns it on. Options may now come before, between or after the two file
-  arguments, each at most once.
+  environment variable turns it on, Logback's own `logback.configurationFile`, `logback.debug`
+  and `logback.statusListenerClass` included (the CLI removes every `logback.*` property before
+  logging starts, from `-D` or `JAVA_TOOL_OPTIONS`). Options may now come before, between or
+  after the two file arguments, each at most once. Two command lines change because of this:
+  an input path that starts with `-` must be written with `./` (`./-x.jfr out.html`; bare
+  `-x.jfr out.html` now prints the usage and exits 1, where it exited 0), and `--help extra`
+  now prints the usage and exits 1, where it exited 2 (`input.jfr not found: --help`).
 - **Analyzer warnings a user can act on.** After writing the report the CLI prints one
   `analyzer: warning:` line on stderr for scopes without a close event or tasks without a
   completion event (counted by scope, with both causes: still running when the recording was
   written, or dropped by JFR), and one for a recording with no scope-tracer events at all
   (the agent or `TracedScope` was not used, or `com.ionutbanu.scopetracer.*` was not
-  enabled). The exit code stays 0.
+  enabled). A recording whose scope-tracer events all lack a `ScopeOpened` gets `holds N
+  scope-tracer events but no ScopeOpened event, so the report shows no scopes` instead, with
+  its two causes (scopes opened before the recording started, or dropped events). The exit
+  code stays 0.
 
 ### Changed
 
