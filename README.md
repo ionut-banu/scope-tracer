@@ -119,13 +119,14 @@ Report written to /home/me/myapp/report.html
 ```
 
 Errors and warnings go to stderr. A warning is one line starting `analyzer: warning:`,
-printed after the report is written, and the exit code stays 0. There are two: a recording
+printed after the report is written, and the exit code stays 0. There are three: a recording
 with scopes that have no close event or tasks that have no completion event (they were still
 running when the recording was written, or JFR dropped their events — see
 [JFR buffer tuning](docs/jfr-events.md#high-volume-recordings-jfr-buffer-tuning)), which the
 report draws as incomplete; and a recording with no scope-tracer events at all, which usually
 means the program ran without the agent or `TracedScope`, or the recording did not enable
-`com.ionutbanu.scopetracer.*`.
+`com.ionutbanu.scopetracer.*`; and a recording whose scope-tracer events have no
+`ScopeOpened` to belong to, usually because it started after those scopes were opened.
 
 Pass `--format=json` to write the parsed trace as JSON instead of an
 HTML report (schema documented in `TraceModelJson`'s Javadoc) — intended for external
@@ -141,7 +142,9 @@ java --enable-preview \
 Pass `--verbose` to see the analyzer's own diagnostics on stderr: its log lines at DEBUG and
 up (with level and logger name, including one summary line per parse with the events read by
 type, the scopes and tasks found and the time taken), and a stack trace when it exits 3 or 4.
-Without it they are hidden. Options may come before, between or after the two file arguments:
+Without it they are hidden, whatever `logback.*` system properties are set. Options may come
+before, between or after the two file arguments; an input path that starts with `-` is written
+`./-x.jfr`:
 
 ```text
 Usage: analyzer <input.jfr> <output> [--format=json] [--verbose]

@@ -698,3 +698,32 @@ on. An argument starting with `-` (other than `-` alone) is now an
 option, so an input path starting with `-` is written `./-x.jfr`.
 Exit codes stay as they were, including the two that disagree with
 the Javadoc (#138).
+
+## 2026-11-17 - Logback's own properties and orphan-only recordings (#58)
+
+QA found that the previous entry's "`-D` cannot turn diagnostics on"
+held only for scope-tracer's property. `logback.configurationFile`
+replaced the jar's configuration and logged at DEBUG on stdout, and
+`logback.debug` or `logback.statusListenerClass` printed Logback's
+status lines on stdout, by `-D` or through `JAVA_TOOL_OPTIONS`.
+Maintainer decision: fix the CLI rather than narrow the claim.
+`AnalyzerMain.main` now removes every `logback.*` system property
+before the first logger exists. Removing the whole prefix, not the
+three named, also covers the ones nobody tried; the CLI has no use
+for any of them. The variable `LOGBACK_CONFIGURATION_FILE` is not
+read by this Logback, as QA measured.
+
+A recording whose scope-tracer events all lack their `ScopeOpened`
+(a recording started while scopes were open) was told it "contains
+no scope-tracer events", which is false. It now gets its own line,
+`holds N scope-tracer events but no ScopeOpened event`, with
+wording set in the issue. The count comes from a second
+`RecordingFile` pass that runs only when the model has no scopes, so
+`TraceModel`, `TraceModelJson` and `JfrParser.parse` are unchanged
+and a normal run reads the file once. A model with scopes plus
+orphan events gets no orphan line (#68).
+
+Accepted as a consequence of options in any position plus "unknown
+option exits 1": a bare `-x.jfr` input now exits 1 (write
+`./-x.jfr`), and `--help extra` exits 1 instead of 2. Both are in
+the CHANGELOG.
