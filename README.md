@@ -112,7 +112,22 @@ java --enable-preview \
 The `-executable` jar is a self-contained fat-jar produced by `mvn package`. It bundles
 all runtime dependencies so no classpath assembly is needed.
 
-Pass `--format=json` as a third argument to write the parsed trace as JSON instead of an
+On success it prints one line on stdout and nothing else:
+
+```text
+Report written to /home/me/myapp/report.html
+```
+
+Errors and warnings go to stderr. A warning is one line starting `analyzer: warning:`,
+printed after the report is written, and the exit code stays 0. There are two: a recording
+with scopes that have no close event or tasks that have no completion event (they were still
+running when the recording was written, or JFR dropped their events — see
+[JFR buffer tuning](docs/jfr-events.md#high-volume-recordings-jfr-buffer-tuning)), which the
+report draws as incomplete; and a recording with no scope-tracer events at all, which usually
+means the program ran without the agent or `TracedScope`, or the recording did not enable
+`com.ionutbanu.scopetracer.*`.
+
+Pass `--format=json` to write the parsed trace as JSON instead of an
 HTML report (schema documented in `TraceModelJson`'s Javadoc) — intended for external
 tools, such as an IDE plugin, that want the parsed trace without loading any scope-tracer
 classes in-process:
@@ -123,7 +138,18 @@ java --enable-preview \
      myapp.jfr trace.json --format=json
 ```
 
-Or use the programmatic API (put the `scope-tracer-analyzer` jar on the classpath):
+Pass `--verbose` to see the analyzer's own diagnostics on stderr: its log lines at DEBUG and
+up (with level and logger name, including one summary line per parse with the events read by
+type, the scopes and tasks found and the time taken), and a stack trace when it exits 3 or 4.
+Without it they are hidden. Options may come before, between or after the two file arguments:
+
+```text
+Usage: analyzer <input.jfr> <output> [--format=json] [--verbose]
+```
+
+Or use the programmatic API (put the `scope-tracer-analyzer` jar on the classpath). The
+analyzer logs through SLF4J and brings no binding: your application's own decides where its
+lines go.
 
 ```java
 import com.ionutbanu.scopetracer.analyzer.HtmlRenderer;

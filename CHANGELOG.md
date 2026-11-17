@@ -18,8 +18,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The recording is named `scope-tracer`, holds only scope-tracer events, and is capped at
   250 MB. A location that cannot be written gives one warning and no recording; the program
   runs and is instrumented as without the argument. Opt-in: without `record` nothing changes.
+- **Analyzer `--verbose`.** `analyzer <in.jfr> <out> [--format=json] [--verbose]` shows the
+  analyzer's own log lines on stderr at DEBUG and up, with level and logger name, including one
+  summary line per parse (events read by type, scopes and tasks, time taken), and adds the
+  stack trace to a run that exits 3 or 4. It is the only switch; no system property or
+  environment variable turns it on. Options may now come before, between or after the two file
+  arguments, each at most once.
+- **Analyzer warnings a user can act on.** After writing the report the CLI prints one
+  `analyzer: warning:` line on stderr for scopes without a close event or tasks without a
+  completion event (counted by scope, with both causes: still running when the recording was
+  written, or dropped by JFR), and one for a recording with no scope-tracer events at all
+  (the agent or `TracedScope` was not used, or `com.ionutbanu.scopetracer.*` was not
+  enabled). The exit code stays 0.
 
 ### Changed
+
+- **The analyzer CLI prints only its report line on stdout.** The library's log lines no
+  longer reach stdout in Logback's developer format (`09:26:00.199 [main] WARN
+  ...JfrParser -- ...`): they are hidden unless `--verbose` is given, and then go to stderr.
+  The parser's WARN for incomplete scopes and tasks no longer says the file "may have been cut
+  short"; it names both causes. Exit codes, the report line and the HTML and JSON output are
+  unchanged.
+- **The analyzer no longer brings Logback to library users.** `logback-classic` is now an
+  optional dependency of `scope-tracer-analyzer`, bundled only into its `-executable` jar
+  together with the CLI's `logback.xml`; the plain jar carries no logging configuration. A
+  program that uses the analyzer as a library logs through its own SLF4J binding, and SLF4J no
+  longer warns about multiple providers. A project that relied on getting Logback through the
+  analyzer must now declare a binding itself.
 
 - **Agent warnings name the cause.** Every `[scope-tracer] WARN` line that names an exception
   now ends in the whole cause chain: `IllegalStateException: Could not install class file
