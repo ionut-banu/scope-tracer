@@ -32,12 +32,14 @@ import java.util.List;
  *       usage for {@code -h} / {@code --help}. Nothing else is printed there.
  *   <li>{@code stderr} holds errors (one {@code analyzer: ...} line, or the usage on exit 1) and
  *       warnings a user can act on, printed after the report is written, one line each starting
- *       {@code analyzer: warning: }: scopes or tasks with no end event, and a recording with no
- *       scope-tracer events. A warning does not change the exit code.
+ *       {@code analyzer: warning: }: scopes or tasks with no end event, a recording with no
+ *       scope-tracer events, and one whose scope-tracer events all lack their {@code ScopeOpened}.
+ *       A warning does not change the exit code.
  *   <li>The library's SLF4J output is hidden. {@code --verbose} prints it on {@code stderr} at
  *       DEBUG and above, with its level and logger name, and adds the stack trace after the error
  *       line of a run that exits 3 or 4. {@code --verbose} is the only switch: no system property
- *       or environment variable turns diagnostics on.
+ *       or environment variable turns diagnostics on, Logback's own {@code logback.*} properties
+ *       included (they are removed before logging starts).
  * </ul>
  *
  * <p>Exit codes:
@@ -76,8 +78,24 @@ public final class AnalyzerMain {
 
   public static void main(String[] args) {
     boolean verbose = parse(args) instanceof Arguments.Analyze analyze && analyze.verbose();
-    System.setProperty(LOG_LEVEL_PROPERTY, verbose ? "DEBUG" : "OFF");
+    configureLogging(verbose);
     System.exit(run(args, System.out, System.err));
+  }
+
+  /**
+   * Fixes the CLI's logging before the first logger is created, so that {@code --verbose} is the
+   * only switch. Logback reads its own system properties when it starts: {@code
+   * logback.configurationFile} would replace the jar's {@code logback.xml} (another level, stdout),
+   * and {@code logback.debug} or {@code logback.statusListenerClass} print Logback's status lines
+   * on stdout. Every {@code logback.*} property is therefore removed, whether it came from {@code
+   * -D} or {@code JAVA_TOOL_OPTIONS}, and {@link #LOG_LEVEL_PROPERTY} is always set. Called only
+   * from {@link #main}: a program that calls {@link #run} or the library keeps its own logging.
+   */
+  static void configureLogging(boolean verbose) {
+    for (String name : System.getProperties().stringPropertyNames()) {
+      if (name.startsWith("logback.")) System.clearProperty(name);
+    }
+    System.setProperty(LOG_LEVEL_PROPERTY, verbose ? "DEBUG" : "OFF");
   }
 
   /**
@@ -112,7 +130,8 @@ public final class AnalyzerMain {
       var content = args.json() ? TraceModelJson.toJson(model) : HtmlRenderer.render(model);
       Files.writeString(output, content);
       out.println("Report written to " + output.toAbsolutePath());
-      warnings(jfr, model).forEach(err::println);
+      long events = model.scopes().isEmpty() ? JfrParser.countScopeTracerEvents(jfr) : -1;
+      warnings(jfr, model, events).forEach(err::println);
       return 0;
     } catch (NoSuchFileException e) {
       err.println("analyzer: file not found: " + e.getFile());
@@ -131,17 +150,30 @@ public final class AnalyzerMain {
   /**
    * The {@code analyzer: warning:} lines for {@code model}, read from {@code jfr}: none for a
    * complete recording, one for scopes and tasks with no end event, one for a recording with no
-   * scopes. Computed from the model, not from log output, so a recording made by the agent and one
-   * made with {@code TracedScope} get the same line.
+   * scope-tracer events, and one for a recording whose scope-tracer events all lack their {@code
+   * ScopeOpened}. {@code eventsWhenEmpty} is the number of scope-tracer events in the file, counted
+   * only when the model has no scopes (ignored otherwise). Computed from the model, not from log
+   * output, so a recording made by the agent and one made with {@code TracedScope} get the same
+   * line.
    */
-  static List<String> warnings(Path jfr, TraceModel model) {
-    if (model.scopes().isEmpty()) {
+  static List<String> warnings(Path jfr, TraceModel model, long eventsWhenEmpty) {
+    if (model.scopes().isEmpty() && eventsWhenEmpty == 0) {
       return List.of(
           WARNING
               + jfr
               + " contains no scope-tracer events: the program was not run with the"
               + " scope-tracer agent or TracedScope, or the recording did not enable"
               + " com.ionutbanu.scopetracer.* events");
+    }
+    if (model.scopes().isEmpty()) {
+      return List.of(
+          WARNING
+              + jfr
+              + " holds "
+              + count(eventsWhenEmpty, "scope-tracer event")
+              + " but no ScopeOpened event, so the report shows no scopes. Their scopes were"
+              + " opened before the recording started, or JFR dropped the events; see "
+              + BUFFER_TUNING_URL);
     }
     long scopes = JfrParser.incompleteScopes(model);
     long tasks = JfrParser.incompleteTasks(model);

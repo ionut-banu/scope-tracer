@@ -8,12 +8,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -110,7 +112,7 @@ class AnalyzerCliIT {
     assertThat(run.code()).as(run.err()).isZero();
     assertThat(run.out()).isEqualTo(reportLine(output));
     assertThat(run.err().lines().toList())
-        .containsExactly(AnalyzerMain.warnings(open, JfrParser.parse(open)).getFirst());
+        .containsExactly(AnalyzerMain.warnings(open, JfrParser.parse(open), -1).getFirst());
     assertThat(run.err())
         .startsWith("analyzer: warning: " + open + " has 1 scope without a close event and 1 task")
         .doesNotContain(PARSER_LOGGER)
@@ -199,24 +201,127 @@ class AnalyzerCliIT {
     }
   }
 
-  @Test
-  void noSystemPropertyTurnsDiagnosticsOn() throws Exception {
+  /**
+   * Neither the CLI's own level property nor Logback's ({@code logback.configurationFile} pointing
+   * at a DEBUG configuration on stdout, {@code logback.debug}, {@code
+   * logback.statusListenerClass}), each given as {@code -D} or through {@code JAVA_TOOL_OPTIONS},
+   * turns diagnostics on or puts anything on stdout. The JVM's own {@code Picked up
+   * JAVA_TOOL_OPTIONS} line is the only extra.
+   */
+  @ParameterizedTest(name = "{0} via {1}")
+  @CsvSource({
+    "level, -D",
+    "level, JAVA_TOOL_OPTIONS",
+    "configurationFile, -D",
+    "configurationFile, JAVA_TOOL_OPTIONS",
+    "debug, -D",
+    "debug, JAVA_TOOL_OPTIONS",
+    "statusListenerClass, -D",
+    "statusListenerClass, JAVA_TOOL_OPTIONS"
+  })
+  void noSystemPropertyTurnsDiagnosticsOn(String property, String route) throws Exception {
     var output = dir.resolve("property.html");
+    String definition = diagnosticProperty(property);
     var run =
-        analyze(
-            List.of(
-                "-D" + AnalyzerMain.LOG_LEVEL_PROPERTY + "=DEBUG",
-                "-Dscopetracer.analyzer.verbose=true"),
-            open,
-            output,
-            List.of());
+        route.equals("-D")
+            ? run(List.of(definition), Map.of(), args(output))
+            : run(List.of(), Map.of("JAVA_TOOL_OPTIONS", definition), args(output));
+    String err = withoutToolOptionsNotice(run.err());
+
+    assertThat(run.code()).as(run.err()).isZero();
+    assertThat(run.out()).isEqualTo(reportLine(output));
+    assertThat(err.lines().toList())
+        .singleElement()
+        .asString()
+        .startsWith("analyzer: warning: " + open + " has 1 scope");
+    assertNoLogFormat(new Result(run.code(), run.out(), err));
+    assertThat(run.out() + err).doesNotContain("EVIL").doesNotContain("|-INFO");
+    if (route.equals("JAVA_TOOL_OPTIONS")) {
+      assertThat(run.err()).startsWith("Picked up JAVA_TOOL_OPTIONS: " + definition);
+    }
+  }
+
+  /** With {@code --verbose} and the same properties, the jar's own configuration still applies. */
+  @Test
+  void verboseKeepsItsOwnConfigurationDespiteLogbackProperties() throws Exception {
+    var output = dir.resolve("property-verbose.html");
+    var options = new ArrayList<>(args(output));
+    options.add("--verbose");
+    var properties = new ArrayList<String>();
+    for (var property : List.of("level", "configurationFile", "debug", "statusListenerClass")) {
+      properties.add(diagnosticProperty(property));
+    }
+    var run = run(properties, Map.of(), options);
+
+    assertThat(run.code()).as(run.err()).isZero();
+    assertThat(run.out()).isEqualTo(reportLine(output));
+    assertThat(run.err()).doesNotContain("EVIL").doesNotContainPattern(TIMESTAMP);
+    assertThat(run.err().lines())
+        .anyMatch(l -> l.startsWith("WARN " + PARSER_LOGGER + " - "))
+        .anyMatch(l -> l.startsWith("DEBUG " + PARSER_LOGGER + " - "))
+        .last()
+        .asString()
+        .startsWith("analyzer: warning:");
+  }
+
+  @Test
+  void recordingWithOnlyOrphanEventsSaysWhatItHolds() throws Exception {
+    var orphans = TestRecordings.orphans(dir.resolve("orphans.jfr"), 0, true, 2);
+    var output = dir.resolve("orphans.json");
+    var run = analyze(orphans, output, List.of("--format=json"));
 
     assertThat(run.code()).as(run.err()).isZero();
     assertThat(run.out()).isEqualTo(reportLine(output));
     assertThat(run.err().lines().toList())
         .singleElement()
         .asString()
-        .startsWith("analyzer: warning:");
+        .startsWith(
+            "analyzer: warning: "
+                + orphans
+                + " holds 3 scope-tracer events but no ScopeOpened event, so the report shows no"
+                + " scopes.");
+  }
+
+  /**
+   * One property a user could try, as {@code -Dname=value}: the CLI's own level, or one of
+   * Logback's, with a configuration that logs everything to stdout with a timestamp and {@code
+   * EVIL}.
+   */
+  private String diagnosticProperty(String which) throws Exception {
+    return switch (which) {
+      case "level" -> "-D" + AnalyzerMain.LOG_LEVEL_PROPERTY + "=DEBUG";
+      case "configurationFile" -> {
+        var evil = dir.resolve("evil.xml");
+        Files.writeString(
+            evil,
+            """
+            <configuration>
+              <appender name="OUT" class="ch.qos.logback.core.ConsoleAppender">
+                <target>System.out</target>
+                <encoder><pattern>EVIL %d [%thread] %level %logger - %msg%n</pattern></encoder>
+              </appender>
+              <root level="DEBUG"><appender-ref ref="OUT"/></root>
+            </configuration>
+            """);
+        yield "-Dlogback.configurationFile=" + evil;
+      }
+      case "debug" -> "-Dlogback.debug=true";
+      case "statusListenerClass" ->
+          "-Dlogback.statusListenerClass=ch.qos.logback.core.status.OnConsoleStatusListener";
+      default -> throw new IllegalArgumentException(which);
+    };
+  }
+
+  /** The JVM's own {@code Picked up JAVA_TOOL_OPTIONS: ...} line, which no program can prevent. */
+  private static String withoutToolOptionsNotice(String err) {
+    return err.lines()
+        .filter(l -> !l.startsWith("Picked up JAVA_TOOL_OPTIONS:"))
+        .map(l -> l + "\n")
+        .reduce("", String::concat);
+  }
+
+  private static List<String> args(Path output) {
+    return List.of(open.toString(), output.toString());
   }
 
   @Test
@@ -262,6 +367,11 @@ class AnalyzerCliIT {
   }
 
   private Result run(List<String> jvmArgs, List<String> args) throws Exception {
+    return run(jvmArgs, Map.of(), args);
+  }
+
+  private Result run(List<String> jvmArgs, Map<String, String> env, List<String> args)
+      throws Exception {
     var command = new ArrayList<String>();
     command.add(java());
     command.add("--enable-preview");
@@ -271,8 +381,11 @@ class AnalyzerCliIT {
     command.addAll(args);
     var out = dir.resolve("stdout-" + System.nanoTime() + ".txt");
     var err = dir.resolve("stderr-" + System.nanoTime() + ".txt");
+    var builder = new ProcessBuilder(command);
+    builder.environment().remove("JAVA_TOOL_OPTIONS");
+    builder.environment().putAll(env);
     var process =
-        new ProcessBuilder(command)
+        builder
             .directory(dir.toFile())
             .redirectOutput(out.toFile())
             .redirectError(err.toFile())

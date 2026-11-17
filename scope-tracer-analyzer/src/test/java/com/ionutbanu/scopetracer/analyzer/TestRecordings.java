@@ -4,6 +4,7 @@ import com.ionutbanu.scopetracer.core.TracedScope;
 import com.ionutbanu.scopetracer.core.events.ScopeClosedEvent;
 import com.ionutbanu.scopetracer.core.events.ScopeOpenedEvent;
 import com.ionutbanu.scopetracer.core.events.TaskForkedEvent;
+import com.ionutbanu.scopetracer.core.events.TaskSucceededEvent;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
@@ -169,6 +170,42 @@ final class TestRecordings {
           closed.scopeName = "cli-dropped";
           closed.threadName = Thread.currentThread().getName();
           closed.commit();
+        });
+  }
+
+  /**
+   * Scope-tracer events with no {@code ScopeOpened}, as in a recording started after the scope was
+   * opened: with {@code fork}, one {@code TaskForked} for task 2, then {@code completions} {@code
+   * TaskSucceeded}. With {@code completeScopes > 0}, that many complete scopes are recorded first.
+   */
+  static Path orphans(Path jfr, int completeScopes, boolean fork, int completions)
+      throws Exception {
+    return record(
+        jfr,
+        (r, f) -> {
+          for (int i = 0; i < completeScopes; i++) {
+            try (var scope = TracedScope.open("cli-complete")) {
+              scope.fork(() -> "ok");
+              scope.join();
+            }
+          }
+          long scopeId = 7_000_000_002L;
+          if (fork) {
+            var forked = new TaskForkedEvent();
+            forked.scopeId = scopeId;
+            forked.scopeName = "cli-orphan";
+            forked.taskId = 2;
+            forked.threadName = Thread.currentThread().getName();
+            forked.commit();
+          }
+          for (long taskId = 1; taskId <= completions; taskId++) {
+            var succeeded = new TaskSucceededEvent();
+            succeeded.scopeId = scopeId;
+            succeeded.scopeName = "cli-orphan";
+            succeeded.taskId = taskId;
+            succeeded.threadName = Thread.currentThread().getName();
+            succeeded.commit();
+          }
         });
   }
 

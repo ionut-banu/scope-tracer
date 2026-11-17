@@ -39,6 +39,8 @@ public final class JfrParser {
   private static final String TASK_FAILED = "com.ionutbanu.scopetracer.TaskFailed";
   private static final String TASK_CANCELLED = "com.ionutbanu.scopetracer.TaskCancelled";
   private static final String SCOPE_CLOSED = "com.ionutbanu.scopetracer.ScopeClosed";
+  private static final List<String> KNOWN_TYPES =
+      List.of(SCOPE_OPENED, TASK_FORKED, TASK_SUCCEEDED, TASK_FAILED, TASK_CANCELLED, SCOPE_CLOSED);
 
   private JfrParser() {}
 
@@ -210,14 +212,7 @@ public final class JfrParser {
     }
     if (log.isDebugEnabled()) {
       var byType = new StringJoiner(", ");
-      for (var type :
-          List.of(
-              SCOPE_OPENED,
-              TASK_FORKED,
-              TASK_SUCCEEDED,
-              TASK_FAILED,
-              TASK_CANCELLED,
-              SCOPE_CLOSED)) {
+      for (var type : KNOWN_TYPES) {
         byType.add(
             type.substring(EVENT_PREFIX.length()) + "=" + eventCounts.getOrDefault(type, 0L));
       }
@@ -230,6 +225,21 @@ public final class JfrParser {
           model.scopes().stream().mapToLong(s -> s.tasks().size()).sum());
     }
     return model;
+  }
+
+  /**
+   * The number of events of the six scope-tracer types in {@code jfrFile}, read in a pass of its
+   * own. For the CLI, which calls it only when the model has no scopes, to tell a recording with no
+   * scope-tracer events from one whose events have no {@code ScopeOpened} to belong to.
+   */
+  static long countScopeTracerEvents(Path jfrFile) throws IOException {
+    long count = 0;
+    try (var file = new RecordingFile(jfrFile)) {
+      while (file.hasMoreEvents()) {
+        if (KNOWN_TYPES.contains(file.readEvent().getEventType().getName())) count++;
+      }
+    }
+    return count;
   }
 
   /**
