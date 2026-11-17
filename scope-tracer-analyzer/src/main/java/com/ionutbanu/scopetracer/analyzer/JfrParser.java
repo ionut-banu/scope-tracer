@@ -72,6 +72,22 @@ public final class JfrParser {
    * @throws IOException if the file cannot be read or parsed.
    */
   public static TraceModel parse(Path jfrFile) throws IOException {
+    return parseCounting(jfrFile).model();
+  }
+
+  /**
+   * A parsed recording and the number of events of the six scope-tracer types read from it, counted
+   * while the file was read for the model.
+   */
+  record Parsed(TraceModel model, long scopeTracerEvents) {}
+
+  /**
+   * {@link #parse(Path)}, also returning the number of events of the six scope-tracer types, taken
+   * from the same read. An event of another {@code com.ionutbanu.scopetracer.*} type is not
+   * counted. For the CLI, to tell a recording with no scope-tracer events from one whose events
+   * have no {@code ScopeOpened} to belong to, without opening the file again.
+   */
+  static Parsed parseCounting(Path jfrFile) throws IOException {
     // All maps are keyed by the scopeId long stamped on every JFR event. This uniquely identifies
     // each scope instance, eliminating any name-based collision between concurrent scopes.
     //
@@ -224,22 +240,9 @@ public final class JfrParser {
           model.scopes().size(),
           model.scopes().stream().mapToLong(s -> s.tasks().size()).sum());
     }
-    return model;
-  }
-
-  /**
-   * The number of events of the six scope-tracer types in {@code jfrFile}, read in a pass of its
-   * own. For the CLI, which calls it only when the model has no scopes, to tell a recording with no
-   * scope-tracer events from one whose events have no {@code ScopeOpened} to belong to.
-   */
-  static long countScopeTracerEvents(Path jfrFile) throws IOException {
-    long count = 0;
-    try (var file = new RecordingFile(jfrFile)) {
-      while (file.hasMoreEvents()) {
-        if (KNOWN_TYPES.contains(file.readEvent().getEventType().getName())) count++;
-      }
-    }
-    return count;
+    long known = 0;
+    for (var type : KNOWN_TYPES) known += eventCounts.getOrDefault(type, 0L);
+    return new Parsed(model, known);
   }
 
   /**

@@ -126,12 +126,12 @@ public final class AnalyzerMain {
     }
 
     try {
-      var model = JfrParser.parse(jfr);
+      var parsed = JfrParser.parseCounting(jfr);
+      var model = parsed.model();
       var content = args.json() ? TraceModelJson.toJson(model) : HtmlRenderer.render(model);
       Files.writeString(output, content);
       out.println("Report written to " + output.toAbsolutePath());
-      long events = model.scopes().isEmpty() ? JfrParser.countScopeTracerEvents(jfr) : -1;
-      warnings(jfr, model, events).forEach(err::println);
+      warnings(jfr, model, parsed.scopeTracerEvents()).forEach(err::println);
       return 0;
     } catch (NoSuchFileException e) {
       err.println("analyzer: file not found: " + e.getFile());
@@ -152,9 +152,9 @@ public final class AnalyzerMain {
    * complete recording, one for scopes and tasks with no end event, one for a recording with no
    * scope-tracer events, and one for a recording whose scope-tracer events all lack their {@code
    * ScopeOpened}. {@code eventsWhenEmpty} is the number of scope-tracer events in the file, counted
-   * only when the model has no scopes (ignored otherwise). Computed from the model, not from log
-   * output, so a recording made by the agent and one made with {@code TracedScope} get the same
-   * line.
+   * by the read that built the model and used only when the model has no scopes. Computed from the
+   * model, not from log output, so a recording made by the agent and one made with {@code
+   * TracedScope} get the same line.
    */
   static List<String> warnings(Path jfr, TraceModel model, long eventsWhenEmpty) {
     if (model.scopes().isEmpty() && eventsWhenEmpty == 0) {

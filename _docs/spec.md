@@ -277,8 +277,9 @@ and `--help` with other arguments is usage and exit 1.
   scope instance, nested ones included, with both causes - still
   running when the recording was written, or dropped by JFR - and a
   link to the buffer-tuning section of `docs/jfr-events.md`), and,
-  when the model has no scopes, one of two lines from a second pass
-  over the file that counts the six event types: with zero events,
+  when the model has no scopes, one of two lines from a count of the
+  six event types made while the file is read for the model (no second
+  read, so nothing is read after "Report written"): with zero events,
   "contains no scope-tracer events" (no agent or `TracedScope`, or
   the events were not enabled); otherwise "holds N scope-tracer
   events but no ScopeOpened event" (scopes opened before the
@@ -548,15 +549,15 @@ input. Both sides change in the same issue.
 | Suite | Runner | Count (2026-11-17, #58, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
-| analyzer unit | surefire | 144 |
+| analyzer unit | surefire | 151 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
 | agent unit | surefire | 166 |
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 266 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first five: 710 tests (surefire plus
-failsafe, measured on 2026-11-17 on the branch of #58 on Temurin 27; the
+`mvn -q verify` runs the first five: 717 tests (surefire plus
+failsafe, measured on 2026-11-17 on the branch of #142 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
