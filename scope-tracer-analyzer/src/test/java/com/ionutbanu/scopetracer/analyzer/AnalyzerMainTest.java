@@ -16,6 +16,7 @@ import jdk.jfr.Recording;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class AnalyzerMainTest {
@@ -447,6 +448,123 @@ class AnalyzerMainTest {
     assertThat(run.code()).isZero();
     assertThat(run.out()).hasLineCount(1);
     assertThat(run.err()).isEmpty();
+  }
+
+  /**
+   * An event of a scope-tracer type this version does not know, with the fields every reader needs.
+   */
+  @Name("com.ionutbanu.scopetracer.Future")
+  static final class FutureEvent extends Event {
+    long scopeId;
+    String scopeName;
+    long taskId;
+    String threadName;
+  }
+
+  /** What happens to the input when the report line reaches stdout. */
+  private enum Change {
+    DELETE,
+    TRUNCATE,
+    OVERWRITE
+  }
+
+  /** Runs the CLI on {@code jfr}, changing the input as soon as "Report written" is printed. */
+  private Run runChangingInputAfterReport(Path jfr, Change change, String output) {
+    var out = new ByteArrayOutputStream();
+    var err = new ByteArrayOutputStream();
+    var outStream =
+        new PrintStream(
+            new java.io.FilterOutputStream(out) {
+              private final StringBuilder seen = new StringBuilder();
+              private boolean done;
+
+              @Override
+              public void write(int b) throws java.io.IOException {
+                out.write(b);
+                seen.append((char) b);
+                if (!done && seen.toString().contains("Report written")) {
+                  done = true;
+                  try {
+                    switch (change) {
+                      case DELETE -> Files.delete(jfr);
+                      case TRUNCATE -> Files.write(jfr, new byte[0]);
+                      case OVERWRITE -> Files.writeString(jfr, "not a recording");
+                    }
+                  } catch (java.io.IOException e) {
+                    throw new java.io.UncheckedIOException(e);
+                  }
+                }
+              }
+
+              @Override
+              public void write(byte[] b, int off, int len) throws java.io.IOException {
+                for (int i = 0; i < len; i++) write(b[off + i]);
+              }
+            },
+            true,
+            StandardCharsets.UTF_8);
+    int code =
+        AnalyzerMain.run(
+            new String[] {jfr.toString(), output},
+            outStream,
+            new PrintStream(err, true, StandardCharsets.UTF_8));
+    return new Run(
+        code,
+        out.toString(StandardCharsets.UTF_8).replace(System.lineSeparator(), "\n"),
+        err.toString(StandardCharsets.UTF_8).replace(System.lineSeparator(), "\n"));
+  }
+
+  @ParameterizedTest
+  @EnumSource(Change.class)
+  void orphanOnlyRecordingChangedAfterTheReportStillExitsZeroWithTheCount(Change change)
+      throws Exception {
+    var jfr = TestRecordings.orphans(tempDir.resolve("changed.jfr"), 0, true, 2);
+    var output = tempDir.resolve("changed.html");
+    var run = runChangingInputAfterReport(jfr, change, output.toString());
+
+    assertThat(run.code()).isZero();
+    assertThat(output).exists();
+    assertThat(run.out()).startsWith("Report written to ");
+    assertThat(run.err())
+        .startsWith("analyzer: warning: " + jfr + " holds 3 scope-tracer events but no ScopeOpened")
+        .doesNotContain("I/O error")
+        .hasLineCount(1);
+  }
+
+  @Test
+  void scopedRecordingDeletedAfterTheReportStillExitsZeroWithNoWarning() throws Exception {
+    var jfr = TestRecordings.complete(tempDir.resolve("scoped.jfr"), "scoped", 1);
+    var run =
+        runChangingInputAfterReport(jfr, Change.DELETE, tempDir.resolve("scoped.html").toString());
+    assertThat(run.code()).isZero();
+    assertThat(run.err()).isEmpty();
+  }
+
+  @Test
+  void emptyRecordingDeletedAfterTheReportStillWarnsOfNoEvents() throws Exception {
+    var jfr = TestRecordings.empty(tempDir.resolve("none.jfr"));
+    var run =
+        runChangingInputAfterReport(jfr, Change.DELETE, tempDir.resolve("none.html").toString());
+    assertThat(run.code()).isZero();
+    assertThat(run.err()).contains("contains no scope-tracer events").doesNotContain("I/O error");
+  }
+
+  @Test
+  void eventsOfAnUnknownScopeTracerTypeAreNotCounted() throws Exception {
+    var jfr =
+        TestRecordings.record(
+            tempDir.resolve("future.jfr"),
+            (r, f) -> {
+              var e = new FutureEvent();
+              e.scopeId = 7_000_000_009L;
+              e.scopeName = "future";
+              e.taskId = 1;
+              e.threadName = "t";
+              e.commit();
+            });
+    var run = run(jfr.toString(), tempDir.resolve("future.html").toString());
+    assertThat(run.code()).isZero();
+    assertThat(run.err()).contains("contains no scope-tracer events").doesNotContain("holds");
   }
 
   @Test

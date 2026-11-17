@@ -105,6 +105,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The analyzer's orphan count no longer reads the file twice.** The `holds N scope-tracer
+  events but no ScopeOpened event` count now comes from the read that builds the model, so a
+  recording that changes or disappears after `Report written` can no longer turn a complete
+  report into exit 3. Output for an unmodified recording is unchanged.
 - **A renamed agent jar traces.** The fat-jar's `Boot-Class-Path` names its original file,
   so a copy under another name (`agent.jar`) used to be instrumented but record nothing, with
   no warning. The agent now adds the jar it was loaded from to the bootstrap class path

@@ -727,3 +727,21 @@ Accepted as a consequence of options in any position plus "unknown
 option exits 1": a bare `-x.jfr` input now exits 1 (write
 `./-x.jfr`), and `--help extra` exits 1 instead of 2. Both are in
 the CHANGELOG.
+
+## 2026-11-17 - The orphan count comes from the first read (#142)
+
+#58 counted the six event types in a second `RecordingFile` pass
+after the report was written. PM measured (#142, Temurin 27.0.1)
+that a recording changed in that window - the CLI's stdout a pipe
+filled to 64 KiB, so the `Report written` line blocks - turned a
+complete report into exit 3: truncated to 0 bytes, overwritten with
+text and deleted all gave `I/O error`, with the 4429-byte report on
+disk. Maintainer decision: take the count from the read that builds
+the model. `JfrParser.parseCounting`, package-private, returns the
+model and the count of the six known types from the per-type
+counter the DEBUG line already used; `parse(Path)` delegates to it
+and is unchanged, as are `TraceModel` and `TraceModelJson`, so the
+plugin is untouched. Nothing is read after `Report written`, and
+there is no "warning without N" fallback, which would be dead code.
+The catch clauses and exit codes are #138's; the rule that nothing
+after `Report written` may change the exit code is recorded there.

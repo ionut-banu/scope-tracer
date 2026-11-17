@@ -865,4 +865,52 @@ class JfrParserTest {
     e.threadName = Thread.currentThread().getName();
     e.commit();
   }
+
+  @jdk.jfr.Name("com.ionutbanu.scopetracer.Future")
+  static final class FutureEvent extends jdk.jfr.Event {
+    long scopeId;
+    String scopeName;
+    long taskId;
+    String threadName;
+  }
+
+  @Test
+  void parseCountingCountsTheSixKnownTypesFromTheSameRead() throws Exception {
+    var jfr = tempDir.resolve("counting.jfr");
+    var known = new java.util.concurrent.atomic.AtomicLong();
+    TestRecordings.record(
+        jfr,
+        (r, f) -> {
+          try (var scope = TracedScope.open("counted")) {
+            scope.fork(() -> "ok");
+            scope.join();
+          }
+          var orphan = new TaskSucceededEvent();
+          orphan.scopeId = 7_000_000_003L;
+          orphan.scopeName = "orphan";
+          orphan.taskId = 1;
+          orphan.threadName = "t";
+          orphan.commit();
+          var future = new FutureEvent();
+          future.scopeId = 7_000_000_003L;
+          future.scopeName = "orphan";
+          future.taskId = 1;
+          future.threadName = "t";
+          future.commit();
+        });
+    try (var file = new jdk.jfr.consumer.RecordingFile(jfr)) {
+      while (file.hasMoreEvents()) {
+        var name = file.readEvent().getEventType().getName();
+        if (name.startsWith("com.ionutbanu.scopetracer.") && !name.endsWith(".Future")) {
+          known.incrementAndGet();
+        }
+      }
+    }
+
+    var parsed = JfrParser.parseCounting(jfr);
+
+    assertThat(known.get()).isGreaterThanOrEqualTo(5);
+    assertThat(parsed.scopeTracerEvents()).isEqualTo(known.get());
+    assertThat(parsed.model()).isEqualTo(JfrParser.parse(jfr));
+  }
 }
