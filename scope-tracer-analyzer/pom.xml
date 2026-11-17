@@ -24,9 +24,12 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
+    <!-- The CLI's backend, bundled into the -executable jar only. Optional, so a library user
+         keeps its own SLF4J binding: choosing one is the host's job. -->
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
+      <optional>true</optional>
     </dependency>
 
     <dependency>
@@ -61,6 +64,12 @@
                   <mainClass>com.ionutbanu.scopetracer.analyzer.AnalyzerMain</mainClass>
                 </transformer>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                <!-- The CLI's logging configuration, in this jar only: src/cli is not a resource
+                     directory, so the plain jar carries none. -->
+                <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
+                  <resource>logback.xml</resource>
+                  <file>${project.basedir}/src/cli/logback.xml</file>
+                </transformer>
               </transformers>
               <filters>
                 <filter>
@@ -73,6 +82,27 @@
                 </filter>
               </filters>
             </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- The CLI ITs run the -executable jar and inspect the plain jar, so they run after
+           package. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <argLine>--enable-preview</argLine>
+          <systemPropertyVariables>
+            <analyzerExecutableJar>${project.build.directory}/${project.build.finalName}-executable.jar</analyzerExecutableJar>
+            <analyzerPlainJar>${project.build.directory}/${project.build.finalName}.jar</analyzerPlainJar>
+          </systemPropertyVariables>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
           </execution>
         </executions>
       </plugin>

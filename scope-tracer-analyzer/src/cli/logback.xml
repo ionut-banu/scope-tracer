@@ -1,0 +1,20 @@
+<!--
+  The CLI's logging configuration. Shade copies it into the -executable jar only (see the
+  IncludeResourceTransformer in this module's pom.xml); it is kept out of src/main/resources so
+  the plain library jar never configures a library user's Logback.
+
+  AnalyzerMain.main sets scopetracer.analyzer.cli.logLevel before the first logger is created:
+  DEBUG with verbose, OFF otherwise. It always sets it, so a -D on the command line changes
+  nothing. Log lines go to stderr only; stdout is the report line.
+-->
+<configuration>
+  <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.err</target>
+    <encoder>
+      <pattern>%level %logger - %msg%n</pattern>
+    </encoder>
+  </appender>
+  <root level="${scopetracer.analyzer.cli.logLevel:-OFF}">
+    <appender-ref ref="STDERR"/>
+  </root>
+</configuration>

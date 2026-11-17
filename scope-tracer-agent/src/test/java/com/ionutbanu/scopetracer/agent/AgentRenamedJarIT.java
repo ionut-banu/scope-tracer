@@ -328,7 +328,9 @@ class AgentRenamedJarIT {
         assertThat(fromRenamed.linesContaining("SLF4J("))
             .isEqualTo(fromOriginal.linesContaining("SLF4J("));
         assertThat(fromRenamed.linesContaining(IsolationTestSubject.LOG_LINE)).hasSize(1);
-        assertThat(fromRenamed.output()).doesNotContain("cut short").doesNotContain("JfrParser");
+        assertThat(fromRenamed.output())
+            .doesNotContain("JFR dropped their events")
+            .doesNotContain("JfrParser");
         assertThat(JfrParser.parse(fromRenamed.jfr()).scopes())
             .extracting(ScopeRecord::name)
             .containsExactlyInAnyOrder(

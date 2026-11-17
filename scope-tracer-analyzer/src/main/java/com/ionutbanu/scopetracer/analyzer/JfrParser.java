@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 import jdk.jfr.consumer.RecordingFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,7 @@ public final class JfrParser {
 
   private static final Logger log = LoggerFactory.getLogger(JfrParser.class);
 
+  private static final String EVENT_PREFIX = "com.ionutbanu.scopetracer.";
   private static final String SCOPE_OPENED = "com.ionutbanu.scopetracer.ScopeOpened";
   private static final String TASK_FORKED = "com.ionutbanu.scopetracer.TaskForked";
   private static final String TASK_SUCCEEDED = "com.ionutbanu.scopetracer.TaskSucceeded";
@@ -57,9 +59,11 @@ public final class JfrParser {
    * ScopeOpened} is absent cannot be placed and are left out, as is a completion without a {@code
    * TaskForked}.
    *
-   * <p>Tasks whose completion event is absent (truncated recordings) are included with {@code null}
-   * {@code completionTime} and {@code outcome}. Scopes whose {@code ScopeClosed} event is absent
-   * get a {@code null} {@code closeTime}.
+   * <p>Tasks whose completion event is absent (still running when the recording was written, or
+   * dropped by JFR) are included with {@code null} {@code completionTime} and {@code outcome}.
+   * Scopes whose {@code ScopeClosed} event is absent get a {@code null} {@code closeTime}. One WARN
+   * names their counts. At DEBUG, one line per parse names the file, the number of events read by
+   * type, the number of scopes and tasks, and the time the parse took.
    *
    * @param jfrFile path to the {@code .jfr} file; must be readable.
    * @return the complete trace model; scopes sorted by open time, tasks sorted by fork time.
@@ -80,11 +84,15 @@ public final class JfrParser {
     var forks = new HashMap<Long, Map<Long, ForkData>>();
     var completions = new HashMap<Long, Map<Long, CompletionData>>();
 
+    long startNanos = System.nanoTime();
+    var eventCounts = new HashMap<String, Long>();
+
     try (var file = new RecordingFile(jfrFile)) {
       while (file.hasMoreEvents()) {
         var event = file.readEvent();
         var type = event.getEventType().getName();
-        if (!type.startsWith("com.ionutbanu.scopetracer.")) continue;
+        if (!type.startsWith(EVENT_PREFIX)) continue;
+        eventCounts.merge(type, 1L, Long::sum);
 
         long scopeId = event.getLong("scopeId");
         var scopeName = event.getString("scopeName");
@@ -188,22 +196,60 @@ public final class JfrParser {
     }
     scopes.sort(Comparator.comparing(ScopeRecord::openTime));
 
-    long truncatedScopes = scopes.stream().filter(s -> s.closeTime() == null).count();
-    long truncatedTasks =
-        scopes.stream()
-            .flatMap(s -> s.tasks().stream())
-            .filter(t -> t.completionTime() == null || t.outcome() == null)
-            .count();
-    if (truncatedScopes > 0 || truncatedTasks > 0) {
+    var model = new TraceModel(List.copyOf(scopes));
+    long incompleteScopes = incompleteScopes(model);
+    long incompleteTasks = incompleteTasks(model);
+    if (incompleteScopes > 0 || incompleteTasks > 0) {
       log.warn(
-          "recording {} contains {} truncated scope(s) and {} truncated task(s) — "
-              + "the .jfr file may have been cut short",
+          "recording {} contains {} scope(s) without a close event and {} task(s) without a"
+              + " completion event: they were still running when the recording was written, or"
+              + " JFR dropped their events",
           jfrFile,
-          truncatedScopes,
-          truncatedTasks);
+          incompleteScopes,
+          incompleteTasks);
     }
+    if (log.isDebugEnabled()) {
+      var byType = new StringJoiner(", ");
+      for (var type :
+          List.of(
+              SCOPE_OPENED,
+              TASK_FORKED,
+              TASK_SUCCEEDED,
+              TASK_FAILED,
+              TASK_CANCELLED,
+              SCOPE_CLOSED)) {
+        byType.add(
+            type.substring(EVENT_PREFIX.length()) + "=" + eventCounts.getOrDefault(type, 0L));
+      }
+      log.debug(
+          "parsed {} in {} ms: events {}; {} scope(s), {} task(s)",
+          jfrFile,
+          (System.nanoTime() - startNanos) / 1_000_000,
+          byType,
+          model.scopes().size(),
+          model.scopes().stream().mapToLong(s -> s.tasks().size()).sum());
+    }
+    return model;
+  }
 
-    return new TraceModel(List.copyOf(scopes));
+  /**
+   * The number of scopes in {@code model} without a close event ({@code closeTime} is null): still
+   * open when the recording was written, or their {@code ScopeClosed} was dropped. Counted by scope
+   * instance, nested scopes included.
+   */
+  static long incompleteScopes(TraceModel model) {
+    return model.scopes().stream().filter(s -> s.closeTime() == null).count();
+  }
+
+  /**
+   * The number of tasks in {@code model} without a completion event ({@code completionTime} or
+   * {@code outcome} is null). A failed or cancelled task has a completion and is not counted.
+   */
+  static long incompleteTasks(TraceModel model) {
+    return model.scopes().stream()
+        .flatMap(s -> s.tasks().stream())
+        .filter(t -> t.completionTime() == null || t.outcome() == null)
+        .count();
   }
 
   /**
