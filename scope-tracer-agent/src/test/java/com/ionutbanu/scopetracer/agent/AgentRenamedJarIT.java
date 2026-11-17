@@ -328,9 +328,16 @@ class AgentRenamedJarIT {
         assertThat(fromRenamed.linesContaining("SLF4J("))
             .isEqualTo(fromOriginal.linesContaining("SLF4J("));
         assertThat(fromRenamed.linesContaining(IsolationTestSubject.LOG_LINE)).hasSize(1);
-        assertThat(fromRenamed.output())
-            .doesNotContain("JFR dropped their events")
-            .doesNotContain("JfrParser");
+        assertThat(
+                fromRenamed
+                    .output()
+                    .lines()
+                    .filter(l -> !l.startsWith(ChildJvm.AGENT_PREFIX))
+                    .filter(l -> !l.contains(CDS_WARNING))
+                    .filter(l -> !l.contains(IsolationTestSubject.LOG_LINE))
+                    .filter(l -> !l.contains("SLF4J(")))
+            .as("output lines the subject does not print")
+            .isEmpty();
         assertThat(JfrParser.parse(fromRenamed.jfr()).scopes())
             .extracting(ScopeRecord::name)
             .containsExactlyInAnyOrder(
