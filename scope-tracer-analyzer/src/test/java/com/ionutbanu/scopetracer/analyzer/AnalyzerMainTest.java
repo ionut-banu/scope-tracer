@@ -408,6 +408,79 @@ class AnalyzerMainTest {
                 + " com.ionutbanu.scopetracer.* events\n");
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void recordingWithOnlyOrphanEventsSaysWhatItHolds(boolean json) throws Exception {
+    var jfr = TestRecordings.orphans(tempDir.resolve("orphans.jfr"), 0, true, 2);
+    var output = tempDir.resolve(json ? "orphans.json" : "orphans.html");
+    var run = run(withJson(json, jfr.toString(), output.toString()));
+
+    assertThat(run.code()).isZero();
+    assertThat(output).exists();
+    assertThat(run.out()).isEqualTo("Report written to " + output.toAbsolutePath() + "\n");
+    assertThat(run.err())
+        .isEqualTo(
+            "analyzer: warning: "
+                + jfr
+                + " holds 3 scope-tracer events but no ScopeOpened event, so the report shows no"
+                + " scopes. Their scopes were opened before the recording started, or JFR dropped"
+                + " the events; see "
+                + URL
+                + "\n");
+  }
+
+  @Test
+  void oneOrphanEventIsSingular() throws Exception {
+    var jfr = TestRecordings.orphans(tempDir.resolve("orphan.jfr"), 0, false, 1);
+    var run = run(jfr.toString(), tempDir.resolve("orphan.html").toString());
+    assertThat(run.code()).isZero();
+    assertThat(run.err())
+        .startsWith(
+            "analyzer: warning: " + jfr + " holds 1 scope-tracer event but no ScopeOpened event,")
+        .hasLineCount(1);
+  }
+
+  @Test
+  void completeScopesPlusOrphanEventsGetNoOrphanLine() throws Exception {
+    var jfr = TestRecordings.orphans(tempDir.resolve("mixed.jfr"), 2, true, 2);
+    var run = run(jfr.toString(), tempDir.resolve("mixed.html").toString());
+    assertThat(run.code()).isZero();
+    assertThat(run.out()).hasLineCount(1);
+    assertThat(run.err()).isEmpty();
+  }
+
+  @Test
+  void configureLoggingRemovesLogbacksOwnPropertiesAndSetsTheLevel() {
+    var names =
+        List.of(
+            "logback.configurationFile",
+            "logback.debug",
+            "logback.statusListenerClass",
+            "logback.ContextSelector");
+    var before = new java.util.HashMap<String, String>();
+    for (var name : names) before.put(name, System.getProperty(name));
+    String level = System.getProperty(AnalyzerMain.LOG_LEVEL_PROPERTY);
+    try {
+      for (var name : names) System.setProperty(name, "set-by-test");
+      System.setProperty(AnalyzerMain.LOG_LEVEL_PROPERTY, "DEBUG");
+
+      AnalyzerMain.configureLogging(false);
+      for (var name : names) assertThat(System.getProperty(name)).as(name).isNull();
+      assertThat(System.getProperty(AnalyzerMain.LOG_LEVEL_PROPERTY)).isEqualTo("OFF");
+
+      AnalyzerMain.configureLogging(true);
+      assertThat(System.getProperty(AnalyzerMain.LOG_LEVEL_PROPERTY)).isEqualTo("DEBUG");
+    } finally {
+      before.forEach(
+          (name, value) -> {
+            if (value == null) System.clearProperty(name);
+            else System.setProperty(name, value);
+          });
+      if (level == null) System.clearProperty(AnalyzerMain.LOG_LEVEL_PROPERTY);
+      else System.setProperty(AnalyzerMain.LOG_LEVEL_PROPERTY, level);
+    }
+  }
+
   private record Run(int code, String out, String err) {}
 
   private static Run run(String... args) {
