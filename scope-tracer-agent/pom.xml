@@ -29,6 +29,13 @@
       <artifactId>scope-tracer-analyzer</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- AgentIsolationIT and AgentRenamedJarIT put Logback on a child JVM's classpath, as an
+         application's own binding. The analyzer declares it optional, so it is not inherited. -->
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>

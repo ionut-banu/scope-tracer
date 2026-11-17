@@ -187,9 +187,10 @@ class ScopeTracerAgentIT {
   }
 
   /**
-   * Nothing in the model is what {@code JfrParser} reports as truncated: its "truncated scope(s)"
-   * warning counts scopes with no {@code closeTime} and tasks with no completion, so with neither
-   * present the warning is not logged. The duplicate of #51 was an empty, never-closed scope.
+   * Nothing in the model is what {@code JfrParser} reports as incomplete: its WARN for scopes
+   * without a close event counts scopes with no {@code closeTime} and tasks with no completion, so
+   * with neither present the warning is not logged. The duplicate of #51 was an empty, never-closed
+   * scope.
    */
   @Test
   void modelHasNothingTheAnalyzerWouldReportAsTruncated() {

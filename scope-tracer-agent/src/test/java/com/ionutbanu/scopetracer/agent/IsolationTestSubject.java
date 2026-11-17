@@ -37,7 +37,7 @@ import jdk.jfr.Recording;
  *
  * <p>The subject records two scopes: an unnamed one that completes (named by the agent from the
  * call site) and {@link #TRUNCATED_SCOPE}, which is still open when the recording stops. The second
- * makes the analyzer log its "may have been cut short" warning while the agent writes the
+ * makes the analyzer log its WARN for scopes without a close event while the agent writes the
  * auto-HTML.
  */
 public final class IsolationTestSubject {
