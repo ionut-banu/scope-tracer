@@ -551,11 +551,11 @@ input. Both sides change in the same issue.
 | analyzer unit | surefire | 144 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
 | agent unit | surefire | 166 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 265 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 266 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first five: 709 tests (surefire plus
+`mvn -q verify` runs the first five: 710 tests (surefire plus
 failsafe, measured on 2026-11-17 on the branch of #58 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of

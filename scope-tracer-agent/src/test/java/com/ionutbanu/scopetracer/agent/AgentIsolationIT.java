@@ -232,11 +232,20 @@ class AgentIsolationIT {
     assertThat(scope(childWithAgent.model(), IsolationTestSubject.TRUNCATED_SCOPE))
         .hasValueSatisfying(s -> assertThat(s.closeTime()).isNull());
     for (Run run : List.of(childWithAgent, plainWithAgent)) {
-      assertThat(run.output())
-          .doesNotContain("cut short")
-          .doesNotContain("JfrParser")
-          .doesNotContain("SLF4J(");
+      assertThat(run.output()).doesNotContain("JfrParser").doesNotContain("SLF4J(");
     }
+  }
+
+  /**
+   * The run without the agent is the oracle for what the application itself prints. Whatever else
+   * the agent's run prints, whatever its wording, is a leak.
+   */
+  @Test
+  void agentRunPrintsWhatTheRunWithoutItPrints() {
+    assertThat(applicationLines(childWithAgent)).isEqualTo(applicationLines(childWithoutAgent));
+    assertThat(applicationLines(plainWithAgent)).isEqualTo(applicationLines(plainWithoutAgent));
+    assertThat(applicationLines(providerPropertyWithAgent))
+        .isEqualTo(applicationLines(providerPropertyWithoutAgent));
   }
 
   // --- ByteBuddy ---
@@ -272,6 +281,17 @@ class AgentIsolationIT {
   }
 
   // --- helpers ---
+
+  /**
+   * Output without the agent's own lines and the leading {@code HH:mm:ss.SSS } of Logback lines.
+   */
+  private static List<String> applicationLines(Run run) {
+    return run.output()
+        .lines()
+        .filter(line -> !line.startsWith(ChildJvm.AGENT_PREFIX))
+        .map(line -> line.replaceFirst("^\\d{2}:\\d{2}:\\d{2}\\.\\d{3} ", ""))
+        .toList();
+  }
 
   private record Layout(
       String name, List<String> classPath, List<String> childJars, List<String> jvmArgs) {}
