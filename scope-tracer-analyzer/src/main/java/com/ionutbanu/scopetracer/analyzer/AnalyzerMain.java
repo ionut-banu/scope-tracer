@@ -47,10 +47,20 @@ import java.util.List;
  * <ul>
  *   <li>{@code 0} — success.
  *   <li>{@code 1} — wrong arguments (usage printed to {@code stderr}).
- *   <li>{@code 2} — input file does not exist.
- *   <li>{@code 3} — I/O error while reading the input or writing the output.
- *   <li>{@code 4} — input file is not a valid JFR recording or the parser failed.
+ *   <li>{@code 2} — a file or directory was not found: the input, or the directory the output goes
+ *       in.
+ *   <li>{@code 3} — an I/O error from the JDK while reading or writing: input that is not a JFR
+ *       recording or is cut short in its header (a text file, an empty file), an input that is a
+ *       directory, and an output that cannot be written (it is a directory, or not writable).
+ *   <li>{@code 4} — the JDK's JFR parser threw on content it had started to read, such as a
+ *       recording cut short inside a chunk.
  * </ul>
+ *
+ * <p>Which of 3 and 4 a damaged recording gets depends on where the damage is and on {@code
+ * jdk.jfr.consumer.RecordingFile}, not on this project, so a script should treat 3 and 4 alike as
+ * "the recording could not be read". The codes are stable from 0.4.0: a later change to one needs a
+ * dated entry in {@code _docs/decisions.md} and a CHANGELOG "Changed" line. Nothing after the
+ * {@code Report written} line can change the exit code.
  *
  * <p>CLI-facing messages go to {@code stderr}/{@code stdout} through the streams {@link #run} is
  * given; library code in {@link JfrParser} and {@link HtmlRenderer} uses SLF4J. The {@code
@@ -103,6 +113,16 @@ public final class AnalyzerMain {
    * System#exit}. Exposed for testing; the {@link #main(String[])} entry point delegates here.
    */
   static int run(String[] args, PrintStream out, PrintStream err) {
+    return run(args, out, err, AnalyzerMain::warnings);
+  }
+
+  /** The step that runs after the report is written; a seam so a test can make it throw. */
+  @FunctionalInterface
+  interface PostReport {
+    List<String> lines(Path jfr, TraceModel model, long eventsWhenEmpty) throws Exception;
+  }
+
+  static int run(String[] args, PrintStream out, PrintStream err, PostReport postReport) {
     return switch (parse(args)) {
       case Arguments.Help() -> {
         out.println(USAGE);
@@ -112,11 +132,12 @@ public final class AnalyzerMain {
         err.println(USAGE);
         yield 1;
       }
-      case Arguments.Analyze analyze -> analyze(analyze, out, err);
+      case Arguments.Analyze analyze -> analyze(analyze, out, err, postReport);
     };
   }
 
-  private static int analyze(Arguments.Analyze args, PrintStream out, PrintStream err) {
+  private static int analyze(
+      Arguments.Analyze args, PrintStream out, PrintStream err, PostReport postReport) {
     var jfr = Path.of(args.input());
     var output = Path.of(args.output());
 
@@ -125,14 +146,13 @@ public final class AnalyzerMain {
       return 2;
     }
 
+    JfrParser.Parsed parsed;
     try {
-      var parsed = JfrParser.parseCounting(jfr);
+      parsed = JfrParser.parseCounting(jfr);
       var model = parsed.model();
       var content = args.json() ? TraceModelJson.toJson(model) : HtmlRenderer.render(model);
       Files.writeString(output, content);
       out.println("Report written to " + output.toAbsolutePath());
-      warnings(jfr, model, parsed.scopeTracerEvents()).forEach(err::println);
-      return 0;
     } catch (NoSuchFileException e) {
       err.println("analyzer: file not found: " + e.getFile());
       return 2;
@@ -145,6 +165,14 @@ public final class AnalyzerMain {
       if (args.verbose()) e.printStackTrace(err);
       return 4;
     }
+
+    // The report is on disk and its line is printed: nothing from here on may change the code.
+    try {
+      postReport.lines(jfr, parsed.model(), parsed.scopeTracerEvents()).forEach(err::println);
+    } catch (Exception e) {
+      err.println(WARNING + "could not check " + jfr + " for problems: " + e);
+    }
+    return 0;
   }
 
   /**

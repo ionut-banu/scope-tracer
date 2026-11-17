@@ -260,12 +260,30 @@ missing data turns highlighting off for that scope.
 
 `TraceModelJson.toJson` is the JSON wire format consumed by the
 plugin. `AnalyzerMain` is the CLI: `analyzer <in.jfr> <out>
-[--format=json] [--verbose]`, exit codes 0-4 as documented in its
-Javadoc. Options may come before, between or after the two positional
+[--format=json] [--verbose]`. Options may come before, between or after the two positional
 arguments, each at most once; anything else is usage on stderr and
 exit 1. An argument starting with `-` (other than `-` alone) is an
 option, so an input path starting with `-` is written `./-x.jfr`,
 and `--help` with other arguments is usage and exit 1.
+
+Exit codes:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | success (warnings do not change it) |
+| 1 | wrong arguments, usage on stderr |
+| 2 | a file or directory was not found: the input, or the directory the output goes in |
+| 3 | an I/O error from the JDK reading or writing: input that is not a JFR recording or is cut short in its header (a text file, an empty file), an input that is a directory, an output that cannot be written (a directory, not writable) |
+| 4 | the JDK's JFR parser threw on content it had started to read, such as a recording cut short inside a chunk |
+
+Which of 3 and 4 a damaged recording gets depends on where the
+damage is and on `jdk.jfr.consumer.RecordingFile`, so a script treats
+3 and 4 alike as "the recording could not be read". The input is read
+first, so a non-JFR input with a missing output directory is 3, not
+2. Nothing after the `Report written` line can change the exit code.
+These exit codes are stable from 0.4.0: a later change to any code
+needs a dated `_docs/decisions.md` entry and a CHANGELOG "Changed"
+line.
 
 - stdout is the one line `Report written to <absolute path>` (or the
   usage for `-h`/`--help` alone), whatever the recording.

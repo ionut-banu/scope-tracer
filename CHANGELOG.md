@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Analyzer exit codes are documented as they are.** The codes are unchanged since 0.3.0;
+  the `AnalyzerMain` Javadoc, the spec and the README now describe them, and correct the two
+  cases the Javadoc got wrong: a non-JFR input exits 3 (not 4) and an output in a missing
+  directory exits 2 (not 3). The codes are stable from 0.4.0. A failure while computing the
+  warnings, after the report is written, can no longer change the exit code from 0.
 - **The analyzer CLI prints only its report line on stdout.** The library's log lines no
   longer reach stdout in Logback's developer format (`09:26:00.199 [main] WARN
   ...JfrParser -- ...`): they are hidden unless `--verbose` is given, and then go to stderr.

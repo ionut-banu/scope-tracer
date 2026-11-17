@@ -745,3 +745,28 @@ plugin is untouched. Nothing is read after `Report written`, and
 there is no "warning without N" fallback, which would be dead code.
 The catch clauses and exit codes are #138's; the rule that nothing
 after `Report written` may change the exit code is recorded there.
+
+## 2026-11-17 - Exit codes: correct the docs, not the codes (#138)
+
+The `AnalyzerMain` Javadoc said 3 was an I/O error and 4 "not a
+valid JFR recording", and that 2 was a missing input. The CLI
+exits 3 for a non-JFR file and 2 for an output in a missing
+directory. PM measured (Temurin 27.0.1) that `v0.3.0` and `main`
+give identical codes and first stderr lines for 14 command lines,
+so 0.3.0 users already see them. Maintainer decision: keep the
+codes, correct the Javadoc, spec section 3 and the README, add no
+sixth code for "not a JFR recording", and promise the codes stable
+from 0.4.0 (a change needs a decisions entry and a CHANGELOG
+"Changed" line).
+
+Why not change the codes: a non-JFR file as 4 needs classifying
+`IOException`s by message text, since the JDK has no type for it
+and truncation shows up as both 3 and 4; a missing output directory
+as 3 changes a code a script may test, and `file not found` is
+true. The plugin tests only non-zero. A script treats 3 and 4 alike
+as "could not read the recording".
+
+One code change: the warnings are computed after the try whose
+catch clauses return 2, 3 and 4, through a package-private seam,
+so a failure there cannot change the exit code (#142's rule). The
+catch clauses are untouched.

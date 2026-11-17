@@ -10,13 +10,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 import jdk.jfr.Event;
 import jdk.jfr.Name;
 import jdk.jfr.Recording;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class AnalyzerMainTest {
@@ -271,6 +275,161 @@ class AnalyzerMainTest {
     } else {
       assertThat(lines).hasSize(1);
     }
+  }
+
+  // --- #138: every row of the exit code table in spec section 3 ---
+
+  private enum Row {
+    SUCCESS_HTML(0, null) {
+      String[] args(Path dir) throws Exception {
+        return new String[] {recording(dir).toString(), dir.resolve("o.html").toString()};
+      }
+    },
+    SUCCESS_JSON(0, null) {
+      String[] args(Path dir) throws Exception {
+        return new String[] {
+          recording(dir).toString(), dir.resolve("o.json").toString(), "--format=json"
+        };
+      }
+    },
+    NO_ARGUMENTS(1, "Usage: analyzer") {
+      String[] args(Path dir) {
+        return new String[] {};
+      }
+    },
+    UNKNOWN_OPTION(1, "Usage: analyzer") {
+      String[] args(Path dir) {
+        return new String[] {"a.jfr", "o.html", "--nope"};
+      }
+    },
+    THIRD_POSITIONAL(1, "Usage: analyzer") {
+      String[] args(Path dir) {
+        return new String[] {"a.jfr", "o.html", "extra"};
+      }
+    },
+    INPUT_MISSING(2, "analyzer: input.jfr not found: ") {
+      String[] args(Path dir) {
+        return new String[] {dir.resolve("nope.jfr").toString(), dir.resolve("o.html").toString()};
+      }
+    },
+    OUTPUT_DIRECTORY_MISSING(2, "analyzer: file not found: ") {
+      String[] args(Path dir) throws Exception {
+        return new String[] {recording(dir).toString(), dir.resolve("no/such/o.html").toString()};
+      }
+    },
+    INPUT_IS_TEXT(3, "analyzer: I/O error: Not a complete Chunk header") {
+      String[] args(Path dir) throws Exception {
+        return new String[] {text(dir, "this is not a JFR file"), dir.resolve("o.html").toString()};
+      }
+    },
+    INPUT_IS_EMPTY(
+        3, "analyzer: I/O error: Not a valid Flight Recorder file. File length is only") {
+      String[] args(Path dir) throws Exception {
+        return new String[] {text(dir, ""), dir.resolve("o.html").toString()};
+      }
+    },
+    INPUT_CUT_AT_5000_BYTES(3, "analyzer: I/O error: ") {
+      String[] args(Path dir) throws Exception {
+        var jfr = recording(dir);
+        var bytes = Files.readAllBytes(jfr);
+        assertThat(bytes.length).isGreaterThan(5000);
+        Files.write(jfr, java.util.Arrays.copyOf(bytes, 5000));
+        return new String[] {jfr.toString(), dir.resolve("o.html").toString()};
+      }
+    },
+    INPUT_IS_DIRECTORY(3, "analyzer: I/O error: ") {
+      String[] args(Path dir) throws Exception {
+        return new String[] {
+          Files.createDirectory(dir.resolve("in-dir")).toString(), dir.resolve("o.html").toString()
+        };
+      }
+    },
+    OUTPUT_IS_DIRECTORY(3, "analyzer: I/O error: ") {
+      String[] args(Path dir) throws Exception {
+        return new String[] {
+          recording(dir).toString(), Files.createDirectory(dir.resolve("out-dir")).toString()
+        };
+      }
+    },
+    TEXT_INPUT_AND_OUTPUT_DIRECTORY_MISSING(3, "analyzer: I/O error: Not a complete Chunk header") {
+      String[] args(Path dir) throws Exception {
+        return new String[] {
+          text(dir, "this is not a JFR file"), dir.resolve("no/such/o.html").toString()
+        };
+      }
+    },
+    PARSER_THROWS(4, "analyzer: failed to parse JFR recording ") {
+      String[] args(Path dir) throws Exception {
+        var jfr =
+            TestRecordings.record(dir.resolve("four.jfr"), (r, f) -> new WithoutScopeId().commit());
+        return new String[] {jfr.toString(), dir.resolve("o.html").toString()};
+      }
+    };
+
+    final int code;
+    final String firstStderrLine;
+
+    Row(int code, String firstStderrLine) {
+      this.code = code;
+      this.firstStderrLine = firstStderrLine;
+    }
+
+    abstract String[] args(Path dir) throws Exception;
+
+    static Path recording(Path dir) throws Exception {
+      return TestRecordings.complete(dir.resolve("in.jfr"), "cli-table", 1);
+    }
+
+    static String text(Path dir, String content) throws Exception {
+      return Files.writeString(dir.resolve("in.txt"), content).toString();
+    }
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @EnumSource(Row.class)
+  void everyRowOfTheExitCodeTableGivesItsCodeAndFirstStderrLine(Row row) throws Exception {
+    var run = run(row.args(tempDir));
+    assertThat(run.code()).isEqualTo(row.code);
+    if (row.firstStderrLine == null) {
+      assertThat(run.err()).isEmpty();
+    } else {
+      assertThat(run.err().lines().findFirst().orElse("")).startsWith(row.firstStderrLine);
+    }
+  }
+
+  // --- #138: nothing after "Report written" may change the exit code ---
+
+  private static Stream<Arguments> postReportFailures() {
+    return Stream.of(
+        Arguments.of(
+            "RuntimeException", (Supplier<Exception>) () -> new IllegalStateException("boom")),
+        Arguments.of(
+            "IOException", (Supplier<Exception>) () -> new java.io.IOException("disk gone")));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("postReportFailures")
+  void aFailureAfterTheReportIsWrittenStillExitsZero(String name, Supplier<Exception> failure)
+      throws Exception {
+    var jfr = TestRecordings.complete(tempDir.resolve("in.jfr"), "cli-post-report", 1);
+    var output = tempDir.resolve("o.html");
+    var out = new ByteArrayOutputStream();
+    var err = new ByteArrayOutputStream();
+    int code =
+        AnalyzerMain.run(
+            new String[] {jfr.toString(), output.toString()},
+            new PrintStream(out, true, StandardCharsets.UTF_8),
+            new PrintStream(err, true, StandardCharsets.UTF_8),
+            (path, model, events) -> {
+              throw failure.get();
+            });
+    assertThat(code).isZero();
+    assertThat(output).isNotEmptyFile();
+    assertThat(out.toString(StandardCharsets.UTF_8))
+        .isEqualTo("Report written to " + output.toAbsolutePath() + System.lineSeparator());
+    assertThat(err.toString(StandardCharsets.UTF_8))
+        .doesNotContain("I/O error")
+        .doesNotContain("failed to parse");
   }
 
   // --- #58: warnings a user can act on ---

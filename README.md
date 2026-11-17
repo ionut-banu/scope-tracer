@@ -128,6 +128,20 @@ means the program ran without the agent or `TracedScope`, or the recording did n
 `com.ionutbanu.scopetracer.*`; and a recording whose scope-tracer events have no
 `ScopeOpened` to belong to, usually because it started after those scopes were opened.
 
+Exit codes:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | success (warnings do not change it) |
+| 1 | wrong arguments, usage on stderr |
+| 2 | a file or directory was not found: the input, or the directory the output goes in |
+| 3 | an I/O error reading or writing: input that is not a JFR recording or is cut short in its header, an input that is a directory, an output that cannot be written |
+| 4 | the JFR parser threw on content it had started to read, such as a recording cut short inside a chunk |
+
+A script can test zero versus non-zero, or 3 and 4 for "the recording could not be read":
+which of the two a damaged recording gets depends on where the damage is. These exit codes
+are stable from 0.4.0; a later change to any code is listed in the CHANGELOG under "Changed".
+
 Pass `--format=json` to write the parsed trace as JSON instead of an
 HTML report (schema documented in `TraceModelJson`'s Javadoc) — intended for external
 tools, such as an IDE plugin, that want the parsed trace without loading any scope-tracer
