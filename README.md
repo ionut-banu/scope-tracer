@@ -7,7 +7,9 @@
 Visualise Java structured concurrency task trees, lifetimes, and cancellation propagation.
 
 **[View a live example report →](https://ionut-banu.github.io/scope-tracer/example/order-processing-report.html)**
-(no install needed — nested scopes, a cancelled task, and critical-path highlighting)
+(no install needed — nested scopes, a cancelled task, and critical-path highlighting)<br>
+**[The gallery: what each join policy does →](https://ionut-banu.github.io/scope-tracer/gallery/)**
+(fail-fast, any-successful, timeout, nested scopes and more, each as a real report)
 
 Wrap your `StructuredTaskScope` code with `TracedScope`, run the program under a JFR
 recording, feed the `.jfr` file to the analyzer, and open the resulting self-contained HTML
@@ -386,7 +388,7 @@ You can also open a `.jfr` you recorded yourself (see "Run under JFR recording" 
 
 ## Demos
 
-Eight runnable examples are included in `scope-tracer-demos`:
+Eight runnable examples, and the gallery generator, are included in `scope-tracer-demos`:
 
 | Demo | What it shows |
 |------|--------------|
@@ -398,6 +400,7 @@ Eight runnable examples are included in `scope-tracer-demos`:
 | `OrderProcessingDemo` | Multi-level nesting — e-commerce pipeline with payment and inventory sub-scopes; fraud failures; critical-path highlighting |
 | `LiveOrderProcessingDemo` | Live version of `OrderProcessingDemo` — runs until Ctrl+C; use `jcmd` to capture windows of the nested pipeline |
 | `FilteringDemo` | The agent's capture filters and sampling — opens five kinds of scope (one of them ten times); the `include.name`, `exclude.name`, `include.package`, `exclude.package` and `sample.rate` arguments decide which reach the report |
+| `GalleryMain` | Not an example but the generator of the [gallery](https://ionut-banu.github.io/scope-tracer/gallery/): records one scenario per join policy under `TracedScope` and writes the page and its nine reports into `docs/` (see below) |
 
 Six demos write a `.jfr` and an `.html` file to `target/` and exit: `ParallelFetchDemo`,
 `FailFastDemo`, `NestedScopesDemo`, `OrderProcessingDemo`, `AgentDemo` and `FilteringDemo`.
@@ -449,6 +452,16 @@ java --enable-preview \
 ```
 
 The other scenarios are in `FilteringDemo`'s Javadoc.
+
+**Regenerate the gallery** (from the repository root, with `$JARS` set as above): one command rewrites
+`docs/gallery/index.html`, the eight reports in `docs/gallery/reports/` and
+`docs/example/order-processing-report.html`; `--check` writes nothing and exits 1 when what is
+committed no longer matches what the JDK and the renderer produce. Never run it with the agent:
+
+```bash
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.GalleryMain
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.GalleryMain --check
+```
 
 **Using LiveServiceDemo** (in a second terminal while the service is running):
 

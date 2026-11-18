@@ -40,6 +40,23 @@ mvn -pl scope-tracer-core -am -Dtest=TracedScopeTest#myMethod -Dsurefire.failIfN
 > bytecode. Always run the full `mvn -q verify` before you push, and after changes to
 > `scope-tracer-core` or anything that spans modules.
 
+### The gallery
+
+`docs/gallery/` and `docs/example/order-processing-report.html` are generated reports, not
+hand-written ones. **If you change `HtmlRenderer`, a gallery scenario
+(`GalleryScenarios`, `OrderProcessingDemo`) or the page text in `GalleryCatalog`, regenerate the
+gallery and commit the result:**
+
+```bash
+# $JARS as in "Run a demo" under "Demos" in README.md
+java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.GalleryMain
+```
+
+CI runs the same command with `--check` after `mvn -q verify`, and fails the pull request when a
+committed report no longer matches what the renderer and the JDK produce (it ignores times,
+durations, thread names and JDK frames, which differ on every run). `mvn -q verify` itself runs
+`GalleryTest`, which times nothing and checks the committed page, the snippets and the file sizes.
+
 ### Formatting
 
 The project uses Spotless with google-java-format 1.36.1 and sortPom. CI

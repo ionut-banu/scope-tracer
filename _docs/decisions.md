@@ -858,3 +858,26 @@ back to). A 0.3.x or earlier scope-tracer jar on `-cp` still takes
 over, because its own `premain` runs: documented, not fixed. The
 new `ignoring` info line is kept, printed only when the agent passes
 over the running copy.
+
+## 2026-11-18 - The gallery is generated, by TracedScope, and checked in CI (#59)
+
+`docs/gallery/` shows what each join policy does as real reports.
+Decided with the maintainer: `TracedScope` produces them (every task
+can be named; the agent labels lambdas `Class#method:line` and needs a
+JVM per scenario; the same shapes were measured under both); the page
+is generated from a template resource plus per-scenario text, with
+snippets cut from the scenarios' source between `gallery:begin` and
+`gallery:end` markers, so a snippet cannot differ from the code that
+ran; one file per report in a lazy `<iframe src>` (a report is a whole
+document with global CSS and element ids, so inlining breaks it).
+`GalleryMain` refuses a recording whose shape differs from the one the
+scenario declares (retried at most 3 times, then exit 1, nothing
+written): decisive events are at least 150 ms after open and 100 ms
+apart, so a descheduled main thread cannot reorder them. `--check`
+compares each report after dropping times, thread names, SVG, JDK
+frames, the critical-path note and the order of sibling child scopes;
+it is a CI step and not part of `verify`, so a timing flake cannot
+fail the build. `OrderProcessingDemo` draws from generators seeded
+from order id and step, so ORD-002 is always the declined order and
+`#scope-2` on the landing page always opens on it. The joiner's name
+on `ScopeOpened` is out of scope (#156).
