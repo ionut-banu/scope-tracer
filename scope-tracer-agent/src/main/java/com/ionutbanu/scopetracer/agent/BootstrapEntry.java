@@ -39,7 +39,10 @@ import java.util.jar.JarFile;
  * ScopeTracerAgent.class} the system class loader lists, unless that copy is itself an entry of
  * {@code java.class.path}: the JVM does not append a jar already on the path, so then the last copy
  * may be any {@code -cp} jar, and the agent refuses rather than guess. Only this version's code
- * makes that choice: an earlier release's jar on {@code -cp} runs its own {@code premain}.
+ * makes that choice: an earlier release's jar on {@code -cp} runs its own {@code premain}. A {@code
+ * -cp} jar whose manifest {@code Class-Path} lists the {@code -javaagent} jar and then another
+ * scope-tracer jar is known and not handled: the last copy is then that other jar, which is not an
+ * entry of {@code java.class.path}, so it is chosen (#158).
  *
  * <p>It never throws. When the jar cannot be found, opened or appended, or cannot be told apart
  * from the class path, it prints one {@code WARN not tracing} line naming the reason and the two
@@ -186,7 +189,7 @@ final class BootstrapEntry {
               + AgentLog.path(running)
               + " and at "
               + AgentLog.path(last),
-          expectedName(last),
+          expectedName(running, last),
           null);
       return null;
     }
@@ -253,6 +256,22 @@ final class BootstrapEntry {
     } catch (Throwable t) {
       return path.toAbsolutePath().normalize();
     }
+  }
+
+  /**
+   * The original file name from the first of {@code jars} whose manifest lists one, or {@link
+   * #GENERIC_NAME}. The refusal reads the running jar first: in {@code -cp agent.jar:thin.jar} the
+   * running copy is the fat-jar, and the last copy is the thin jar, which has no {@code
+   * Boot-Class-Path}.
+   */
+  private static String expectedName(Path... jars) {
+    for (Path jar : jars) {
+      String name = expectedName(jar);
+      if (!GENERIC_NAME.equals(name)) {
+        return name;
+      }
+    }
+    return GENERIC_NAME;
   }
 
   /** The original file name read from {@code jar}'s manifest, or {@link #GENERIC_NAME}. */
