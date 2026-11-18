@@ -6,10 +6,10 @@ import java.util.concurrent.ExecutionException;
 /**
  * Cancellation demo: one task fails quickly, causing its still-running sibling to be cancelled.
  *
- * <p>Run with:
+ * <p>Run with (setup for {@code $JARS}: "Run a demo" under "Demos" in {@code README.md}):
  *
  * <pre>{@code
- * mvn -pl scope-tracer-demos exec:java -Dexec.mainClass=com.ionutbanu.scopetracer.demos.FailFastDemo
+ * java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.FailFastDemo
  * }</pre>
  *
  * Produces {@code target/fail-fast.jfr} and {@code target/fail-fast.html}.

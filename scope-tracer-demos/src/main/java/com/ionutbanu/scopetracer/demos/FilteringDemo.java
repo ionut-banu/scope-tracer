@@ -16,6 +16,10 @@ import java.util.concurrent.StructuredTaskScope.Joiner;
  *   <li>{@code health-probe} — repeated many times; ideal for {@code sample.rate} demo
  * </ul>
  *
+ * <p>Setup for {@code $JARS} and the version: "Run a demo" under "Demos" in {@code README.md}.
+ * Quote the whole {@code -javaagent:} argument, as below: {@code zsh} stops with {@code no matches
+ * found} on an unquoted {@code *}. Replace {@code <VERSION>} with the project version.
+ *
  * <p><b>Scenario 1 — no filters (baseline): all 5 types appear in the report.</b>
  *
  * <pre>{@code
@@ -28,7 +32,7 @@ import java.util.concurrent.StructuredTaskScope.Joiner;
  *
  * <pre>{@code
  * java --enable-preview \
- *      -javaagent:scope-tracer-agent/target/scope-tracer-agent-<VERSION>-agent.jar=include.name=*-flow \
+ *      "-javaagent:scope-tracer-agent/target/scope-tracer-agent-<VERSION>-agent.jar=include.name=*-flow" \
  *      -cp "$JARS" com.ionutbanu.scopetracer.demos.FilteringDemo
  * }</pre>
  *
@@ -36,7 +40,7 @@ import java.util.concurrent.StructuredTaskScope.Joiner;
  *
  * <pre>{@code
  * java --enable-preview \
- *      -javaagent:scope-tracer-agent/target/scope-tracer-agent-<VERSION>-agent.jar=exclude.name=audit-* \
+ *      "-javaagent:scope-tracer-agent/target/scope-tracer-agent-<VERSION>-agent.jar=exclude.name=audit-*" \
  *      -cp "$JARS" com.ionutbanu.scopetracer.demos.FilteringDemo
  * }</pre>
  *
@@ -44,7 +48,7 @@ import java.util.concurrent.StructuredTaskScope.Joiner;
  *
  * <pre>{@code
  * java --enable-preview \
- *      -javaagent:scope-tracer-agent/target/scope-tracer-agent-<VERSION>-agent.jar=sample.rate=0.3 \
+ *      "-javaagent:scope-tracer-agent/target/scope-tracer-agent-<VERSION>-agent.jar=sample.rate=0.3" \
  *      -cp "$JARS" com.ionutbanu.scopetracer.demos.FilteringDemo
  * }</pre>
  *

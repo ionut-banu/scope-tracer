@@ -38,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scope-tracer events but no ScopeOpened event, so the report shows no scopes` instead, with
   its two causes (scopes opened before the recording started, or dropped events). The exit
   code stays 0.
+- **Every jar names its version.** All six built jars, the agent fat-jar included, carry
+  `Implementation-Title`, `Implementation-Version` and `Implementation-Vendor` in their
+  manifest. `Premain-Class`, `Boot-Class-Path` and `Main-Class` are unchanged.
 
 ### Changed
 
@@ -130,6 +133,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bytes are now read from the jar the agent added to the bootstrap class path. If that jar
   cannot be read, one `WARN not tracing` line names it and the agent instruments nothing.
   Nothing changes under the original name or with `-Xbootclasspath/a:`.
+- **The live demos print jar names that exist.** `LiveServiceDemo` and `LiveOrderProcessingDemo`
+  printed `0.1.0-SNAPSHOT` jar paths; they now read the version from their own jar's manifest
+  (`<VERSION>` and one line saying so when run from `target/classes` or an IDE) and say the
+  paths are relative to the repository root. The demos' Javadoc no longer has `0.1.0-SNAPSHOT`,
+  `mvn -pl` without `-am` or `exec:java`, and `FilteringDemo` quotes its `-javaagent:`
+  arguments so `zsh` runs them.
+- **The package-glob documentation says what is matched.** `com.acme.checkout*` takes
+  `com.acme.checkout`, its sub-packages and a sibling such as `com.acme.checkoutx`;
+  `com.acme.**` does not take `com.acme` itself; a literal takes one package; no glob means
+  "this package and below". README, spec, `ScopeTracerAgent` and `Glob` Javadoc agree, and
+  a test pins every row. The "use a literal pattern for a strict prefix" advice was wrong
+  and is gone. Glob behaviour is unchanged.
 
 ## [0.3.0] - 2026-11-14
 

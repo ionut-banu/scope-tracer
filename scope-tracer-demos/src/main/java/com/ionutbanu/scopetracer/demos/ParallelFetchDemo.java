@@ -5,10 +5,10 @@ import com.ionutbanu.scopetracer.core.TracedScope;
 /**
  * Happy-path demo: three service calls run in parallel, all succeed.
  *
- * <p>Run with:
+ * <p>Run with (setup for {@code $JARS}: "Run a demo" under "Demos" in {@code README.md}):
  *
  * <pre>{@code
- * mvn -pl scope-tracer-demos exec:java -Dexec.mainClass=com.ionutbanu.scopetracer.demos.ParallelFetchDemo
+ * java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.ParallelFetchDemo
  * }</pre>
  *
  * Produces {@code target/parallel-fetch.jfr} and {@code target/parallel-fetch.html}.
