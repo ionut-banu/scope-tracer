@@ -15,12 +15,15 @@
     :root { --bg: #14161a; --fg: #e8e8e8; --muted: #9aa0a6; --accent: #6ea8fe;
              --card: #1c1f24; --border: #2c3036; --code-bg: #23262b; }
   }
+  /* The iframe's #scope-2 fragment would otherwise scroll this page down to the iframe on
+     load. A scroll-padding taller than the page's own offset keeps this page at the top. */
+  html { scroll-padding-top: 100vh; }
   * { box-sizing: border-box; }
   body {
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     background: var(--bg); color: var(--fg); margin: 0; padding: 0 1.25rem;
   }
-  main { max-width: 780px; margin: 0 auto; padding: 3rem 0 4rem; }
+  main { max-width: 1040px; margin: 0 auto; padding: 3rem 0 4rem; }
   h1 { font-size: 1.6rem; margin: 0 0 0.4rem; }
   .tagline { color: var(--muted); font-size: 1rem; margin: 0 0 1.5rem; line-height: 1.5; }
   .badges { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.75rem; }
@@ -43,6 +46,8 @@
   }
   code { font-family: inherit; }
   a { color: var(--accent); }
+  .badge-static { font-size: 12px; line-height: 20px; padding: 0 8px; border-radius: 3px; background: #555; color: #fff; font-family: Verdana, sans-serif; }
+  .preview { width: 100%; height: 520px; border: 1px solid var(--border); border-radius: 6px; background: #fafafa; display: block; }
   footer { color: var(--muted); font-size: 0.8rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 </style>
 </head>
@@ -53,18 +58,20 @@
     Visualize Java structured concurrency (<code>StructuredTaskScope</code>) task trees,
     lifetimes, and cancellation propagation. Zero-code-change with a Java agent, or a
     thin wrapper — either way you get a self-contained HTML report with SVG Gantt
-    timelines, built from a JFR recording. Targets JDK 27+.
+    timelines, built from a JFR recording. Targets JDK 27+ with <code>--enable-preview</code>.
   </p>
-
-  <div class="badges">
-    <img src="https://github.com/ionut-banu/scope-tracer/actions/workflows/ci.yml/badge.svg" alt="CI status"/>
-    <img src="https://img.shields.io/maven-central/v/com.ionutbanu/scope-tracer-core.svg?label=maven%20central" alt="Maven Central version"/>
-    <img src="https://img.shields.io/github/license/ionut-banu/scope-tracer" alt="License"/>
-  </div>
 
   <div class="cta">
     <a class="btn btn-primary" href="example/order-processing-report.html">View an example report →</a>
     <a class="btn btn-secondary" href="https://github.com/ionut-banu/scope-tracer">Source on GitHub</a>
+  </div>
+
+  <iframe class="preview" src="example/order-processing-report.html#scope-2" title="Example scope-tracer report" loading="eager"></iframe>
+
+  <div class="badges">
+    <img src="https://github.com/ionut-banu/scope-tracer/actions/workflows/ci.yml/badge.svg" alt="CI status"/>
+    <img src="https://img.shields.io/maven-central/v/com.ionutbanu/scope-tracer-core.svg?label=maven%20central" alt="Maven Central version"/>
+    <span class="badge-static">license: Apache-2.0</span>
   </div>
 
   <section>
@@ -80,10 +87,13 @@
 
   <section>
     <h2>Zero-code-change tracing</h2>
-    <pre>java --enable-preview \
-     -javaagent:scope-tracer-agent-VERSION-agent.jar \
+    <pre>curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.3.0/scope-tracer-agent-0.3.0-agent.jar
+curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.3.0/scope-tracer-analyzer-0.3.0-executable.jar
+java --enable-preview \
+     -javaagent:scope-tracer-agent-0.3.0-agent.jar \
      -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
-     -cp &lt;your-classpath&gt; com.example.MyApp</pre>
+     -cp &lt;your-classpath&gt; com.example.MyApp
+java -jar scope-tracer-analyzer-0.3.0-executable.jar myapp.jfr report.html</pre>
     <p style="color:var(--muted);font-size:0.85rem;">
       Any JDK 27+ application using <code>StructuredTaskScope</code> gets traced —
       no source changes. See the
