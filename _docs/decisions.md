@@ -770,3 +770,12 @@ One code change: the warnings are computed after the try whose
 catch clauses return 2, 3 and 4, through a package-private seam,
 so a failure there cannot change the exit code (#142's rule). The
 catch clauses are untouched.
+
+## 2026-11-18 - The demos module has unit tests (#106)
+
+The demos module has unit tests since #106 (`DemoJarsTest`), with
+test-scoped junit-jupiter and assertj. Both are managed in the
+parent's `<dependencyManagement>`, so no new dependency. This
+supersedes #139's "no tests or test dependencies in the demos
+module" for the demos module as a whole: #139's rule held for the
+demos' logging setup, and the module may now carry tests.
