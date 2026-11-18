@@ -56,8 +56,8 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <span class="legend-item"><span class="legend-swatch" style="background:#9e9e9e"></span>incomplete</span>
 <span class="legend-item"><span class="legend-swatch" style="background:#4caf50;box-shadow:0 0 0 2px #d97706"></span>critical path</span>
 </div>
-<script type="application/json" id="trace-data">{"scopes":[{"scopeId":39,"name":"ignores-interrupt","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:22.862800583Z","closeTime":"2026-11-18T20:04:23.576404041Z","parent":null,"tasks":[{"taskId":1,"taskName":"reserve-stock","threadName":"","threadId":148,"forkTime":"2026-11-18T20:04:22.862927958Z","completionTime":"2026-11-18T20:04:22.927533458Z","outcome":{"type":"failed","exceptionType":"java.lang.IllegalStateException","exceptionMessage":"out of stock","stackTrace":"java.lang.IllegalStateException: out of stock\n\tat com.ionutbanu.scopetracer.demos.GalleryScenarios.lambda$ignoresInterrupt$0(GalleryScenarios.java:191)\n\tat com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)\n\tat java.base\/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)\n\tat java.base\/java.lang.VirtualThread.run(VirtualThread.java:470)\n"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":191}},{"taskId":2,"taskName":"price-lookup","threadName":"","threadId":149,"forkTime":"2026-11-18T20:04:22.863055041Z","completionTime":"2026-11-18T20:04:22.927860375Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":192}},{"taskId":3,"taskName":"stubborn","threadName":"","threadId":150,"forkTime":"2026-11-18T20:04:22.863130833Z","completionTime":"2026-11-18T20:04:23.576219Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":193}}]}]}</script>
-<p class="summary">1 scope(s) &nbsp;|&nbsp; <span style="color:#2e7d32">0 success</span> &nbsp;·&nbsp; <span style="color:#c62828">1 failed</span> &nbsp;|&nbsp; median: 713.60ms &nbsp;|&nbsp; wall: 713.60ms</p>
+<script type="application/json" id="trace-data">{"scopes":[{"scopeId":39,"name":"ignores-interrupt","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T21:44:34.041576125Z","closeTime":"2026-11-18T21:44:34.754208375Z","parent":null,"tasks":[{"taskId":1,"taskName":"reserve-stock","threadName":"","threadId":148,"forkTime":"2026-11-18T21:44:34.041659083Z","completionTime":"2026-11-18T21:44:34.102560292Z","outcome":{"type":"failed","exceptionType":"java.lang.IllegalStateException","exceptionMessage":"out of stock","stackTrace":"java.lang.IllegalStateException: out of stock\n\tat com.ionutbanu.scopetracer.demos.GalleryScenarios.lambda$ignoresInterrupt$0(GalleryScenarios.java:191)\n\tat com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)\n\tat java.base\/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)\n\tat java.base\/java.lang.VirtualThread.run(VirtualThread.java:470)\n"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":191}},{"taskId":2,"taskName":"price-lookup","threadName":"","threadId":149,"forkTime":"2026-11-18T21:44:34.041732917Z","completionTime":"2026-11-18T21:44:34.102738292Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":192}},{"taskId":3,"taskName":"stubborn","threadName":"","threadId":150,"forkTime":"2026-11-18T21:44:34.041773333Z","completionTime":"2026-11-18T21:44:34.754126375Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":193}}]}]}</script>
+<p class="summary">1 scope(s) &nbsp;|&nbsp; <span style="color:#2e7d32">0 success</span> &nbsp;·&nbsp; <span style="color:#c62828">1 failed</span> &nbsp;|&nbsp; median: 712.63ms &nbsp;|&nbsp; wall: 712.63ms</p>
 <div class="filter-bar">
 <input type="text" id="search" placeholder="filter by name…" autocomplete="off"/>
 <span class="filter-sep">|</span>
@@ -74,46 +74,46 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <rect x="0" y="8" width="800" height="18" fill="#f0f0f0" rx="2"/>
 <a href="#scope-0" style="text-decoration:none">
 <rect x="0.00" y="8" width="800.00" height="18" rx="1" style="fill:#e53935;opacity:0.85">
-<title>ignores-interrupt | 713.60ms</title>
+<title>ignores-interrupt | 712.63ms</title>
 </rect>
 </a>
-<text x="0" y="40" font-size="8" fill="#9e9e9e" font-family="monospace">20:04:22.862</text>
-<text x="800" y="40" font-size="8" fill="#9e9e9e" font-family="monospace" text-anchor="end">20:04:23.576</text>
+<text x="0" y="40" font-size="8" fill="#9e9e9e" font-family="monospace">21:44:34.041</text>
+<text x="800" y="40" font-size="8" fill="#9e9e9e" font-family="monospace" text-anchor="end">21:44:34.754</text>
 </svg>
 </div>
 <section id="scope-0" data-scope="ignores-interrupt" data-outcome="failed">
 <h2>ignores-interrupt <a class="anchor-link" href="#scope-0" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:22.862 &nbsp;|&nbsp; duration: 713.60ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 21:44:34.041 &nbsp;|&nbsp; duration: 712.63ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>reserve-stock</td><td>vt-148</td><td>+127.38µs</td><td>64.61ms</td><td><span class="outcome-failed">failed: java.lang.IllegalStateException: out of stock</span><details class="stack-trace"><summary>stack trace</summary><pre class="stack-trace-body">java.lang.IllegalStateException: out of stock
+<tr><td>1</td><td>reserve-stock</td><td>vt-148</td><td>+82.96µs</td><td>60.90ms</td><td><span class="outcome-failed">failed: java.lang.IllegalStateException: out of stock</span><details class="stack-trace"><summary>stack trace</summary><pre class="stack-trace-body">java.lang.IllegalStateException: out of stock
 	at com.ionutbanu.scopetracer.demos.GalleryScenarios.lambda$ignoresInterrupt$0(GalleryScenarios.java:191)
 	at com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)
 	at java.base/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)
 	at java.base/java.lang.VirtualThread.run(VirtualThread.java:470)
 </pre></details></td></tr>
-<tr><td>2</td><td>price-lookup</td><td>vt-149</td><td>+254.46µs</td><td>64.81ms</td><td><span class="outcome-cancelled">cancelled ← #1</span></td></tr>
-<tr><td>3</td><td>stubborn</td><td>vt-150</td><td>+330.25µs</td><td>713.09ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>price-lookup</td><td>vt-149</td><td>+156.79µs</td><td>61.01ms</td><td><span class="outcome-cancelled">cancelled ← #1</span></td></tr>
+<tr><td>3</td><td>stubborn</td><td>vt-150</td><td>+197.21µs</td><td>712.35ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>ignores-interrupt | 713.60ms</title>
+<title>ignores-interrupt | 712.63ms</title>
 </rect>
-<svg x="0.14" y="32" width="72.43" height="18" overflow="hidden">
-<rect x="0" y="0" width="72.43" height="18" fill="#e53935" rx="2">
+<svg x="0.09" y="32" width="68.37" height="18" overflow="hidden">
+<rect x="0" y="0" width="68.37" height="18" fill="#e53935" rx="2">
 <title>task 1 | reserve-stock | vt-148 | failed: java.lang.IllegalStateException: out of stock</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 reser…</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 rese…</text>
 </svg>
-<svg x="0.29" y="58" width="72.65" height="18" overflow="hidden">
-<rect x="0" y="0" width="72.65" height="18" fill="#fb8c00" rx="2">
+<svg x="0.18" y="58" width="68.48" height="18" overflow="hidden">
+<rect x="0" y="0" width="68.48" height="18" fill="#fb8c00" rx="2">
 <title>task 2 | price-lookup | vt-149 | cancelled ← #1</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 price…</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 pric…</text>
 </svg>
-<svg x="0.37" y="84" width="799.42" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.42" height="18" fill="#4caf50" rx="2">
+<svg x="0.22" y="84" width="799.69" height="18" overflow="hidden">
+<rect x="0" y="0" width="799.69" height="18" fill="#4caf50" rx="2">
 <title>task 3 | stubborn | vt-150 | success</title>
 </rect>
 <text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 stubborn</text>
@@ -121,20 +121,20 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="112.11" y1="113" x2="112.11" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="114.11" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="224.21" y1="113" x2="224.21" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="226.21" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
-<line x1="336.32" y1="113" x2="336.32" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="338.32" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+300ms</text>
-<line x1="448.43" y1="113" x2="448.43" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="450.43" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+400ms</text>
-<line x1="560.54" y1="113" x2="560.54" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="562.54" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+500ms</text>
-<line x1="672.64" y1="113" x2="672.64" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="674.64" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+600ms</text>
-<line x1="784.75" y1="113" x2="784.75" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="786.75" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+700ms</text>
+<line x1="112.26" y1="113" x2="112.26" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="114.26" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="224.52" y1="113" x2="224.52" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="226.52" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
+<line x1="336.78" y1="113" x2="336.78" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="338.78" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+300ms</text>
+<line x1="449.04" y1="113" x2="449.04" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="451.04" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+400ms</text>
+<line x1="561.30" y1="113" x2="561.30" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="563.30" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+500ms</text>
+<line x1="673.56" y1="113" x2="673.56" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="675.56" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+600ms</text>
+<line x1="785.82" y1="113" x2="785.82" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="787.82" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+700ms</text>
 </svg>
 </div>
 </section>

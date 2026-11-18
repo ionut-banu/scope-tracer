@@ -12,6 +12,9 @@ package com.ionutbanu.scopetracer.demos;
  * @param reportFile where the report is written, relative to the repository root
  * @param reportHref where the page finds the report, relative to {@code docs/gallery/}
  * @param banner true for the one report that begins with the explanatory banner
+ * @param noteMayMove true when two tasks of a scope can finish within a few milliseconds, so the
+ *     critical-path note may sit on either row from run to run; {@code --check} then compares only
+ *     whether a scope has the note, not on which row
  * @param shape what the report must show
  * @param body the code the report is recorded from
  */
@@ -24,6 +27,7 @@ record GalleryScenario(
     String reportFile,
     String reportHref,
     boolean banner,
+    boolean noteMayMove,
     Shape shape,
     Body body) {
 

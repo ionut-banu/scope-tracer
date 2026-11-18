@@ -56,8 +56,8 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <span class="legend-item"><span class="legend-swatch" style="background:#9e9e9e"></span>incomplete</span>
 <span class="legend-item"><span class="legend-swatch" style="background:#4caf50;box-shadow:0 0 0 2px #d97706"></span>critical path</span>
 </div>
-<script type="application/json" id="trace-data">{"scopes":[{"scopeId":32,"name":"any-successful","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:20.666302416Z","closeTime":"2026-11-18T20:04:21.074560166Z","parent":null,"tasks":[{"taskId":1,"taskName":"mirror-1","threadName":"","threadId":129,"forkTime":"2026-11-18T20:04:20.666399875Z","completionTime":"2026-11-18T20:04:20.871783083Z","outcome":{"type":"failed","exceptionType":"java.net.ConnectException","exceptionMessage":"mirror-1 refused","stackTrace":"java.net.ConnectException: mirror-1 refused\n\tat com.ionutbanu.scopetracer.demos.GalleryScenarios.lambda$anySuccessful$0(GalleryScenarios.java:83)\n\tat com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)\n\tat java.base\/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)\n\tat java.base\/java.lang.VirtualThread.run(VirtualThread.java:470)\n"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"anySuccessful","line":83}},{"taskId":2,"taskName":"mirror-2","threadName":"","threadId":130,"forkTime":"2026-11-18T20:04:20.666501250Z","completionTime":"2026-11-18T20:04:21.074379291Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"anySuccessful","line":84}},{"taskId":3,"taskName":"mirror-3","threadName":"","threadId":131,"forkTime":"2026-11-18T20:04:20.666578541Z","completionTime":"2026-11-18T20:04:21.074530083Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"anySuccessful","line":85}},{"taskId":4,"taskName":"mirror-4","threadName":"","threadId":132,"forkTime":"2026-11-18T20:04:20.666651583Z","completionTime":"2026-11-18T20:04:21.074529541Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"anySuccessful","line":86}}]}]}</script>
-<p class="summary">1 scope(s) &nbsp;|&nbsp; <span style="color:#2e7d32">0 success</span> &nbsp;·&nbsp; <span style="color:#c62828">1 failed</span> &nbsp;|&nbsp; median: 408.26ms &nbsp;|&nbsp; wall: 408.26ms</p>
+<script type="application/json" id="trace-data">{"scopes":[{"scopeId":32,"name":"any-successful","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T21:44:31.860057334Z","closeTime":"2026-11-18T21:44:32.264490584Z","parent":null,"tasks":[{"taskId":1,"taskName":"mirror-1","threadName":"","threadId":129,"forkTime":"2026-11-18T21:44:31.860230125Z","completionTime":"2026-11-18T21:44:32.064133959Z","outcome":{"type":"failed","exceptionType":"java.net.ConnectException","exceptionMessage":"mirror-1 refused","stackTrace":"java.net.ConnectException: mirror-1 refused\n\tat com.ionutbanu.scopetracer.demos.GalleryScenarios.lambda$anySuccessful$0(GalleryScenarios.java:83)\n\tat com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)\n\tat java.base\/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)\n\tat java.base\/java.lang.VirtualThread.run(VirtualThread.java:470)\n"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"anySuccessful","line":83}},{"taskId":2,"taskName":"mirror-2","threadName":"","threadId":130,"forkTime":"2026-11-18T21:44:31.860384750Z","completionTime":"2026-11-18T21:44:32.264197334Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"anySuccessful","line":84}},{"taskId":3,"taskName":"mirror-3","threadName":"","threadId":131,"forkTime":"2026-11-18T21:44:31.860478917Z","completionTime":"2026-11-18T21:44:32.264407167Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"anySuccessful","line":85}},{"taskId":4,"taskName":"mirror-4","threadName":"","threadId":132,"forkTime":"2026-11-18T21:44:31.860553667Z","completionTime":"2026-11-18T21:44:32.264407084Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"anySuccessful","line":86}}]}]}</script>
+<p class="summary">1 scope(s) &nbsp;|&nbsp; <span style="color:#2e7d32">0 success</span> &nbsp;·&nbsp; <span style="color:#c62828">1 failed</span> &nbsp;|&nbsp; median: 404.43ms &nbsp;|&nbsp; wall: 404.43ms</p>
 <div class="filter-bar">
 <input type="text" id="search" placeholder="filter by name…" autocomplete="off"/>
 <span class="filter-sep">|</span>
@@ -74,53 +74,53 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <rect x="0" y="8" width="800" height="18" fill="#f0f0f0" rx="2"/>
 <a href="#scope-0" style="text-decoration:none">
 <rect x="0.00" y="8" width="800.00" height="18" rx="1" style="fill:#e53935;opacity:0.85">
-<title>any-successful | 408.26ms</title>
+<title>any-successful | 404.43ms</title>
 </rect>
 </a>
-<text x="0" y="40" font-size="8" fill="#9e9e9e" font-family="monospace">20:04:20.666</text>
-<text x="800" y="40" font-size="8" fill="#9e9e9e" font-family="monospace" text-anchor="end">20:04:21.074</text>
+<text x="0" y="40" font-size="8" fill="#9e9e9e" font-family="monospace">21:44:31.860</text>
+<text x="800" y="40" font-size="8" fill="#9e9e9e" font-family="monospace" text-anchor="end">21:44:32.264</text>
 </svg>
 </div>
 <section id="scope-0" data-scope="any-successful" data-outcome="failed">
 <h2>any-successful <a class="anchor-link" href="#scope-0" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:20.666 &nbsp;|&nbsp; duration: 408.26ms &nbsp;|&nbsp; tasks: 4</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 21:44:31.860 &nbsp;|&nbsp; duration: 404.43ms &nbsp;|&nbsp; tasks: 4</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>mirror-1</td><td>vt-129</td><td>+97.46µs</td><td>205.38ms</td><td><span class="outcome-failed">failed: java.net.ConnectException: mirror-1 refused</span><details class="stack-trace"><summary>stack trace</summary><pre class="stack-trace-body">java.net.ConnectException: mirror-1 refused
+<tr><td>1</td><td>mirror-1</td><td>vt-129</td><td>+172.79µs</td><td>203.90ms</td><td><span class="outcome-failed">failed: java.net.ConnectException: mirror-1 refused</span><details class="stack-trace"><summary>stack trace</summary><pre class="stack-trace-body">java.net.ConnectException: mirror-1 refused
 	at com.ionutbanu.scopetracer.demos.GalleryScenarios.lambda$anySuccessful$0(GalleryScenarios.java:83)
 	at com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)
 	at java.base/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)
 	at java.base/java.lang.VirtualThread.run(VirtualThread.java:470)
 </pre></details></td></tr>
-<tr><td>2</td><td>mirror-2</td><td>vt-130</td><td>+198.83µs</td><td>407.88ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>3</td><td>mirror-3</td><td>vt-131</td><td>+276.13µs</td><td>407.95ms</td><td><span class="outcome-cancelled">cancelled ← #1</span></td></tr>
-<tr><td>4</td><td>mirror-4</td><td>vt-132</td><td>+349.17µs</td><td>407.88ms</td><td><span class="outcome-cancelled">cancelled ← #1</span></td></tr>
+<tr><td>2</td><td>mirror-2</td><td>vt-130</td><td>+327.42µs</td><td>403.81ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>3</td><td>mirror-3</td><td>vt-131</td><td>+421.58µs</td><td>403.93ms</td><td><span class="outcome-cancelled">cancelled ← #1</span></td></tr>
+<tr><td>4</td><td>mirror-4</td><td>vt-132</td><td>+496.33µs</td><td>403.85ms</td><td><span class="outcome-cancelled">cancelled ← #1</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 164" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>any-successful | 408.26ms</title>
+<title>any-successful | 404.43ms</title>
 </rect>
-<svg x="0.19" y="32" width="402.46" height="18" overflow="hidden">
-<rect x="0" y="0" width="402.46" height="18" fill="#e53935" rx="2">
+<svg x="0.34" y="32" width="403.34" height="18" overflow="hidden">
+<rect x="0" y="0" width="403.34" height="18" fill="#e53935" rx="2">
 <title>task 1 | mirror-1 | vt-129 | failed: java.net.ConnectException: mirror-1 refused</title>
 </rect>
 <text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 mirror-1</text>
 </svg>
-<svg x="0.39" y="58" width="799.26" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.26" height="18" fill="#4caf50" rx="2">
+<svg x="0.65" y="58" width="798.77" height="18" overflow="hidden">
+<rect x="0" y="0" width="798.77" height="18" fill="#4caf50" rx="2">
 <title>task 2 | mirror-2 | vt-130 | success</title>
 </rect>
 <text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 mirror-2</text>
 </svg>
-<svg x="0.54" y="84" width="799.40" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.40" height="18" fill="#fb8c00" rx="2">
+<svg x="0.83" y="84" width="799.00" height="18" overflow="hidden">
+<rect x="0" y="0" width="799.00" height="18" fill="#fb8c00" rx="2">
 <title>task 3 | mirror-3 | vt-131 | cancelled ← #1</title>
 </rect>
 <text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 mirror-3</text>
 </svg>
-<svg x="0.68" y="110" width="799.26" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.26" height="18" fill="#fb8c00" rx="2">
+<svg x="0.98" y="110" width="798.85" height="18" overflow="hidden">
+<rect x="0" y="0" width="798.85" height="18" fill="#fb8c00" rx="2">
 <title>task 4 | mirror-4 | vt-132 | cancelled ← #1</title>
 </rect>
 <text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#4 mirror-4</text>
@@ -128,14 +128,14 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <line x1="0" y1="142" x2="800" y2="142" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="139" x2="0.00" y2="145" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="154" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="195.95" y1="139" x2="195.95" y2="145" stroke="#bdbdbd" stroke-width="1"/>
-<text x="197.95" y="154" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="391.91" y1="139" x2="391.91" y2="145" stroke="#bdbdbd" stroke-width="1"/>
-<text x="393.91" y="154" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
-<line x1="587.86" y1="139" x2="587.86" y2="145" stroke="#bdbdbd" stroke-width="1"/>
-<text x="589.86" y="154" font-size="8" fill="#9e9e9e" font-family="monospace">+300ms</text>
-<line x1="783.82" y1="139" x2="783.82" y2="145" stroke="#bdbdbd" stroke-width="1"/>
-<text x="785.82" y="154" font-size="8" fill="#9e9e9e" font-family="monospace">+400ms</text>
+<line x1="197.81" y1="139" x2="197.81" y2="145" stroke="#bdbdbd" stroke-width="1"/>
+<text x="199.81" y="154" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="395.62" y1="139" x2="395.62" y2="145" stroke="#bdbdbd" stroke-width="1"/>
+<text x="397.62" y="154" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
+<line x1="593.42" y1="139" x2="593.42" y2="145" stroke="#bdbdbd" stroke-width="1"/>
+<text x="595.42" y="154" font-size="8" fill="#9e9e9e" font-family="monospace">+300ms</text>
+<line x1="791.23" y1="139" x2="791.23" y2="145" stroke="#bdbdbd" stroke-width="1"/>
+<text x="793.23" y="154" font-size="8" fill="#9e9e9e" font-family="monospace">+400ms</text>
 </svg>
 </div>
 </section>

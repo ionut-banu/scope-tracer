@@ -873,9 +873,17 @@ document with global CSS and element ids, so inlining breaks it).
 `GalleryMain` refuses a recording whose shape differs from the one the
 scenario declares (retried at most 3 times, then exit 1, nothing
 written): decisive events are at least 150 ms after open and 100 ms
-apart, so a descheduled main thread cannot reorder them. `--check`
+apart, so a descheduled main thread cannot reorder them. The one
+exception is ignores-interrupt, whose failure is at about 60 ms: its
+criterion wants the failure and the cancelled sibling within 100 ms of
+the start, and a main thread stalled more than about 60 ms between two
+forks can leave `stubborn` unforked, which the gate rejects and retries. `--check`
 compares each report after dropping times, thread names, SVG, JDK
-frames, the critical-path note and the order of sibling child scopes;
+frames and the order of sibling child scopes; the critical-path note
+stays as a placeholder (it must be present, on the same row), except
+in order-processing, where two tasks of a scope can finish within
+milliseconds and the note may sit on either row, so only its presence
+per scope is compared;
 it is a CI step and not part of `verify`, so a timing flake cannot
 fail the build. `OrderProcessingDemo` draws from generators seeded
 from order id and step, so ORD-002 is always the declined order and
