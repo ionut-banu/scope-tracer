@@ -133,11 +133,14 @@ import net.bytebuddy.utility.OpenedClassReader;
  *       <pre>{@code
  * [scope-tracer] ignoring /app/lib/scope-tracer-agent-<v>.jar on the class path: the -javaagent jar is /opt/agent.jar
  * }</pre>
- *       When the {@code -javaagent} jar is itself on {@code -cp} with another scope-tracer jar
- *       after it ({@code -cp a.jar:agent.jar:b.jar}), the agent cannot tell which is its own and
- *       traces nothing, with one {@code WARN not tracing} line naming the original name and {@code
- *       -Xbootclasspath/a:} as fixes. An earlier release's jar on {@code -cp} (0.3.x or before)
- *       still takes over: its own {@code premain} is the one the JVM calls.
+ *       When the {@code -javaagent} jar is itself on {@code -cp} together with any other
+ *       scope-tracer jar, in either order ({@code -cp agent.jar:thin.jar}, {@code -cp
+ *       thin.jar:agent.jar}, {@code -cp a.jar:agent.jar:b.jar}), the agent cannot tell which is its
+ *       own and traces nothing, with one {@code WARN not tracing} line naming the original file
+ *       name and {@code -Xbootclasspath/a:} as fixes. An earlier release's jar on {@code -cp}
+ *       (0.3.x or before) still takes over: its own {@code premain} is the one the JVM calls. A
+ *       scope-tracer jar reached only through another jar's manifest {@code Class-Path} is not
+ *       handled yet (#158).
  * </ul>
  *
  * <p><b>Limitations:</b>

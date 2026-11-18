@@ -430,4 +430,47 @@ class BootstrapEntryTest {
         .startsWith(WARN_NOT_TRACING)
         .contains(FIX_RENAME + "expected-name.jar", FIX_FLAG);
   }
+
+  /** A jar with a manifest and no {@code Boot-Class-Path}, as the thin jar is. */
+  private static Path jarWithoutBootClassPath(Path path) throws Exception {
+    var manifest = new Manifest();
+    manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+    Files.createDirectories(path.getParent());
+    try (var out = new JarOutputStream(Files.newOutputStream(path), manifest)) {
+      out.flush();
+    }
+    return path;
+  }
+
+  /**
+   * {@code -cp agent.jar:thin.jar} with {@code agent.jar} the {@code -javaagent} jar: the running
+   * copy is the fat-jar and the last copy is the thin jar. The rename hint is the fat-jar's own
+   * name, read from the running jar, not the generic one the thin jar's manifest would give.
+   */
+  @Test
+  void refusalNamesTheFileNameFromTheRunningJar(@TempDir Path dir) throws Exception {
+    Path agent = jarListing(dir.resolve("agent.jar"), "scope-tracer-agent-9.9.9-agent.jar");
+    Path thin = jarWithoutBootClassPath(dir.resolve("thin.jar"));
+    var choice = choose(agent, () -> List.of(copyIn(agent), copyIn(thin)), classPath(agent, thin));
+
+    assertThat(choice.jar()).isNull();
+    assertThat(choice.lines())
+        .singleElement()
+        .asString()
+        .contains(FIX_RENAME + "scope-tracer-agent-9.9.9-agent.jar, " + FIX_FLAG);
+  }
+
+  /** {@code -cp thin.jar:agent.jar}: the running thin jar lists no name, the last copy does. */
+  @Test
+  void refusalFallsBackToTheLastCopyForTheFileName(@TempDir Path dir) throws Exception {
+    Path thin = jarWithoutBootClassPath(dir.resolve("thin.jar"));
+    Path agent = jarListing(dir.resolve("agent.jar"), "scope-tracer-agent-9.9.9-agent.jar");
+    var choice = choose(thin, () -> List.of(copyIn(thin), copyIn(agent)), classPath(thin, agent));
+
+    assertThat(choice.jar()).isNull();
+    assertThat(choice.lines())
+        .singleElement()
+        .asString()
+        .contains(FIX_RENAME + "scope-tracer-agent-9.9.9-agent.jar, " + FIX_FLAG);
+  }
 }

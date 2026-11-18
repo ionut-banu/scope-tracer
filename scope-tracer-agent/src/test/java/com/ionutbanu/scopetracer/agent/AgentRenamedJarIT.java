@@ -647,6 +647,31 @@ class AgentRenamedJarIT {
     assertThat(dir.resolve("t.html")).doesNotExist();
   }
 
+  /**
+   * The {@code -javaagent} jar on {@code -cp} with the thin jar, in either order: the agent
+   * refuses, and the rename hint is the fat-jar's exact file name in both.
+   */
+  @ParameterizedTest(name = "javaagent jar first: {0}")
+  @ValueSource(booleans = {true, false})
+  void javaagentJarOnTheClassPathWithTheThinJarRefusesNamingTheExactFileName(
+      boolean agentFirst, @TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path thin = classPathJars(OnClassPath.THIN, dir).get(0);
+    Path jfr = dir.resolve("t.jfr");
+    List<Path> cp = agentFirst ? List.of(agent, thin) : List.of(thin, agent);
+    var run = ChildJvm.run(dir, List.of(javaagent(agent, "record=" + jfr)), strings(cp), "mixed");
+
+    assertThat(run.exitCode()).as(run.stderr()).isZero();
+    assertThat(run.stdout()).isEqualTo(ExitSubject.DONE + System.lineSeparator());
+    assertThat(run.agentLines()).as(run.stderr()).hasSize(1);
+    assertThat(run.warnings())
+        .singleElement()
+        .asString()
+        .contains("the -javaagent jar cannot be told apart from the class path")
+        .contains("rename the jar to " + originalName + ", or add -Xbootclasspath/a:");
+    assertThat(jfr).doesNotExist();
+  }
+
   // --- helpers ---
 
   /**
