@@ -2,6 +2,7 @@ package com.ionutbanu.scopetracer.demos;
 
 import com.ionutbanu.scopetracer.core.TracedScope;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.random.RandomGenerator;
 
@@ -25,9 +26,12 @@ import java.util.random.RandomGenerator;
  * <ul>
  *   <li>The critical path alternates between the payment and inventory branches — whichever takes
  *       longer determines the fulfillment scope duration. Visible as the gold-outlined bar.
- *   <li>High-value orders (≥ £500) have a 30 % chance of failing the fraud check. When they do, the
- *       {@code payment-pipeline} and its parent {@code order-processing-*} scope both turn red, and
- *       the {@code order-dispatch-*} scope is skipped entirely.
+ *   <li>High-value orders (≥ £500) can fail the fraud check. When one does, the {@code
+ *       payment-pipeline} and its parent {@code order-processing-*} scope both turn red, and the
+ *       {@code order-dispatch-*} scope is skipped entirely. Which order fails is fixed: every
+ *       random draw comes from a generator seeded from the order id and the step ({@link #draws}),
+ *       so each run declines the same one, ORD-002, and the gallery's example report always shows
+ *       it.
  *   <li>Warehouse B is occasionally slow, making it the critical-path task inside {@code
  *       inventory-reservation}.
  *   <li>The capture step runs sequentially <em>after</em> the parallel fraud + auth tasks, so the
@@ -63,52 +67,67 @@ public final class OrderProcessingDemo {
 
   record Order(String id, String customerId, double amount, List<String> items) {}
 
+  private static final List<Order> ORDERS =
+      List.of(
+          new Order("ORD-001", "cust-alice", 149.99, List.of("widget", "gadget")),
+          new Order("ORD-002", "cust-bob", 849.99, List.of("premium-widget")),
+          new Order("ORD-003", "cust-carol", 39.99, List.of("basic-item", "basic-item")),
+          new Order("ORD-004", "cust-dave", 649.99, List.of("deluxe-gadget")),
+          new Order("ORD-005", "cust-eve", 29.99, List.of("budget-item")));
+
   // ── Entry point ──────────────────────────────────────────────────────────────
 
   public static void main(String[] args) throws Exception {
     System.out.println("=== OrderProcessingDemo ===");
 
-    var orders =
-        List.of(
-            new Order("ORD-001", "cust-alice", 149.99, List.of("widget", "gadget")),
-            new Order("ORD-002", "cust-bob", 849.99, List.of("premium-widget")),
-            new Order("ORD-003", "cust-carol", 39.99, List.of("basic-item", "basic-item")),
-            new Order("ORD-004", "cust-dave", 649.99, List.of("deluxe-gadget")),
-            new Order("ORD-005", "cust-eve", 29.99, List.of("budget-item")));
-
-    DemoRunner.run(
-        "order-processing",
-        () -> {
-          var rng = RandomGenerator.getDefault();
-          for (var order : orders) {
-            processOrder(order, rng);
-          }
-        });
+    DemoRunner.run("order-processing", OrderProcessingDemo::runOrders);
   }
+
+  /**
+   * The five orders, one after the other; what {@code main} records and the gallery regenerates.
+   */
+  static void runOrders() throws Exception {
+    for (var order : ORDERS) {
+      processOrder(order);
+    }
+  }
+
+  /**
+   * The random draws of one step of one order. The generator is seeded from {@link #SEED}, the
+   * order id and the step name, so the same order and step always give the same draws, whatever
+   * thread asks and in whatever order. {@link #SEED} was chosen so that exactly ORD-002 is declined
+   * by the fraud check (at 142 ms, with its siblings still running), and ORD-004 is not.
+   */
+  static RandomGenerator draws(String orderId, String step) {
+    return new Random((SEED + "/" + orderId + "/" + step).hashCode());
+  }
+
+  private static final int SEED = 3459;
 
   // ── Stage orchestration ──────────────────────────────────────────────────────
 
-  private static void processOrder(Order order, RandomGenerator rng) throws InterruptedException {
+  private static void processOrder(Order order) throws InterruptedException {
     System.out.printf(
         "[%s] %-12s  £%.2f  %d item(s)%n",
         order.id(), order.customerId(), order.amount(), order.items().size());
 
-    if (!runFulfillment(order, rng)) return; // dispatch only on success
+    if (!runFulfillment(order)) return; // dispatch only on success
 
-    runDispatch(order, rng);
+    runDispatch(order);
   }
 
   /**
    * Fulfillment stage: validation, payment pipeline, and inventory reservation run in parallel. The
    * slowest of the three determines the scope's total duration (and its critical-path task).
    */
-  private static boolean runFulfillment(Order order, RandomGenerator rng)
-      throws InterruptedException {
+  // gallery:begin order-processing
+  private static boolean runFulfillment(Order order) throws InterruptedException {
     try (var scope = TracedScope.open("order-processing-" + order.id())) {
-      var validation = scope.fork(() -> validateOrder(order, rng));
-      var payment = scope.fork(() -> runPaymentPipeline(order, rng));
-      var inventory = scope.fork(() -> runInventoryReservation(order, rng));
-      scope.join();
+      scope.fork("validate-order", () -> validateOrder(order));
+      // each of these two tasks opens a scope of its own
+      var payment = scope.fork("payment", () -> runPaymentPipeline(order));
+      var inventory = scope.fork("inventory", () -> runInventoryReservation(order));
+      scope.join(); // the first task to fail cancels the others
       System.out.printf(
           "[%s] ✓ fulfilled  payment=%s  stock=%s%n", order.id(), payment.get(), inventory.get());
       return true;
@@ -123,12 +142,14 @@ public final class OrderProcessingDemo {
     }
   }
 
+  // gallery:end order-processing
+
   /** Dispatch stage: courier, label, and notification run in parallel after fulfillment. */
-  private static void runDispatch(Order order, RandomGenerator rng) throws InterruptedException {
+  private static void runDispatch(Order order) throws InterruptedException {
     try (var scope = TracedScope.open("order-dispatch-" + order.id())) {
-      scope.fork(() -> assignCourier(order, rng));
-      scope.fork(() -> generateLabel(order, rng));
-      scope.fork(() -> notifyCustomer(order, rng));
+      scope.fork("assign-courier", () -> assignCourier(order));
+      scope.fork("generate-label", () -> generateLabel(order));
+      scope.fork("notify-customer", () -> notifyCustomer(order));
       scope.join();
       System.out.printf("[%s] ✓ dispatched%n", order.id());
     } catch (ExecutionException e) {
@@ -149,13 +170,13 @@ public final class OrderProcessingDemo {
    * parser can track each order's pipeline independently. The renderer groups all {@code
    * payment-pipeline-*} scopes under a single "payment-pipeline" group heading.
    */
-  private static String runPaymentPipeline(Order order, RandomGenerator rng) throws Exception {
+  private static String runPaymentPipeline(Order order) throws Exception {
     try (var scope = TracedScope.open("payment-pipeline-" + numericId(order))) {
-      var fraud = scope.fork(() -> checkFraud(order, rng));
-      var auth = scope.fork(() -> authorizeCard(order, rng));
+      scope.fork("fraud-check", () -> checkFraud(order));
+      var auth = scope.fork("card-authorisation", () -> authorizeCard(order));
       scope.join(); // throws ExecutionException if fraud check rejects
       // Sequential step: runs after parallel tasks complete, inside the same scope
-      return capturePayment(auth.get(), rng);
+      return capturePayment(auth.get(), order);
     } catch (ExecutionException e) {
       // Re-throw as RuntimeException so the outer scope sees the original cause directly,
       // rather than a wrapped ExecutionException chain that obscures the root error message.
@@ -168,12 +189,12 @@ public final class OrderProcessingDemo {
    * whichever has more units available. Warehouse B is occasionally slow (~25 % of calls), making
    * it the critical-path task in this scope.
    */
-  private static String runInventoryReservation(Order order, RandomGenerator rng) throws Exception {
+  private static String runInventoryReservation(Order order) throws Exception {
     try (var scope = TracedScope.open("inventory-reservation-" + numericId(order))) {
-      var warehouseA = scope.fork(() -> checkWarehouse("warehouse-A", order, rng));
-      var warehouseB = scope.fork(() -> checkWarehouse("warehouse-B", order, rng));
+      var warehouseA = scope.fork("warehouse-A", () -> checkWarehouse("warehouse-A", order));
+      var warehouseB = scope.fork("warehouse-B", () -> checkWarehouse("warehouse-B", order));
       scope.join();
-      return allocateStock(warehouseA.get(), warehouseB.get(), order, rng);
+      return allocateStock(warehouseA.get(), warehouseB.get(), order);
     }
   }
 
@@ -187,8 +208,8 @@ public final class OrderProcessingDemo {
   // ── Leaf tasks ───────────────────────────────────────────────────────────────
 
   /** Quick sanity check: address, item availability constraints, region limits. */
-  private static String validateOrder(Order order, RandomGenerator rng)
-      throws InterruptedException {
+  private static String validateOrder(Order order) throws InterruptedException {
+    var rng = draws(order.id(), "validate");
     Thread.sleep(15 + rng.nextInt(25));
     return "valid";
   }
@@ -198,7 +219,8 @@ public final class OrderProcessingDemo {
    * when this happens the whole fulfillment pipeline fails and is skipped in the report as a red
    * failed scope.
    */
-  private static String checkFraud(Order order, RandomGenerator rng) throws InterruptedException {
+  private static String checkFraud(Order order) throws InterruptedException {
+    var rng = draws(order.id(), "fraud");
     Thread.sleep(80 + rng.nextInt(120));
     if (order.amount() >= 500.0 && rng.nextInt(10) < 3) {
       throw new RuntimeException("fraud-check: high-risk transaction declined for " + order.id());
@@ -207,8 +229,8 @@ public final class OrderProcessingDemo {
   }
 
   /** Card authorisation round-trip to the payment gateway. */
-  private static String authorizeCard(Order order, RandomGenerator rng)
-      throws InterruptedException {
+  private static String authorizeCard(Order order) throws InterruptedException {
+    var rng = draws(order.id(), "auth");
     Thread.sleep(60 + rng.nextInt(90));
     return "auth-" + Integer.toHexString(rng.nextInt(0xFFFF)).toUpperCase();
   }
@@ -217,8 +239,8 @@ public final class OrderProcessingDemo {
    * Sequential card capture — runs after authorisation completes. Extends the {@code
    * payment-pipeline} scope duration beyond the last parallel task bar.
    */
-  private static String capturePayment(String authCode, RandomGenerator rng)
-      throws InterruptedException {
+  private static String capturePayment(String authCode, Order order) throws InterruptedException {
+    var rng = draws(order.id(), "capture");
     Thread.sleep(30 + rng.nextInt(50));
     return "captured:" + authCode;
   }
@@ -227,38 +249,39 @@ public final class OrderProcessingDemo {
    * Warehouse stock query. Warehouse B is intentionally biased to be slow 25 % of the time so the
    * critical-path highlight alternates between the two warehouses across orders.
    */
-  private static int checkWarehouse(String warehouse, Order order, RandomGenerator rng)
-      throws InterruptedException {
+  private static int checkWarehouse(String warehouse, Order order) throws InterruptedException {
+    var rng = draws(order.id(), warehouse);
     boolean slow = "warehouse-B".equals(warehouse) && rng.nextInt(4) == 0;
     Thread.sleep(slow ? 160 + rng.nextInt(100) : 40 + rng.nextInt(80));
     return 5 + rng.nextInt(95); // units available
   }
 
   /** Allocates from the warehouse with more stock; records the chosen location. */
-  private static String allocateStock(int unitsA, int unitsB, Order order, RandomGenerator rng)
+  private static String allocateStock(int unitsA, int unitsB, Order order)
       throws InterruptedException {
+    var rng = draws(order.id(), "allocate");
     Thread.sleep(20 + rng.nextInt(30));
     String source = unitsA >= unitsB ? "warehouse-A" : "warehouse-B";
     return source + " (×" + order.items().size() + ")";
   }
 
   /** Courier matching — connects order weight/destination to available courier capacity. */
-  private static String assignCourier(Order order, RandomGenerator rng)
-      throws InterruptedException {
+  private static String assignCourier(Order order) throws InterruptedException {
+    var rng = draws(order.id(), "courier");
     Thread.sleep(50 + rng.nextInt(100));
     return "courier assigned";
   }
 
   /** PDF label generation including barcode encoding and customs declarations. */
-  private static String generateLabel(Order order, RandomGenerator rng)
-      throws InterruptedException {
+  private static String generateLabel(Order order) throws InterruptedException {
+    var rng = draws(order.id(), "label");
     Thread.sleep(35 + rng.nextInt(65));
     return "label generated";
   }
 
   /** Sends confirmation email and push notification to the customer. */
-  private static String notifyCustomer(Order order, RandomGenerator rng)
-      throws InterruptedException {
+  private static String notifyCustomer(Order order) throws InterruptedException {
+    var rng = draws(order.id(), "notify");
     Thread.sleep(20 + rng.nextInt(40));
     return "notified";
   }
