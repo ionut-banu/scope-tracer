@@ -46,6 +46,7 @@ class GalleryMainTest {
               "docs/gallery/reports/demo.html",
               "reports/demo.html",
               false,
+              false,
               SHAPE,
               () -> {}),
           new GalleryScenario(
@@ -56,6 +57,7 @@ class GalleryMainTest {
               "src/Demo.java",
               "docs/example/bannered.html",
               "../example/bannered.html",
+              true,
               true,
               SHAPE,
               () -> {}));
@@ -120,6 +122,9 @@ class GalleryMainTest {
             // gallery:begin bannered
             second();
             // gallery:end bannered
+            // gallery:begin ok
+            third();
+            // gallery:end ok
           }
         }
         """);
@@ -274,6 +279,51 @@ class GalleryMainTest {
         report, text("docs/gallery/reports/demo.html").replace("outcome-failed", "outcome-broken"));
 
     assertThat(run(true, new FakeRecorder())).isEqualTo(1);
+  }
+
+  @Test
+  void checkFailsWhenTheCriticalPathNoteIsRemovedFromACommittedReport() throws Exception {
+    var allOk =
+        List.of(
+            new GalleryScenario(
+                "ok",
+                "ok heading",
+                "look",
+                "not this",
+                "src/Demo.java",
+                "docs/gallery/reports/ok.html",
+                "reports/ok.html",
+                false,
+                false,
+                Shape.of(scope("s", succeeded("a"), succeeded("b"))),
+                () -> {}));
+    GalleryMain.Recorder recorder =
+        new GalleryMain.Recorder() {
+          public void warmUp(GalleryScenario scenario) {}
+
+          public TraceModel record(GalleryScenario scenario) {
+            return model(
+                TestModels.scope(
+                    1,
+                    "s",
+                    0,
+                    210,
+                    null,
+                    task(1, "a", 1, 0, 50, ok()),
+                    task(2, "b", 2, 0, 200, ok())));
+          }
+        };
+    assertThat(GalleryMain.run(root, false, allOk, recorder, out, err)).isZero();
+    assertThat(GalleryMain.run(root, true, allOk, recorder, out, err)).isZero();
+    var report = root.resolve("docs/gallery/reports/ok.html");
+    var html = Files.readString(report);
+    assertThat(html).contains("critical-path-note");
+    Files.writeString(
+        report, html.replaceAll(" ?<span class=\"critical-path-note\">.*?</span>", ""));
+
+    assertThat(GalleryMain.run(root, true, allOk, recorder, out, err)).isEqualTo(1);
+    assertThat(errBytes.toString(StandardCharsets.UTF_8))
+        .contains("docs/gallery/reports/ok.html: differs");
   }
 
   @Test

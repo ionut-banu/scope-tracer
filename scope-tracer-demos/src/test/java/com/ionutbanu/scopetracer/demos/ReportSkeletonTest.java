@@ -76,13 +76,39 @@ class ReportSkeletonTest {
   }
 
   @Test
-  void whichTaskFinishedLastIsIgnored() {
+  void aNoteThatMovedIsIgnoredOnlyForAScopeWhereItMayMove() {
     // Two tasks that end within a millisecond of each other: the amber note moves.
     var aLast = twoSucceeded(40, 41);
     var bLast = twoSucceeded(41, 40);
 
     assertThat(aLast).isNotEqualTo(bLast);
-    assertThat(sameSkeleton(aLast, bLast)).isTrue();
+    assertThat(ReportSkeleton.firstDifference(aLast, bLast, true)).isNull();
+    assertThat(ReportSkeleton.firstDifference(aLast, bLast, false)).isNotNull();
+  }
+
+  @Test
+  void aDifferentNoteDeltaIsIgnored() {
+    assertThat(sameSkeleton(twoSucceeded(40, 100), twoSucceeded(45, 130))).isTrue();
+  }
+
+  @Test
+  void aReportThatLosesTheCriticalPathNoteIsDetectedWhereverItMayMove() {
+    var with = twoSucceeded(40, 100);
+    var without = with.replaceAll(" ?<span class=\"critical-path-note\">.*?</span>", "");
+
+    assertThat(with).isNotEqualTo(without);
+    assertThat(ReportSkeleton.firstDifference(with, without, false)).isNotNull();
+    assertThat(ReportSkeleton.firstDifference(with, without, true)).isNotNull();
+  }
+
+  @Test
+  void aRendererThatNoLongerWritesTheNoteIsDetected() {
+    // what a change to HtmlRenderer that dropped the note would produce
+    var rendered = twoSucceeded(40, 100);
+    var dropped =
+        rendered.replaceAll("critical-path-note", "removed").replaceAll("← critical path", "");
+
+    assertThat(sameSkeleton(rendered, dropped)).isFalse();
   }
 
   private static String twoSucceeded(long aEnd, long bEnd) {

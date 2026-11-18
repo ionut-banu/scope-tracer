@@ -130,7 +130,11 @@ public final class GalleryMain {
     var page = GalleryPage.render(root, scenarios);
     files.put(PAGE_FILE, page);
 
-    return check ? compare(root, files, out, err) : write(root, files, out);
+    var noteMayMove = new java.util.HashSet<String>();
+    scenarios.stream()
+        .filter(GalleryScenario::noteMayMove)
+        .forEach(s -> noteMayMove.add(s.reportFile()));
+    return check ? compare(root, files, noteMayMove, out, err) : write(root, files, out);
   }
 
   private static String recordWithGate(
@@ -178,7 +182,11 @@ public final class GalleryMain {
   }
 
   private static int compare(
-      Path root, Map<String, String> regenerated, PrintStream out, PrintStream err)
+      Path root,
+      Map<String, String> regenerated,
+      java.util.Set<String> noteMayMove,
+      PrintStream out,
+      PrintStream err)
       throws IOException {
     var differing = new ArrayList<String>();
     for (var file : regenerated.entrySet()) {
@@ -194,7 +202,9 @@ public final class GalleryMain {
         // The page holds no time: it must be identical.
         difference = committed.equals(file.getValue()) ? null : "the page text differs";
       } else {
-        difference = ReportSkeleton.firstDifference(committed, file.getValue());
+        difference =
+            ReportSkeleton.firstDifference(
+                committed, file.getValue(), noteMayMove.contains(file.getKey()));
       }
       if (difference == null) {
         out.println(file.getKey() + ": ok");

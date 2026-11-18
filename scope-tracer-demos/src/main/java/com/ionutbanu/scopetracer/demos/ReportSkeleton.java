@@ -12,11 +12,11 @@ import java.util.regex.Pattern;
  *
  * <p>A report holds absolute timestamps, durations, thread names and ids, and an SVG whose tick
  * count depends on how long the scope took, so two correct runs never match byte for byte. What is
- * dropped: every SVG element, the embedded JSON, the critical-path note (which task finished last
- * is a race when two finish close together), every digit (so ids, offsets, line numbers and counts
- * of any kind), durations in any unit, thread names, and the {@code java.base} frames of a stack
- * trace (they differ between JDK builds). What is kept: the markup, the CSS, every task name, every
- * outcome and every exception.
+ * dropped: every SVG element, the embedded JSON, every digit (so ids, offsets, line numbers and
+ * counts of any kind), durations in any unit, thread names, and the {@code java.base} frames of a
+ * stack trace (they differ between JDK builds). What is kept: the markup, the CSS, every task name,
+ * every outcome and every exception, and the critical-path note (its delta is a placeholder, its
+ * row is compared).
  */
 final class ReportSkeleton {
 
@@ -34,12 +34,25 @@ final class ReportSkeleton {
   private static final Pattern DURATION = Pattern.compile("\\d+(?:\\.\\d+)?(?:µs|ms|ns|s)\\b");
   private static final Pattern DIGITS = Pattern.compile("\\d+");
 
-  /** The text two reports of the same scenario share. */
+  private static final Pattern TABLE = Pattern.compile("<table>.*?</table>", Pattern.DOTALL);
+  private static final String NOTE_MARK = "<span class=\"critical-path-note\">NOTE</span>";
+
+  /** The text two reports of the same scenario share, the critical-path note on its row. */
   static String of(String html) {
+    return of(html, false);
+  }
+
+  /**
+   * The text two reports share. The critical-path note is never deleted: its delta is replaced by a
+   * placeholder, so a report that loses the note, or shows it on another row, differs. With {@code
+   * noteMayMove} the note is instead reduced to one marker per task table, because in a scope where
+   * two tasks end within milliseconds of each other either may be the last.
+   */
+  static String of(String html, boolean noteMayMove) {
     var text = html.replace("\r\n", "\n");
     text = dropSvg(text);
     text = TRACE_DATA.matcher(text).replaceAll("<data/>");
-    text = CRITICAL_NOTE.matcher(text).replaceAll("");
+    text = noteMayMove ? noteOncePerTable(text) : CRITICAL_NOTE.matcher(text).replaceAll(NOTE_MARK);
     text = ROW_THREAD.matcher(text).replaceAll("$1THREAD$2");
     text = META_THREAD.matcher(text).replaceAll("thread: THREAD&nbsp;");
     var lines = new ArrayList<String>();
@@ -51,6 +64,21 @@ final class ReportSkeleton {
       if (!line.isEmpty()) lines.add(line);
     }
     return String.join("\n", sortSiblings(lines)) + "\n";
+  }
+
+  private static String noteOncePerTable(String text) {
+    var out = new StringBuilder();
+    var tables = TABLE.matcher(text);
+    int copied = 0;
+    while (tables.find()) {
+      out.append(text, copied, tables.start());
+      var table = tables.group();
+      boolean noted = CRITICAL_NOTE.matcher(table).find();
+      table = CRITICAL_NOTE.matcher(table).replaceAll("");
+      out.append(noted ? table.replace("</table>", "<!-- critical path -->\n</table>") : table);
+      copied = tables.end();
+    }
+    return out.append(text, copied, text.length()).toString();
   }
 
   /** Replaces every outermost {@code <svg>...</svg>} (svg elements nest) with {@code <svg/>}. */
@@ -126,8 +154,12 @@ final class ReportSkeleton {
 
   /** The first line where the skeletons of two reports differ, for a failure message; or null. */
   static String firstDifference(String committed, String regenerated) {
-    var a = of(committed).split("\n");
-    var b = of(regenerated).split("\n");
+    return firstDifference(committed, regenerated, false);
+  }
+
+  static String firstDifference(String committed, String regenerated, boolean noteMayMove) {
+    var a = of(committed, noteMayMove).split("\n");
+    var b = of(regenerated, noteMayMove).split("\n");
     for (int i = 0; i < Math.min(a.length, b.length); i++) {
       if (!a[i].equals(b[i])) {
         return "line "

@@ -60,6 +60,7 @@ final class GalleryCatalog {
         "docs/gallery/reports/" + id + ".html",
         "reports/" + id + ".html",
         false,
+        false,
         shape,
         body);
   }
@@ -277,6 +278,7 @@ final class GalleryCatalog {
         ORDERS_SOURCE,
         "docs/example/order-processing-report.html",
         "../example/order-processing-report.html",
+        true,
         true,
         orderShape(),
         OrderProcessingDemo::runOrders);

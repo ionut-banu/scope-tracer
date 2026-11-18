@@ -194,6 +194,16 @@ class GalleryTest {
   }
 
   @Test
+  void removingTheCriticalPathNoteFromACommittedReportFailsTheCheck() throws Exception {
+    var committed = read("docs/gallery/reports/all-successful.html");
+    assertThat(committed).contains("critical-path-note\">");
+    var without = committed.replaceAll(" ?<span class=\"critical-path-note\">.*?</span>", "");
+
+    assertThat(ReportSkeleton.firstDifference(committed, without, false)).isNotNull();
+    assertThat(ReportSkeleton.firstDifference(committed, committed, false)).isNull();
+  }
+
+  @Test
   void noFileLoadsAnythingFromTheNetwork() throws Exception {
     for (var file : committedFiles()) {
       assertThat(NetworkCheck.problems(read(file))).as(file).isEmpty();

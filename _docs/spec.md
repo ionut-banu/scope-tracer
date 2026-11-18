@@ -614,11 +614,11 @@ input. Both sides change in the same issue.
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
 | agent unit | surefire | 182 |
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 282 |
-| demos unit | surefire | 56 |
+| demos unit | surefire | 61 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first six: 823 tests (surefire plus
+`mvn -q verify` runs the first six: 828 tests (surefire plus
 failsafe, measured on 2026-11-18 on the branch of #59 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
