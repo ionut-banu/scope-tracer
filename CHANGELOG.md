@@ -142,6 +142,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bytes are now read from the jar the agent added to the bootstrap class path. If that jar
   cannot be read, one `WARN not tracing` line names it and the agent instruments nothing.
   Nothing changes under the original name or with `-Xbootclasspath/a:`.
+- **A scope-tracer jar on `-cp` no longer takes over a renamed agent jar.** With the agent
+  under another name (`-javaagent:agent.jar`), a scope-tracer jar also on `-cp` was the one
+  the JVM ran: the thin `scope-tracer-agent-<v>.jar` aborted the JVM (exit 134,
+  `NoClassDefFoundError: net/bytebuddy/agent/builder/AgentBuilder`), the thin jar with
+  ByteBuddy beside it recorded nothing, and another copy of the fat-jar traced but from
+  itself. The agent now always adds the `-javaagent` jar to the bootstrap class path and
+  traces with it, and prints one `[scope-tracer] ignoring <jar> on the class path: the
+  -javaagent jar is <jar>` line when it passes over the copy that started it. When the
+  `-javaagent` jar is also on `-cp` with another scope-tracer jar after it
+  (`-cp a.jar:agent.jar:b.jar`), it cannot tell the jars apart: one `WARN not tracing` line
+  names the two fixes (the original file name, or `-Xbootclasspath/a:<jar>`), nothing is
+  traced, and the program runs as without the agent. This needs the jar on `-cp` to be 0.4.0
+  or later: a 0.3.x or earlier scope-tracer jar on `-cp` still takes over, because its own
+  `premain` is the one the JVM calls. Nothing changes under the original name.
 - **The live demos print jar names that exist.** `LiveServiceDemo` and `LiveOrderProcessingDemo`
   printed `0.1.0-SNAPSHOT` jar paths; they now read the version from their own jar's manifest
   (`<VERSION>` and one line saying so when run from `target/classes` or an IDE) and say the

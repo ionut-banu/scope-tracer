@@ -127,6 +127,17 @@ import net.bytebuddy.utility.OpenedClassReader;
  *       The JVM then prints its own {@code Sharing is only supported for boot loader classes
  *       because bootstrap classpath has been appended} warning. Keeping the original name, or
  *       adding {@code -Xbootclasspath/a:<path to the jar>} beside {@code -javaagent}, avoids it.
+ *   <li>Under a renamed jar, a scope-tracer jar of this version or later also on {@code -cp} (the
+ *       thin jar, or another copy of the fat-jar) does not take over: the {@code -javaagent} jar is
+ *       the one added and the one that instruments, and the agent names the jar it passed over:
+ *       <pre>{@code
+ * [scope-tracer] ignoring /app/lib/scope-tracer-agent-<v>.jar on the class path: the -javaagent jar is /opt/agent.jar
+ * }</pre>
+ *       When the {@code -javaagent} jar is itself on {@code -cp} with another scope-tracer jar
+ *       after it ({@code -cp a.jar:agent.jar:b.jar}), the agent cannot tell which is its own and
+ *       traces nothing, with one {@code WARN not tracing} line naming the original name and {@code
+ *       -Xbootclasspath/a:} as fixes. An earlier release's jar on {@code -cp} (0.3.x or before)
+ *       still takes over: its own {@code premain} is the one the JVM calls.
  * </ul>
  *
  * <p><b>Limitations:</b>

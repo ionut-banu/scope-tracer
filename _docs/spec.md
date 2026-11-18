@@ -346,7 +346,29 @@ loader's copy of `ScopeTracerAgent` does only that, in
 `BootstrapEntry`: it prints one `[scope-tracer]` line naming the jar
 and enters the bootstrap copy, which does everything else, handing
 it the jar's path as an argument of a package-private method (no
-system property, no public method). The `Advice.to` calls read advice
+system property, no public method). The jar it appends is the
+`-javaagent` jar, not necessarily the one it was loaded from: the
+system class loader searches `-cp` first, so a scope-tracer jar
+there (the thin jar, or another copy of the fat-jar) supplies the
+running `ScopeTracerAgent`. `BootstrapEntry` takes the last copy of
+`ScopeTracerAgent.class` that `ClassLoader.getSystemResources`
+lists, because the JVM appends the `-javaagent` jar after every
+`-cp` entry and the jars their `Class-Path` attributes name. When
+that is not the running copy it prints one `[scope-tracer] ignoring
+<jar> on the class path: the -javaagent jar is <jar>` line, both by
+real path, before the `added` line. When the last copy is itself an
+entry of `java.class.path` (compared by real path) and not the
+running copy, as in `-cp a.jar:agent.jar:b.jar` with
+`-javaagent:agent.jar`, the agent cannot tell which jar is its own:
+it prints one `WARN not tracing` line naming both fixes and traces
+nothing. If the copies cannot be listed or read, it appends the jar
+it was loaded from. No method `ScopeTracerAgent` declares names a
+ByteBuddy type: the JVM resolves every one of their signatures when
+it looks `premain` up, and a copy from the thin jar would abort the
+JVM there; the ByteBuddy code lives in a nested class. This holds
+for a scope-tracer jar of 0.4.0 or later on `-cp`; a 0.3.x or
+earlier jar there still takes over, because its own `premain` is the
+one the JVM calls. The `Advice.to` calls read advice
 bytes from the advice class's loader and then from that jar, because
 the bootstrap loader serves no resources from a jar appended at
 runtime. The system class loader is never asked for them under a
@@ -577,19 +599,19 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-18, #106, JDK 27) |
+| Suite | Runner | Count (2026-11-18, #128, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 169 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
-| agent unit | surefire | 169 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 266 |
+| agent unit | surefire | 180 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 280 |
 | demos unit | surefire | 3 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first six: 741 tests (surefire plus
-failsafe, measured on 2026-11-18 on the branch of #106 on Temurin 27; the
+`mvn -q verify` runs the first six: 766 tests (surefire plus
+failsafe, measured on 2026-11-18 on the branch of #128 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
