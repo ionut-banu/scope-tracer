@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import jdk.jfr.consumer.RecordedEvent;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -469,6 +471,180 @@ class AgentRenamedJarIT {
     assertThat(dir.resolve("t.html")).exists();
     assertThat(run.agentLines()).noneMatch(l -> l.contains(APPENDED)).hasSize(2);
     assertThat(run.stderr()).doesNotContain(CDS_WARNING);
+  }
+
+  // --- issue #128: a scope-tracer jar on -cp under a renamed -javaagent jar ---
+
+  /** What else is on {@code -cp}, ahead of the test classes. */
+  enum OnClassPath {
+    /** The thin {@code scope-tracer-agent-<v>.jar}: the agent's classes, no ByteBuddy. */
+    THIN,
+    /** The thin jar, then the ByteBuddy jar the test JVM loaded {@code ByteBuddy} from. */
+    THIN_AND_BYTEBUDDY,
+    /** Another copy of the fat-jar, in another directory under another file name. */
+    ANOTHER_FAT_JAR
+  }
+
+  /**
+   * Copies the jars {@code what} names into {@code dir/cp/} and returns them in {@code -cp} order.
+   */
+  private static List<Path> classPathJars(OnClassPath what, Path dir) throws Exception {
+    Path thin = fatJar.resolveSibling(originalName.replace("-agent.jar", ".jar"));
+    assertThat(thin).as("the thin jar beside the fat-jar").exists();
+    Path cp = Files.createDirectories(dir.resolve("cp"));
+    return switch (what) {
+      case THIN -> List.of(Files.copy(thin, cp.resolve(thin.getFileName())));
+      case THIN_AND_BYTEBUDDY ->
+          List.of(
+              Files.copy(thin, cp.resolve(thin.getFileName())),
+              Files.copy(Path.of(jarOf(net.bytebuddy.ByteBuddy.class)), cp.resolve("bb.jar")));
+      case ANOTHER_FAT_JAR -> List.of(copyAs(dir, "cp/other-agent.jar"));
+    };
+  }
+
+  private static List<String> strings(List<Path> paths) {
+    return paths.stream().map(Path::toString).toList();
+  }
+
+  /**
+   * The {@code ignoring} line for the jar the running class came from and the agent jar. Both by
+   * real path: the JVM resolves a {@code -cp} jar's path, as it does the {@code -javaagent} one,
+   * before it becomes the code source.
+   */
+  private static String ignoringLine(Path classPathJar, Path agentJar) throws Exception {
+    return ChildJvm.AGENT_PREFIX
+        + " ignoring "
+        + classPathJar.toRealPath()
+        + " on the class path: the -javaagent jar is "
+        + agentJar.toRealPath();
+  }
+
+  /**
+   * {@code -javaagent:agent.jar}, absolute, with {@code what} on {@code -cp}: exit 0, the six
+   * events of the {@code mixed} scope, and the agent lines name the {@code -javaagent} jar.
+   */
+  @ParameterizedTest(name = "{0}")
+  @EnumSource(OnClassPath.class)
+  void renamedJarIsTheOneThatTracesWithAScopeTracerJarOnTheClassPath(
+      OnClassPath what, @TempDir Path dir) throws Exception {
+    Path jar = copyAs(dir, "agent.jar");
+    List<Path> cp = classPathJars(what, dir);
+    Path jfr = dir.resolve("t.jfr");
+    var run = ChildJvm.run(dir, List.of(javaagent(jar, "record=" + jfr)), strings(cp), "mixed");
+
+    assertTracedByTheJavaagentJar(run, cp.get(0), jar, jfr, dir);
+  }
+
+  /** The same through a symbolic link to the jar: the lines name the real path. */
+  @ParameterizedTest(name = "{0}")
+  @EnumSource(OnClassPath.class)
+  void symbolicLinkToTheRenamedJarIsTheOneThatTraces(OnClassPath what, @TempDir Path dir)
+      throws Exception {
+    Path jar = copyAs(dir, "real/agent.jar");
+    Path link =
+        Files.createSymbolicLink(
+            Files.createDirectories(dir.resolve("links")).resolve("linked.jar"), jar);
+    List<Path> cp = classPathJars(what, dir);
+    Path jfr = dir.resolve("t.jfr");
+    var run = ChildJvm.run(dir, List.of(javaagent(link, "record=" + jfr)), strings(cp), "mixed");
+
+    assertTracedByTheJavaagentJar(run, cp.get(0), jar, jfr, dir);
+    assertThat(run.agentLines()).noneMatch(l -> l.contains("linked.jar"));
+  }
+
+  /** The same with {@code -javaagent:agent.jar} relative to the working directory. */
+  @ParameterizedTest(name = "{0}")
+  @EnumSource(OnClassPath.class)
+  void relativeRenamedJarIsTheOneThatTraces(OnClassPath what, @TempDir Path dir) throws Exception {
+    Path jar = copyAs(dir, "agent.jar");
+    List<Path> cp = classPathJars(what, dir);
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(dir, List.of("-javaagent:agent.jar=record=" + jfr), strings(cp), "mixed");
+
+    assertTracedByTheJavaagentJar(run, cp.get(0), jar, jfr, dir);
+  }
+
+  /** {@code JAVA_TOOL_OPTIONS=-javaagent:...} with the thin jar on {@code -cp}. */
+  @Test
+  void javaToolOptionsRenamedJarIsTheOneThatTraces(@TempDir Path dir) throws Exception {
+    Path jar = copyAs(dir, "agent.jar");
+    List<Path> cp = classPathJars(OnClassPath.THIN, dir);
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir,
+            Map.of("JAVA_TOOL_OPTIONS", javaagent(jar, "record=" + jfr)),
+            List.of(),
+            strings(cp),
+            "mixed");
+
+    assertThat(run.stderr()).contains("Picked up JAVA_TOOL_OPTIONS");
+    assertTracedByTheJavaagentJar(run, cp.get(0), jar, jfr, dir);
+  }
+
+  private static void assertTracedByTheJavaagentJar(
+      ChildJvm.Result run, Path classPathJar, Path agentJar, Path jfr, Path dir) throws Exception {
+    assertThat(run.exitCode()).as(run.stderr()).isZero();
+    assertThat(run.stdout()).as(run.stderr()).isEqualTo(ExitSubject.DONE + System.lineSeparator());
+    assertMixedScopeFullyTraced(jfr);
+    assertThat(run.agentLines())
+        .as(run.stderr())
+        .containsExactly(
+            ignoringLine(classPathJar, agentJar),
+            appendedLine(agentJar),
+            RECORDING_TO + jfr,
+            ChildJvm.WRITTEN + dir.resolve("t.html"));
+    assertThat(run.stderr()).doesNotContain("FATAL").doesNotContain("NoClassDefFoundError");
+  }
+
+  /** Under the original file name nothing changes: no {@code added}, no {@code ignoring} line. */
+  @ParameterizedTest(name = "{0}")
+  @EnumSource(OnClassPath.class)
+  void originalNameWithAScopeTracerJarOnTheClassPathPrintsNothingNew(
+      OnClassPath what, @TempDir Path dir) throws Exception {
+    Path jar = copyAs(dir, "orig/" + originalName);
+    List<Path> cp = classPathJars(what, dir);
+    Path jfr = dir.resolve("t.jfr");
+    var run = ChildJvm.run(dir, List.of(javaagent(jar, "record=" + jfr)), strings(cp), "mixed");
+
+    assertThat(run.exitCode()).as(run.stderr()).isZero();
+    assertMixedScopeFullyTraced(jfr);
+    assertThat(run.agentLines())
+        .containsExactly(RECORDING_TO + jfr, ChildJvm.WRITTEN + dir.resolve("t.html"));
+    assertThat(run.stderr()).doesNotContain(CDS_WARNING);
+  }
+
+  /**
+   * {@code -cp a.jar:agent.jar:b.jar}, {@code agent.jar} also the {@code -javaagent} jar: the last
+   * copy is {@code b.jar}, a class-path entry, so the agent cannot tell which jar is the agent's.
+   * It refuses with one warning naming both fixes, records nothing, and the program is unchanged.
+   */
+  @Test
+  void javaagentJarAlsoOnTheClassPathBetweenTwoCopiesRefuses(@TempDir Path dir) throws Exception {
+    Path a = copyAs(dir, "a.jar");
+    Path agent = copyAs(dir, "agent.jar");
+    Path b = copyAs(dir, "b.jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir,
+            List.of(javaagent(agent, "record=" + jfr)),
+            strings(List.of(a, agent, b)),
+            "mixed");
+    var without = ChildJvm.run(dir, List.of(), strings(List.of(a, agent, b)), "mixed");
+
+    assertSameProgram(run, without);
+    assertThat(run.agentLines()).as(run.stderr()).hasSize(1);
+    assertThat(run.warnings())
+        .singleElement()
+        .asString()
+        .startsWith(ChildJvm.AGENT_PREFIX + " WARN not tracing: ")
+        .contains("the -javaagent jar cannot be told apart from the class path")
+        .contains("rename the jar to " + originalName)
+        .contains("or add -Xbootclasspath/a:");
+    assertThat(jfr).doesNotExist();
+    assertThat(dir.resolve("t.html")).doesNotExist();
   }
 
   // --- helpers ---
