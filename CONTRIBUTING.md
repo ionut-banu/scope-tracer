@@ -168,14 +168,21 @@ script exits 2 on it and the release stops. There has never been one; supporting
 decision. `.github/scripts/check-release-docs-test.sh` is its self-test and runs in CI.
 
 The workflow's `check` job validates that the tag matches the pom version and runs
-`check-release-docs.sh` on the tag's tree. The `publish` job needs it, so nothing reaches Central
-when either fails. `publish` then runs the full `mvn -P release deploy`, waits for Central to confirm publication, then creates
+`check-release-docs.sh` against the tag's docs. The `publish` job needs it, so nothing reaches
+Central when either fails. `publish` then runs the full `mvn -P release deploy`, waits for
+Central to confirm publication, then creates
 a GitHub Release using the matching CHANGELOG section as the body.
 
-To run the checks on a real runner without publishing, dispatch the `Release` workflow
-(Actions tab, or `gh workflow run release.yml --ref release/X.Y.Z -f tag=vX.Y.Z -f check_only=true`)
-with `check_only` ticked. Only the `check` job runs; `publish` is skipped. A tag push always
-publishes.
+To run the checks on a real runner without publishing, dispatch the `Release` workflow from
+`main` with `tag` set to `v0.3.0` (or any existing tag) and `check_only` ticked, or:
+
+```bash
+gh workflow run release.yml --ref main -f tag=v0.3.0 -f check_only=true
+```
+
+The `check` job runs `main`'s script against that tag's docs and `publish` is skipped. A tag
+push always publishes. A tag older than this check can fail on its own stale docs; that is the
+check working.
 
 ### Verifying a release locally
 

@@ -131,6 +131,13 @@ m_spec_prefix_version() {
 EOT
 }
 m_spec_missing() { rm "$1/_docs/spec.md"; }
+m_crlf_all() {
+  local f
+  for f in README.md CONTRIBUTING.md CHANGELOG.md _docs/spec.md docs/maven-central-setup.md docs/jfr-events.md docs/index.html; do
+    sed 's/$/\r/' "$1/$f" > "$1/x" && mv "$1/x" "$1/$f"
+  done
+}
+m_crlf_stale() { m_crlf_all "$1"; m_readme_version "$1"; }
 m_readme_missing() { rm "$1/README.md"; }
 
 run_case "good tree passes"                          0 "release docs name $V"        m_none
@@ -155,10 +162,23 @@ run_case "spec Released: lacks the version"          1 "_docs/spec.md::section 5
 run_case "spec Released: 19.9.9 is not 9.9.9"        1 "_docs/spec.md::section 5"    m_spec_prefix_version
 run_case "spec missing is one error line"            1 "_docs/spec.md::file not found" m_spec_missing
 run_case "README missing"                            1 "README.md::file not found"   m_readme_missing
+run_case "CRLF files pass"                           0 "release docs name $V"        m_crlf_all
+run_case "CRLF files, stale README still fails"      1 "README.md::line 7"           m_crlf_stale
 run_case "argument missing"                          2 "usage:"                      m_none ""
 run_case "argument -SNAPSHOT"                        2 "usage:"                      m_none "$V-SNAPSHOT"
 run_case "argument with v prefix"                    2 "usage:"                      m_none "v$V"
 run_case "argument with qualifier"                   2 "usage:"                      m_none "$V-rc1"
+
+# The docs root can be another directory than the working directory.
+cases=$((cases + 1))
+make_good "$TMP/case"
+elsewhere="$(mktemp -d)"
+out="$(cd "$elsewhere" && bash "$CHECK" "$V" "$TMP/case" 2>&1)"; got=$?
+rmdir "$elsewhere"
+if [ "$got" -eq 0 ]; then echo "ok   docs root given as an argument"; else echo "FAIL docs root argument: exit $got"; echo "$out"; failures=$((failures + 1)); fi
+cases=$((cases + 1))
+out="$(cd "$TMP" && bash "$CHECK" "$V" "$TMP/does-not-exist" 2>&1)"; got=$?
+if [ "$got" -eq 2 ]; then echo "ok   docs root that is not a directory exits 2"; else echo "FAIL missing docs root: exit $got"; failures=$((failures + 1)); fi
 
 # Several problems at once are all listed, not only the first.
 multi() { m_readme_version "$1"; m_changelog_heading "$1"; m_spec_released_missing "$1"; }
