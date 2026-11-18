@@ -121,8 +121,8 @@ VERSION=X.Y.Z
 git checkout -b release/$VERSION
 mvn versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
 
-# 2. Update the three things that go stale (see below), then check the README
-git grep -n "<version>$VERSION</version>" -- README.md || { echo "README version is not $VERSION"; false; }
+# 2. Update the three things that go stale (see below), then check them
+.github/scripts/check-release-docs.sh $VERSION
 mvn -q verify
 git commit -am "release: $VERSION"
 
@@ -143,8 +143,8 @@ git push
 
 Step 2 is what keeps a release from shipping stale text. Before the release commit:
 
-1. Set the `<version>` in the README's quick-start dependency snippet to the release version.
-   The `git grep` above fails when it is not there; run it again after editing.
+1. Set the `<version>` in the README's quick-start dependency snippet, and any jar name
+   (`scope-tracer-core-X.Y.Z.jar`) or `releases/download/vX.Y.Z` URL, to the release version.
 2. Update the "Released:" lines in `_docs/spec.md` §5 (the release and its date, and what
    `main` is now).
 3. Rename `[Unreleased]` in `CHANGELOG.md` to `[X.Y.Z]` with today's date, and regenerate its
@@ -154,9 +154,28 @@ Step 2 is what keeps a release from shipping stale text. Before the release comm
    version differs as "old → new", final values only. The release workflow builds the GitHub
    Release body from this section, so a dependency missing here is missing from the release notes.
 
-The workflow validates that the tag matches the pom version, runs the full
-`mvn -P release deploy`, waits for Central to confirm publication, then creates
+`.github/scripts/check-release-docs.sh` checks the first two and the CHANGELOG heading and link
+of the third. It reads `README.md`, `CONTRIBUTING.md`, `docs/*.md`, `docs/index.html` and
+`jbang-catalog.json` (if present) and fails on any scope-tracer `<version>`, jar name,
+`group:artifact:version` coordinate or `releases/download/vX.Y.Z` URL that is not the release
+version, on a README with no dependency snippet, on a missing `## [X.Y.Z] - date` heading or
+`[X.Y.Z]:` link in `CHANGELOG.md`, and on a spec §5 `Released:` line that does not list
+`X.Y.Z (`. It prints every problem as a GitHub annotation, then exits 1. It does not read
+`pom.xml` (the source of truth), the CHANGELOG bodies, `_docs/decisions.md`, test fixtures or
+`*.java`, and it does not check the README's JDK prose or the §4 test counts. The version is
+`X.Y.Z` only: a tag with a qualifier such as `v0.4.0-rc1` matches the `v*.*.*` trigger, but the
+script exits 2 on it and the release stops. There has never been one; supporting it is a later
+decision. `.github/scripts/check-release-docs-test.sh` is its self-test and runs in CI.
+
+The workflow's `check` job validates that the tag matches the pom version and runs
+`check-release-docs.sh` on the tag's tree. The `publish` job needs it, so nothing reaches Central
+when either fails. `publish` then runs the full `mvn -P release deploy`, waits for Central to confirm publication, then creates
 a GitHub Release using the matching CHANGELOG section as the body.
+
+To run the checks on a real runner without publishing, dispatch the `Release` workflow
+(Actions tab, or `gh workflow run release.yml --ref release/X.Y.Z -f tag=vX.Y.Z -f check_only=true`)
+with `check_only` ticked. Only the `check` job runs; `publish` is skipped. A tag push always
+publishes.
 
 ### Verifying a release locally
 

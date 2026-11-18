@@ -9,12 +9,18 @@ on:
       tag:
         description: 'Tag to release (e.g. v0.1.0)'
         required: true
+      check_only:
+        description: 'Run only the pre-publish checks; publish nothing'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 jobs:
-  publish:
+  # Everything that can stop a release before it reaches Maven Central. `publish` needs this
+  # job, so nothing is published when a check fails. Run it alone with `check_only`.
+  check:
     runs-on: ubuntu-latest
 
     steps:
@@ -33,6 +39,23 @@ jobs:
             exit 1
           fi
           echo "Releasing version $POM_VERSION"
+
+      - name: Check the docs name this version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -n "${{ inputs.tag }}" ]; then VERSION="${{ inputs.tag }}"; VERSION="${VERSION#v}"; fi
+          bash .github/scripts/check-release-docs.sh "$VERSION"
+
+  publish:
+    needs: check
+    if: ${{ !inputs.check_only }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
 
       - name: Set up JDK 27
         uses: actions/setup-java@v5
