@@ -827,14 +827,21 @@ and `BootstrapEntry` appends the last copy of `ScopeTracerAgent.class`
 that `ClassLoader.getSystemResources` lists. The JVM appends the
 `-javaagent` jar after the `-cp` entries and their `Class-Path` jars,
 and measured on Temurin 27.0.1 it was last for a renamed jar, a
-symbolic link, a relative path, `JAVA_TOOL_OPTIONS`, a `-cp`
-wildcard and a `Class-Path` attribute. It needs no JVM arguments and
-no `java.management`. The one layout it cannot read is the
-`-javaagent` jar also on `-cp` with another copy after it: the JVM
-does not append a jar already on the path, so the last copy is a
-`-cp` jar. Then the last copy is an entry of `java.class.path`, and
-unless it is the running copy the agent refuses with one `WARN not
-tracing` line. A wrong guess would instrument with the wrong jar,
+symbolic link, a relative path, `JAVA_TOOL_OPTIONS` and a `-cp`
+wildcard. It needs no JVM arguments and no `java.management`. The
+JVM does not append a jar already on the path, so when the
+`-javaagent` jar is also on `-cp` the last copy is a `-cp` jar.
+When the last copy is an entry of `java.class.path` and not the
+running copy, the agent refuses with one `WARN not tracing` line.
+That covers the `-javaagent` jar on `-cp` together with any other
+scope-tracer jar, in either order (`a:agent:b`, `agent:thin`,
+`thin:agent`), and the rename hint names the file from the running
+jar's manifest, or the last copy's. A second layout the rule does
+not read, found by QA: a `-cp` jar whose manifest `Class-Path` lists
+the `-javaagent` jar and then another scope-tracer jar. The last
+copy is that other jar, which is not a `java.class.path` entry, so
+the agent chooses it. Known and not handled here; #158 is the
+follow-up. A wrong guess would instrument with the wrong jar,
 which is the bug; the maintainer chose to refuse. When the copies
 cannot be listed or read, the running copy's jar is used, as before.
 

@@ -358,17 +358,25 @@ that is not the running copy it prints one `[scope-tracer] ignoring
 <jar> on the class path: the -javaagent jar is <jar>` line, both by
 real path, before the `added` line. When the last copy is itself an
 entry of `java.class.path` (compared by real path) and not the
-running copy, as in `-cp a.jar:agent.jar:b.jar` with
-`-javaagent:agent.jar`, the agent cannot tell which jar is its own:
-it prints one `WARN not tracing` line naming both fixes and traces
-nothing. If the copies cannot be listed or read, it appends the jar
+running copy, the agent cannot tell which jar is its own. That is
+the case whenever the `-javaagent` jar is also on `-cp` together
+with any other scope-tracer jar, in either order: `-cp
+agent.jar:thin.jar`, `-cp thin.jar:agent.jar`, `-cp
+a.jar:agent.jar:b.jar` with `-javaagent:agent.jar`. It prints one
+`WARN not tracing` line naming both fixes, the rename one with the
+file name read from the running jar's manifest (or the last copy's
+when the running jar lists none), and traces nothing. If the copies cannot be listed or read, it appends the jar
 it was loaded from. No method `ScopeTracerAgent` declares names a
 ByteBuddy type: the JVM resolves every one of their signatures when
 it looks `premain` up, and a copy from the thin jar would abort the
 JVM there; the ByteBuddy code lives in a nested class. This holds
 for a scope-tracer jar of 0.4.0 or later on `-cp`; a 0.3.x or
 earlier jar there still takes over, because its own `premain` is the
-one the JVM calls. The `Advice.to` calls read advice
+one the JVM calls. Known and not handled (#158): a `-cp` jar whose
+manifest `Class-Path` lists the `-javaagent` jar and then another
+scope-tracer jar. The last copy is then that other jar, which is not
+a `java.class.path` entry, so the agent chooses it: the thin jar
+loses tracing, another fat-jar traces from itself. The `Advice.to` calls read advice
 bytes from the advice class's loader and then from that jar, because
 the bootstrap loader serves no resources from a jar appended at
 runtime. The system class loader is never asked for them under a
@@ -604,13 +612,13 @@ input. Both sides change in the same issue.
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 169 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
-| agent unit | surefire | 180 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 280 |
+| agent unit | surefire | 182 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 282 |
 | demos unit | surefire | 3 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first six: 766 tests (surefire plus
+`mvn -q verify` runs the first six: 770 tests (surefire plus
 failsafe, measured on 2026-11-18 on the branch of #128 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
