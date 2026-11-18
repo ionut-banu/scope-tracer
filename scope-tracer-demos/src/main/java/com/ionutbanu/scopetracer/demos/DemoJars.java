@@ -1,5 +1,6 @@
 package com.ionutbanu.scopetracer.demos;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -41,7 +42,7 @@ final class DemoJars {
 
   /** The lines a demo prints under its header: where paths start, and the version if unknown. */
   List<String> notes() {
-    var notes = new java.util.ArrayList<String>();
+    var notes = new ArrayList<String>();
     notes.add("Paths are relative to the repository root; run the commands from there.");
     if (!versionKnown()) {
       notes.add(
