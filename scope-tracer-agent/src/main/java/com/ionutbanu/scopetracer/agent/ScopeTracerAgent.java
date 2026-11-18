@@ -162,7 +162,7 @@ public final class ScopeTracerAgent {
       }
       return;
     }
-    start(args, inst, null, ScopeTracerAgent::jarLocator);
+    start(args, inst, null, Instrumenter::jarLocator);
   }
 
   /**
@@ -174,17 +174,13 @@ public final class ScopeTracerAgent {
    * @param appendedJar the jar {@code BootstrapEntry} appended; the advice bytes are read from it.
    */
   static void premainFromAppendedJar(String args, Instrumentation inst, Path appendedJar) {
-    start(args, inst, appendedJar, ScopeTracerAgent::jarLocator);
+    start(args, inst, appendedJar, Instrumenter::jarLocator);
   }
 
   /** How the advice bytes are read from an appended jar; a test can replace it. */
   @FunctionalInterface
   interface JarLocators {
     ClassFileLocator open(Path jar) throws IOException;
-  }
-
-  private static ClassFileLocator jarLocator(Path jar) throws IOException {
-    return ClassFileLocator.ForJarFile.of(jar.toFile());
   }
 
   /**
@@ -216,7 +212,7 @@ public final class ScopeTracerAgent {
       return;
     }
     try {
-      instrument(config, inst, appendedJar, jarLocators);
+      Instrumenter.instrument(config, inst, appendedJar, jarLocators);
     } catch (Throwable t) {
       AgentLog.warn("not tracing: instrumentation failed: " + AgentLog.describe(t));
     }
@@ -234,154 +230,174 @@ public final class ScopeTracerAgent {
     AgentRecording.startIfRequested(config);
   }
 
-  private static void instrument(
-      AgentConfig config, Instrumentation inst, Path appendedJar, JarLocators jarLocators)
-      throws Exception {
-    // Where the advice bytes are read from after the advice class's own loader. Under a renamed
-    // jar that is the jar BootstrapEntry appended, never the system class loader: -cp may hold
-    // other classes under the advice classes' names (#123).
-    ClassFileLocator adviceSource;
-    if (appendedJar == null) {
-      adviceSource = ClassFileLocator.ForClassLoader.ofSystemLoader();
-    } else {
+  /**
+   * Everything that uses ByteBuddy, and with it every method that names a ByteBuddy type in its
+   * signature. They live here, not in {@code ScopeTracerAgent}, because the JVM looks {@code
+   * premain} up with {@code getDeclaredMethod}, which resolves the signature of every method the
+   * class declares: a copy of {@code ScopeTracerAgent} loaded from a jar with no ByteBuddy beside
+   * it (the thin {@code scope-tracer-agent-<v>.jar} on {@code -cp}) would otherwise throw {@code
+   * NoClassDefFoundError} there, before {@code premain} could catch anything, and abort the JVM
+   * (#128). This class is loaded only by the copy that instruments. {@code ScopeTracerAgentTest}
+   * checks that no method of {@code ScopeTracerAgent} names a ByteBuddy type.
+   */
+  private static final class Instrumenter {
+
+    private Instrumenter() {}
+
+    static void instrument(
+        AgentConfig config, Instrumentation inst, Path appendedJar, JarLocators jarLocators)
+        throws Exception {
+      // Where the advice bytes are read from after the advice class's own loader. Under a renamed
+      // jar that is the jar BootstrapEntry appended, never the system class loader: -cp may hold
+      // other classes under the advice classes' names (#123).
+      ClassFileLocator adviceSource;
+      if (appendedJar == null) {
+        adviceSource = ClassFileLocator.ForClassLoader.ofSystemLoader();
+      } else {
+        try {
+          adviceSource = jarLocators.open(appendedJar);
+        } catch (Throwable t) {
+          AgentLog.warn(
+              "not tracing: cannot read the advice classes from "
+                  + AgentLog.path(appendedJar)
+                  + ": "
+                  + AgentLog.describe(t));
+          return;
+        }
+      }
       try {
-        adviceSource = jarLocators.open(appendedJar);
-      } catch (Throwable t) {
-        AgentLog.warn(
-            "not tracing: cannot read the advice classes from "
-                + AgentLog.path(appendedJar)
-                + ": "
-                + AgentLog.describe(t));
-        return;
+        install(config, inst, adviceSource);
+      } finally {
+        // Every Advice is built, its bytes read, before install returns, so nothing reads the jar
+        // after this; the JVM keeps its own handle on it for class loading.
+        if (appendedJar != null) closeQuietly(adviceSource);
       }
     }
-    try {
-      install(config, inst, adviceSource);
-    } finally {
-      // Every Advice is built, its bytes read, before install returns, so nothing reads the jar
-      // after this; the JVM keeps its own handle on it for class loading.
-      if (appendedJar != null) closeQuietly(adviceSource);
+
+    static ClassFileLocator jarLocator(Path jar) throws IOException {
+      return ClassFileLocator.ForJarFile.of(jar.toFile());
     }
-  }
 
-  /**
-   * Closes the jar locator and ignores a failure: by then tracing is on (or {@code install}'s own
-   * exception is on its way to the caller), and a failed close loses one file handle and nothing
-   * else. Reporting it would print {@code not tracing} while the agent traces, or hide the
-   * exception that did stop it (#121, from #123's QA).
-   */
-  private static void closeQuietly(ClassFileLocator locator) {
-    try {
-      locator.close();
-    } catch (Throwable ignored) {
-      // nothing is lost but the handle
+    /**
+     * Closes the jar locator and ignores a failure: by then tracing is on (or {@code install}'s own
+     * exception is on its way to the caller), and a failed close loses one file handle and nothing
+     * else. Reporting it would print {@code not tracing} while the agent traces, or hide the
+     * exception that did stop it (#121, from #123's QA).
+     */
+    static void closeQuietly(ClassFileLocator locator) {
+      try {
+        locator.close();
+      } catch (Throwable ignored) {
+        // nothing is lost but the handle
+      }
     }
-  }
 
-  private static void install(
-      AgentConfig config, Instrumentation inst, ClassFileLocator adviceSource) {
-    // Built once, here, before installOn: Advice.to reads the advice class's bytes when it is
-    // called and keeps them. StructuredTaskScope is first loaded after premain has returned, so an
-    // Advice built inside the transformers would read the jar after it was closed.
-    Advice openAdvice = advice(ScopeOpenAdvice.class, adviceSource);
-    Advice constructorAdvice = advice(ScopeConstructorAdvice.class, adviceSource);
-    Advice forkAdvice = advice(ForkAdvice.class, adviceSource);
-    Advice closeAdvice = advice(ScopeCloseAdvice.class, adviceSource);
+    static void install(AgentConfig config, Instrumentation inst, ClassFileLocator adviceSource) {
+      // Built once, here, before installOn: Advice.to reads the advice class's bytes when it is
+      // called and keeps them. StructuredTaskScope is first loaded after premain has returned, so
+      // an
+      // Advice built inside the transformers would read the jar after it was closed.
+      Advice openAdvice = advice(ScopeOpenAdvice.class, adviceSource);
+      Advice constructorAdvice = advice(ScopeConstructorAdvice.class, adviceSource);
+      Advice forkAdvice = advice(ForkAdvice.class, adviceSource);
+      Advice closeAdvice = advice(ScopeCloseAdvice.class, adviceSource);
 
-    // Fork/close are implemented in StructuredTaskScopeImpl (the non-public concrete class
-    // returned by open()), not in the public StructuredTaskScope API class. We match the
-    // public class for the static open() factory and the impl class for fork()/close().
-    var forkAndCloseMatcher =
-        ElementMatchers.namedOneOf(
-            "java.util.concurrent.StructuredTaskScope",
-            "java.util.concurrent.StructuredTaskScopeImpl");
+      // Fork/close are implemented in StructuredTaskScopeImpl (the non-public concrete class
+      // returned by open()), not in the public StructuredTaskScope API class. We match the
+      // public class for the static open() factory and the impl class for fork()/close().
+      var forkAndCloseMatcher =
+          ElementMatchers.namedOneOf(
+              "java.util.concurrent.StructuredTaskScope",
+              "java.util.concurrent.StructuredTaskScopeImpl");
 
-    // Verbose logging (every instrumented class printed to stderr) is disabled by default.
-    // Enable with -Dscopetracer.agent.verbose=true or the verbose agent arg.
-    // .with(RETRANSFORMATION) returns a RedefinitionListenable subtype that accepts a
-    // RedefinitionStrategy.Listener — a different overload from AgentBuilder.with(Listener).
-    // We must add the redefinition listener before transitioning back to AgentBuilder.
-    var redefinable =
-        new AgentBuilder.Default().with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION);
-    AgentBuilder agentBuilder;
-    if (config.verbose()) {
-      agentBuilder =
-          redefinable
-              .with(AgentBuilder.RedefinitionStrategy.Listener.StreamWriting.toSystemError())
-              .with(AgentBuilder.Listener.StreamWriting.toSystemError().withTransformationsOnly());
-    } else {
-      agentBuilder = redefinable;
+      // Verbose logging (every instrumented class printed to stderr) is disabled by default.
+      // Enable with -Dscopetracer.agent.verbose=true or the verbose agent arg.
+      // .with(RETRANSFORMATION) returns a RedefinitionListenable subtype that accepts a
+      // RedefinitionStrategy.Listener — a different overload from AgentBuilder.with(Listener).
+      // We must add the redefinition listener before transitioning back to AgentBuilder.
+      var redefinable =
+          new AgentBuilder.Default().with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION);
+      AgentBuilder agentBuilder;
+      if (config.verbose()) {
+        agentBuilder =
+            redefinable
+                .with(AgentBuilder.RedefinitionStrategy.Listener.StreamWriting.toSystemError())
+                .with(
+                    AgentBuilder.Listener.StreamWriting.toSystemError().withTransformationsOnly());
+      } else {
+        agentBuilder = redefinable;
+      }
+      // Always, beside the verbose listeners: one WARN line per scope class ByteBuddy cannot
+      // transform, which is otherwise silent without verbose (#121).
+      agentBuilder
+          .with(TransformFailureListener.INSTANCE)
+          .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE)
+          .with(AgentBuilder.TypeStrategy.Default.REDEFINE)
+          .ignore(ElementMatchers.none()) // instrument JDK classes too
+          // --- every public static open overload on the public API class ---
+          // open() and open(Joiner) delegate to open(Joiner, UnaryOperator), so one call leaves
+          // several advised frames with the same scope. ScopeOpenAdvice acts on the first exit for
+          // an instance only (AgentState.OPENED_SCOPES), so the overload list and which overload
+          // the JDK delegates to do not matter.
+          .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScope"))
+          .transform(
+              (b, typeDescription, classLoader, module, protectionDomain) ->
+                  b.visit(
+                      openAdvice.on(
+                          ElementMatchers.named("open")
+                              .and(ElementMatchers.isStatic())
+                              .and(ElementMatchers.isPublic()))))
+          // --- constructor advice: captures the configured name into a ThreadLocal ---
+          .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScopeImpl"))
+          .transform(
+              (b, typeDescription, classLoader, module, protectionDomain) ->
+                  b.visit(
+                      constructorAdvice.on(
+                          ElementMatchers.isConstructor()
+                              .and(ElementMatchers.takesArguments(3))
+                              .and(
+                                  ElementMatchers.takesArgument(
+                                      2, ElementMatchers.named("java.lang.String"))))))
+          // --- fork() and close() on both the API class and its concrete impl ---
+          .type(forkAndCloseMatcher)
+          .transform(
+              (b, typeDescription, classLoader, module, protectionDomain) ->
+                  b.visit(
+                          forkAdvice.on(
+                              ElementMatchers.named("fork")
+                                  .and(ElementMatchers.not(ElementMatchers.isStatic()))
+                                  .and(ElementMatchers.isPublic())
+                                  // Match only fork(Callable); fork(Runnable) delegates to it
+                                  // internally so it is covered automatically.
+                                  .and(
+                                      ElementMatchers.takesArgument(
+                                          0,
+                                          ElementMatchers.named("java.util.concurrent.Callable")))))
+                      .visit(
+                          closeAdvice.on(
+                              ElementMatchers.named("close")
+                                  .and(ElementMatchers.not(ElementMatchers.isStatic()))
+                                  .and(ElementMatchers.isPublic()))))
+          .installOn(inst);
     }
-    // Always, beside the verbose listeners: one WARN line per scope class ByteBuddy cannot
-    // transform, which is otherwise silent without verbose (#121).
-    agentBuilder
-        .with(TransformFailureListener.INSTANCE)
-        .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE)
-        .with(AgentBuilder.TypeStrategy.Default.REDEFINE)
-        .ignore(ElementMatchers.none()) // instrument JDK classes too
-        // --- every public static open overload on the public API class ---
-        // open() and open(Joiner) delegate to open(Joiner, UnaryOperator), so one call leaves
-        // several advised frames with the same scope. ScopeOpenAdvice acts on the first exit for
-        // an instance only (AgentState.OPENED_SCOPES), so the overload list and which overload
-        // the JDK delegates to do not matter.
-        .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScope"))
-        .transform(
-            (b, typeDescription, classLoader, module, protectionDomain) ->
-                b.visit(
-                    openAdvice.on(
-                        ElementMatchers.named("open")
-                            .and(ElementMatchers.isStatic())
-                            .and(ElementMatchers.isPublic()))))
-        // --- constructor advice: captures the configured name into a ThreadLocal ---
-        .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScopeImpl"))
-        .transform(
-            (b, typeDescription, classLoader, module, protectionDomain) ->
-                b.visit(
-                    constructorAdvice.on(
-                        ElementMatchers.isConstructor()
-                            .and(ElementMatchers.takesArguments(3))
-                            .and(
-                                ElementMatchers.takesArgument(
-                                    2, ElementMatchers.named("java.lang.String"))))))
-        // --- fork() and close() on both the API class and its concrete impl ---
-        .type(forkAndCloseMatcher)
-        .transform(
-            (b, typeDescription, classLoader, module, protectionDomain) ->
-                b.visit(
-                        forkAdvice.on(
-                            ElementMatchers.named("fork")
-                                .and(ElementMatchers.not(ElementMatchers.isStatic()))
-                                .and(ElementMatchers.isPublic())
-                                // Match only fork(Callable); fork(Runnable) delegates to it
-                                // internally so it is covered automatically.
-                                .and(
-                                    ElementMatchers.takesArgument(
-                                        0,
-                                        ElementMatchers.named("java.util.concurrent.Callable")))))
-                    .visit(
-                        closeAdvice.on(
-                            ElementMatchers.named("close")
-                                .and(ElementMatchers.not(ElementMatchers.isStatic()))
-                                .and(ElementMatchers.isPublic()))))
-        .installOn(inst);
-  }
 
-  /**
-   * {@code Advice.to(type)}, reading the advice class's bytes from its own loader first and from
-   * {@code second} second. Under the original name, or with {@code -Xbootclasspath/a:}, the
-   * bootstrap loader finds them in the jar the JVM put on the bootstrap class path before the VM
-   * started, and {@code second} is the system class loader, exactly as before. A jar appended at
-   * runtime by {@link BootstrapEntry} defines classes, but its resources are not visible through
-   * the bootstrap loader; {@code second} is then that jar itself, read through {@code
-   * ClassFileLocator.ForJarFile}. It is never the system class loader under a renamed jar: that
-   * loader searches {@code -cp} first, and an advice class there would be inlined in place of the
-   * agent's, or, with another method name or descriptor, make the JDK reject {@code
-   * StructuredTaskScope} with a {@code ClassFormatError} (#123).
-   */
-  private static Advice advice(Class<?> type, ClassFileLocator second) {
-    return Advice.to(
-        type,
-        new ClassFileLocator.Compound(
-            ClassFileLocator.ForClassLoader.of(type.getClassLoader()), second));
+    /**
+     * {@code Advice.to(type)}, reading the advice class's bytes from its own loader first and from
+     * {@code second} second. Under the original name, or with {@code -Xbootclasspath/a:}, the
+     * bootstrap loader finds them in the jar the JVM put on the bootstrap class path before the VM
+     * started, and {@code second} is the system class loader, exactly as before. A jar appended at
+     * runtime by {@link BootstrapEntry} defines classes, but its resources are not visible through
+     * the bootstrap loader; {@code second} is then that jar itself, read through {@code
+     * ClassFileLocator.ForJarFile}. It is never the system class loader under a renamed jar: that
+     * loader searches {@code -cp} first, and an advice class there would be inlined in place of the
+     * agent's, or, with another method name or descriptor, make the JDK reject {@code
+     * StructuredTaskScope} with a {@code ClassFormatError} (#123).
+     */
+    static Advice advice(Class<?> type, ClassFileLocator second) {
+      return Advice.to(
+          type,
+          new ClassFileLocator.Compound(
+              ClassFileLocator.ForClassLoader.of(type.getClassLoader()), second));
+    }
   }
 }

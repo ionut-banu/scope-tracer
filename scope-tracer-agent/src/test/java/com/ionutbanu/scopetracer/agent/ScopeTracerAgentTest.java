@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -201,5 +202,42 @@ class ScopeTracerAgentTest {
                 + dir
                 + "/a\\nb.jar: IllegalStateException: cannot open; caused by IOException: disk"
                 + " gone");
+  }
+
+  // --- issue #128, criterion 1: no ByteBuddy type in a signature of ScopeTracerAgent ---
+
+  /**
+   * Under a renamed {@code -javaagent} jar the JVM looks {@code premain} up with {@code
+   * getDeclaredMethod}, which resolves the signature of every method {@code ScopeTracerAgent}
+   * declares. A copy of the class on {@code -cp} with no ByteBuddy beside it (the thin jar) then
+   * aborts the JVM if any of them names a ByteBuddy type. Nested classes may.
+   */
+  @Test
+  void noMethodOfScopeTracerAgentNamesAByteBuddyType() {
+    var offending = new ArrayList<String>();
+    for (Method method : ScopeTracerAgent.class.getDeclaredMethods()) {
+      var types = new ArrayList<Class<?>>();
+      types.add(method.getReturnType());
+      types.addAll(List.of(method.getParameterTypes()));
+      types.addAll(List.of(method.getExceptionTypes()));
+      for (Class<?> type : types) {
+        while (type.isArray()) type = type.getComponentType();
+        if (isByteBuddy(type.getName())) offending.add(method + " names " + type.getName());
+      }
+    }
+    assertThat(ScopeTracerAgent.class.getDeclaredMethods()).isNotEmpty();
+    assertThat(offending).isEmpty();
+  }
+
+  private static boolean isByteBuddy(String name) {
+    return name.startsWith("net.bytebuddy.")
+        || name.startsWith("com.ionutbanu.scopetracer.shaded.net.bytebuddy.");
+  }
+
+  @Test
+  void byteBuddyNamesAreRecognisedRelocatedOrNot() {
+    assertThat(isByteBuddy(ClassFileLocator.class.getName())).isTrue();
+    assertThat(isByteBuddy("com.ionutbanu.scopetracer.shaded.net.bytebuddy.asm.Advice")).isTrue();
+    assertThat(isByteBuddy(Path.class.getName())).isFalse();
   }
 }
