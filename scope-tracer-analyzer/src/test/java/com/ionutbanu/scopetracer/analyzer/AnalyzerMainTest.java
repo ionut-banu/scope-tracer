@@ -432,6 +432,27 @@ class AnalyzerMainTest {
         .doesNotContain("failed to parse");
   }
 
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("postReportFailures")
+  void aFailureAfterTheReportIsWrittenPrintsTheCouldNotCheckLineExactly(
+      String name, Supplier<Exception> failure) throws Exception {
+    var jfr = TestRecordings.complete(tempDir.resolve("in.jfr"), "cli-post-report-line", 1);
+    var exception = failure.get();
+    var err = new ByteArrayOutputStream();
+    int code =
+        AnalyzerMain.run(
+            new String[] {jfr.toString(), tempDir.resolve("o.html").toString()},
+            nullStream(),
+            new PrintStream(err, true, StandardCharsets.UTF_8),
+            (path, model, events) -> {
+              throw exception;
+            });
+    assertThat(code).isZero();
+    assertThat(err.toString(StandardCharsets.UTF_8).replace(System.lineSeparator(), "\n"))
+        .isEqualTo(
+            "analyzer: warning: could not check " + jfr + " for problems: " + exception + "\n");
+  }
+
   // --- #58: warnings a user can act on ---
 
   @ParameterizedTest
