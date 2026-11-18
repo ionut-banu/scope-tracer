@@ -808,3 +808,46 @@ job checks out the dispatched ref (the script) and the tag into
 that predates the script; on a tag push the two are the same tree.
 The script takes the docs root as a second argument and strips CR, so
 a CRLF checkout is not a false "Released:" error.
+
+## 2026-11-18 - The -javaagent jar is the last copy the system loader lists (#128)
+
+Under a renamed `-javaagent` jar the JVM loads `Premain-Class`
+through the system class loader, which searches `-cp` first, so a
+scope-tracer jar on `-cp` supplied the running `ScopeTracerAgent`
+and `BootstrapEntry` appended its jar. Two failures followed: the
+thin jar aborted the JVM (exit 134) in `getDeclaredMethod("premain")`,
+which resolves every method signature of the class and four named
+ByteBuddy types; and once past that, the thin jar was appended,
+where the bootstrap loader cannot see ByteBuddy, so nothing was
+traced. Another fat-jar copy on `-cp` traced, but from itself.
+
+Decided: every ByteBuddy use moves to a nested class of
+`ScopeTracerAgent`, with a unit test on its declared methods' types;
+and `BootstrapEntry` appends the last copy of `ScopeTracerAgent.class`
+that `ClassLoader.getSystemResources` lists. The JVM appends the
+`-javaagent` jar after the `-cp` entries and their `Class-Path` jars,
+and measured on Temurin 27.0.1 it was last for a renamed jar, a
+symbolic link, a relative path, `JAVA_TOOL_OPTIONS`, a `-cp`
+wildcard and a `Class-Path` attribute. It needs no JVM arguments and
+no `java.management`. The one layout it cannot read is the
+`-javaagent` jar also on `-cp` with another copy after it: the JVM
+does not append a jar already on the path, so the last copy is a
+`-cp` jar. Then the last copy is an entry of `java.class.path`, and
+unless it is the running copy the agent refuses with one `WARN not
+tracing` line. A wrong guess would instrument with the wrong jar,
+which is the bug; the maintainer chose to refuse. When the copies
+cannot be listed or read, the running copy's jar is used, as before.
+
+Measured and not adopted: the running class's `CodeSource` (the bug
+itself); `Launcher-Agent` (read only for `java -jar`, not for
+`-javaagent`); a `Premain-Class` unique per jar (the jar is renamed
+after it is built, and the failing pairs are a thin and a fat jar of
+one version, with the same class names); `ProcessHandle` arguments
+(no `JAVA_TOOL_OPTIONS` or `@argfiles`, can be empty in a container,
+and the JVM-arguments route #113 ruled out); making the class
+loadable alone (no abort, but the thin rows do not trace and the
+fat-jar row traces from the wrong jar; it is what the design falls
+back to). A 0.3.x or earlier scope-tracer jar on `-cp` still takes
+over, because its own `premain` runs: documented, not fixed. The
+new `ignoring` info line is kept, printed only when the agent passes
+over the running copy.
