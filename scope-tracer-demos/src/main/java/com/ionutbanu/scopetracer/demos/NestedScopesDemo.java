@@ -8,10 +8,10 @@ import com.ionutbanu.scopetracer.core.TracedScope;
  * <p>The recording captures two separate scopes with overlapping time windows, illustrating how
  * hierarchical task trees appear in the JFR output and HTML report.
  *
- * <p>Run with:
+ * <p>Run with (setup for {@code $JARS}: "Run a demo" under "Demos" in {@code README.md}):
  *
  * <pre>{@code
- * mvn -pl scope-tracer-demos exec:java -Dexec.mainClass=com.ionutbanu.scopetracer.demos.NestedScopesDemo
+ * java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.NestedScopesDemo
  * }</pre>
  *
  * Produces {@code target/nested-scopes.jfr} and {@code target/nested-scopes.html}.

@@ -21,14 +21,16 @@ import java.util.random.RandomGenerator;
  * <p><b>Step 1 — build and launch (with the agent):</b>
  *
  * <pre>{@code
- * mvn -q package -DskipTests
- * CP=$(mvn -pl scope-tracer-demos -q dependency:build-classpath -DforceStdout)
- * JARS="scope-tracer-core/target/scope-tracer-core-0.1.0-SNAPSHOT.jar:\
- * scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT.jar:\
- * scope-tracer-demos/target/scope-tracer-demos-0.1.0-SNAPSHOT.jar:$CP"
+ * mvn -q -DskipTests package
+ * VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+ * mvn -pl scope-tracer-demos -am -q -DskipTests package dependency:build-classpath -Dmdep.outputFile=/tmp/scope-tracer-cp.txt
+ * CP=$(cat /tmp/scope-tracer-cp.txt)
+ * JARS="scope-tracer-core/target/scope-tracer-core-${VERSION}.jar:\
+ * scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}.jar:\
+ * scope-tracer-demos/target/scope-tracer-demos-${VERSION}.jar:$CP"
  *
  * java --enable-preview \
- *      -javaagent:scope-tracer-agent/target/scope-tracer-agent-0.1.0-SNAPSHOT-agent.jar \
+ *      -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar \
  *      -cp "$JARS" com.ionutbanu.scopetracer.demos.LiveServiceDemo
  * }</pre>
  *
@@ -44,14 +46,15 @@ public final class LiveServiceDemo {
 
   public static void main(String[] args) throws InterruptedException {
     long pid = ProcessHandle.current().pid();
-    String analyzerJar =
-        "scope-tracer-analyzer/target/scope-tracer-analyzer-0.1.0-SNAPSHOT-executable.jar";
+    var jars = DemoJars.ofRunningDemo();
+    String analyzerJar = jars.analyzerJar();
 
     System.out.println("╔══════════════════════════════════════════════════════════════╗");
     System.out.println("║              LiveServiceDemo — on-demand monitoring          ║");
     System.out.println("╚══════════════════════════════════════════════════════════════╝");
     System.out.println();
     System.out.println("  Service PID: " + pid);
+    jars.notes().forEach(note -> System.out.println("  " + note));
     System.out.println();
     System.out.println("  ── Turn monitoring ON ──────────────────────────────────────");
     System.out.printf("  jcmd %d JFR.start name=trace filename=/tmp/scope-trace.jfr%n", pid);

@@ -318,15 +318,25 @@ for their entire lifetime — no open, no fork, no completion, no close.
 | `exclude.package=<glob>` | Drop scopes opened from a class in a matching package. |
 | `sample.rate=<0.0-1.0>` | Capture only this fraction of scopes that survive include/exclude. `1.0` (default) keeps all; `0.0` drops everything; `0.01` keeps ~1%. |
 
-Globs support `*`, `**` (both equivalent to `.*`), and `?`. Patterns are **not** path-segment
-aware: `com.acme.*` matches both `com.acme.foo` and `com.acme.foo.bar`. Use a literal pattern
-if you need a strict prefix.
+Globs support `*`, `**` (both equivalent to `.*`: any characters, dots included) and `?` (one
+character). The whole name must match, and patterns are **not** path-segment aware: `com.acme.*`
+matches both `com.acme.foo` and `com.acme.foo.bar`.
 
-The package glob is matched against the package name itself, so `com.acme.checkout.**` skips
-scopes opened directly in `com.acme.checkout`; `com.acme.checkout*` takes that package and
-everything below it.
+The package glob is matched against the whole package name:
 
-Example — trace only the checkout subsystem at a 10% sample rate (quote the agent argument so
+| `include.package=` | Takes |
+|--------------------|-------|
+| `com.acme.checkout*` | `com.acme.checkout`, its sub-packages, and also a sibling such as `com.acme.checkoutx` |
+| `com.acme.**` (same as `com.acme.*`) | everything under `com.acme.`, not `com.acme` itself |
+| `com.acme.checkout.**` | the sub-packages of `com.acme.checkout`, not `com.acme.checkout` itself |
+| `com.acme.checkout` | that one package only |
+
+No value means "this package and everything below it". The nearest is `com.acme.checkout*`, which
+also takes `com.acme.checkoutx`. `exclude.package` matches the same way, so
+`exclude.package=com.acme.checkout*` drops `com.acme.checkoutx` too. Giving `include.package`
+twice keeps the last value; the two globs do not combine.
+
+Example — trace the checkout packages (and `com.acme.checkoutx`) at a 10% sample rate (quote the agent argument so
 the shell does not expand the `*`):
 
 ```bash
