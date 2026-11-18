@@ -67,6 +67,9 @@ for f in $FILES; do
       print NR ":" s
       a = 0
     }')
+  if [ "$f" = "docs/index.html" ] && ! tr -d '\r' < "$f" | grep -q -E "releases/download/v$VER_RE"; then
+    err docs/index.html "no releases/download/vX.Y.Z URL found; the landing page's download links are gone or use a variable instead of a literal version"
+  fi
   if [ "$f" = "README.md" ] && [ "$found" -lt 1 ]; then
     err README.md "no scope-tracer dependency <version> found; the quick-start snippet is gone or reshaped"
   fi
