@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>scope-tracer — example report</title>
+<title>scope-tracer report</title>
 <style>
 body { font-family: monospace; background: #fafafa; color: #212121; margin: 2rem; max-width: 1200px; }
 h1   { font-size: 1.2rem; margin-bottom: 0.25rem; }
@@ -64,8 +64,8 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <span class="legend-item"><span class="legend-swatch" style="background:#9e9e9e"></span>incomplete</span>
 <span class="legend-item"><span class="legend-swatch" style="background:#4caf50;box-shadow:0 0 0 2px #d97706"></span>critical path</span>
 </div>
-<script type="application/json" id="trace-data">{"scopes":[{"scopeId":1,"name":"order-processing-ORD-001","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-07-31T15:08:05.036866Z","closeTime":"2026-07-31T15:08:05.232055208Z","parent":null,"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runFulfillment:106","threadName":"","threadId":32,"forkTime":"2026-07-31T15:08:05.042282333Z","completionTime":"2026-07-31T15:08:05.073562500Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runFulfillment:107","threadName":"","threadId":34,"forkTime":"2026-07-31T15:08:05.045818208Z","completionTime":"2026-07-31T15:08:05.231784083Z","outcome":{"type":"success"}},{"taskId":3,"taskName":"OrderProcessingDemo#runFulfillment:108","threadName":"","threadId":37,"forkTime":"2026-07-31T15:08:05.046150917Z","completionTime":"2026-07-31T15:08:05.173350083Z","outcome":{"type":"success"}}]},{"scopeId":2,"name":"payment-pipeline-001","ownerThreadName":"","ownerThreadId":34,"openTime":"2026-07-31T15:08:05.046449917Z","closeTime":"2026-07-31T15:08:05.231759Z","parent":{"parentScopeId":1,"scopeName":"order-processing-ORD-001","taskId":2},"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runPaymentPipeline:152","threadName":"","threadId":39,"forkTime":"2026-07-31T15:08:05.046823917Z","completionTime":"2026-07-31T15:08:05.133081708Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runPaymentPipeline:153","threadName":"","threadId":43,"forkTime":"2026-07-31T15:08:05.047281042Z","completionTime":"2026-07-31T15:08:05.159480333Z","outcome":{"type":"success"}}]},{"scopeId":3,"name":"inventory-reservation-001","ownerThreadName":"","ownerThreadId":37,"openTime":"2026-07-31T15:08:05.046512250Z","closeTime":"2026-07-31T15:08:05.173325167Z","parent":{"parentScopeId":1,"scopeName":"order-processing-ORD-001","taskId":3},"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runInventoryReservation:171","threadName":"","threadId":38,"forkTime":"2026-07-31T15:08:05.046828417Z","completionTime":"2026-07-31T15:08:05.108391208Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runInventoryReservation:172","threadName":"","threadId":42,"forkTime":"2026-07-31T15:08:05.047202417Z","completionTime":"2026-07-31T15:08:05.138452708Z","outcome":{"type":"success"}}]},{"scopeId":4,"name":"order-dispatch-ORD-001","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-07-31T15:08:05.232162083Z","closeTime":"2026-07-31T15:08:05.383700208Z","parent":null,"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runDispatch:127","threadName":"","threadId":44,"forkTime":"2026-07-31T15:08:05.232751292Z","completionTime":"2026-07-31T15:08:05.383449792Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runDispatch:128","threadName":"","threadId":45,"forkTime":"2026-07-31T15:08:05.233155250Z","completionTime":"2026-07-31T15:08:05.291925750Z","outcome":{"type":"success"}},{"taskId":3,"taskName":"OrderProcessingDemo#runDispatch:129","threadName":"","threadId":46,"forkTime":"2026-07-31T15:08:05.233647292Z","completionTime":"2026-07-31T15:08:05.291926958Z","outcome":{"type":"success"}}]},{"scopeId":5,"name":"order-processing-ORD-002","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-07-31T15:08:05.383945042Z","closeTime":"2026-07-31T15:08:05.559333625Z","parent":null,"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runFulfillment:106","threadName":"","threadId":47,"forkTime":"2026-07-31T15:08:05.384087792Z","completionTime":"2026-07-31T15:08:05.422329500Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runFulfillment:107","threadName":"","threadId":48,"forkTime":"2026-07-31T15:08:05.384189Z","completionTime":"2026-07-31T15:08:05.557134917Z","outcome":{"type":"failed","exceptionType":"java.lang.RuntimeException","exceptionMessage":"fraud-check: high-risk transaction declined for ORD-002","stackTrace":"java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.runPaymentPipeline(OrderProcessingDemo.java:160)\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runFulfillment$1(OrderProcessingDemo.java:107)\n\tat com.ionutbanu.scopetracer.core.TracedScope.lambda$1(TracedScope.java:267)\n\tat java.base\/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:350)\n\tat java.base\/java.lang.VirtualThread.run(VirtualThread.java:475)\nCaused by: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.checkFraud(OrderProcessingDemo.java:202)\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runPaymentPipeline$0(OrderProcessingDemo.java:152)\n\t... 3 more\n"}},{"taskId":3,"taskName":"OrderProcessingDemo#runFulfillment:108","threadName":"","threadId":49,"forkTime":"2026-07-31T15:08:05.384276917Z","completionTime":"2026-07-31T15:08:05.559301167Z","outcome":{"type":"cancelled"}}]},{"scopeId":6,"name":"payment-pipeline-002","ownerThreadName":"","ownerThreadId":48,"openTime":"2026-07-31T15:08:05.384305625Z","closeTime":"2026-07-31T15:08:05.557027458Z","parent":{"parentScopeId":5,"scopeName":"order-processing-ORD-002","taskId":2},"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runPaymentPipeline:152","threadName":"","threadId":50,"forkTime":"2026-07-31T15:08:05.384466792Z","completionTime":"2026-07-31T15:08:05.556021875Z","outcome":{"type":"failed","exceptionType":"java.lang.RuntimeException","exceptionMessage":"fraud-check: high-risk transaction declined for ORD-002","stackTrace":"java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.checkFraud(OrderProcessingDemo.java:202)\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runPaymentPipeline$0(OrderProcessingDemo.java:152)\n\tat com.ionutbanu.scopetracer.core.TracedScope.lambda$1(TracedScope.java:267)\n\tat java.base\/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:350)\n\tat java.base\/java.lang.VirtualThread.run(VirtualThread.java:475)\n"}},{"taskId":2,"taskName":"OrderProcessingDemo#runPaymentPipeline:153","threadName":"","threadId":52,"forkTime":"2026-07-31T15:08:05.384596958Z","completionTime":"2026-07-31T15:08:05.469796583Z","outcome":{"type":"success"}}]},{"scopeId":7,"name":"inventory-reservation-002","ownerThreadName":"","ownerThreadId":49,"openTime":"2026-07-31T15:08:05.384383917Z","closeTime":"2026-07-31T15:08:05.559289333Z","parent":{"parentScopeId":5,"scopeName":"order-processing-ORD-002","taskId":3},"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runInventoryReservation:171","threadName":"","threadId":51,"forkTime":"2026-07-31T15:08:05.384525Z","completionTime":"2026-07-31T15:08:05.442857167Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runInventoryReservation:172","threadName":"","threadId":53,"forkTime":"2026-07-31T15:08:05.384614667Z","completionTime":"2026-07-31T15:08:05.559213750Z","outcome":{"type":"cancelled"}}]},{"scopeId":8,"name":"order-processing-ORD-003","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-07-31T15:08:05.559673042Z","closeTime":"2026-07-31T15:08:05.791992542Z","parent":null,"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runFulfillment:106","threadName":"","threadId":56,"forkTime":"2026-07-31T15:08:05.559774292Z","completionTime":"2026-07-31T15:08:05.603723667Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runFulfillment:107","threadName":"","threadId":57,"forkTime":"2026-07-31T15:08:05.560169292Z","completionTime":"2026-07-31T15:08:05.791644792Z","outcome":{"type":"success"}},{"taskId":3,"taskName":"OrderProcessingDemo#runFulfillment:108","threadName":"","threadId":58,"forkTime":"2026-07-31T15:08:05.560267542Z","completionTime":"2026-07-31T15:08:05.677887750Z","outcome":{"type":"success"}}]},{"scopeId":9,"name":"payment-pipeline-003","ownerThreadName":"","ownerThreadId":57,"openTime":"2026-07-31T15:08:05.560282667Z","closeTime":"2026-07-31T15:08:05.791563667Z","parent":{"parentScopeId":8,"scopeName":"order-processing-ORD-003","taskId":2},"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runPaymentPipeline:152","threadName":"","threadId":59,"forkTime":"2026-07-31T15:08:05.560369250Z","completionTime":"2026-07-31T15:08:05.754024Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runPaymentPipeline:153","threadName":"","threadId":61,"forkTime":"2026-07-31T15:08:05.560470750Z","completionTime":"2026-07-31T15:08:05.642702208Z","outcome":{"type":"success"}}]},{"scopeId":10,"name":"inventory-reservation-003","ownerThreadName":"","ownerThreadId":58,"openTime":"2026-07-31T15:08:05.560359250Z","closeTime":"2026-07-31T15:08:05.677826250Z","parent":{"parentScopeId":8,"scopeName":"order-processing-ORD-003","taskId":3},"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runInventoryReservation:171","threadName":"","threadId":60,"forkTime":"2026-07-31T15:08:05.560425833Z","completionTime":"2026-07-31T15:08:05.651371333Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runInventoryReservation:172","threadName":"","threadId":62,"forkTime":"2026-07-31T15:08:05.560520667Z","completionTime":"2026-07-31T15:08:05.603719083Z","outcome":{"type":"success"}}]},{"scopeId":11,"name":"order-dispatch-ORD-003","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-07-31T15:08:05.792045042Z","closeTime":"2026-07-31T15:08:05.917072333Z","parent":null,"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runDispatch:127","threadName":"","threadId":63,"forkTime":"2026-07-31T15:08:05.792294250Z","completionTime":"2026-07-31T15:08:05.916662750Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runDispatch:128","threadName":"","threadId":64,"forkTime":"2026-07-31T15:08:05.792462917Z","completionTime":"2026-07-31T15:08:05.879182500Z","outcome":{"type":"success"}},{"taskId":3,"taskName":"OrderProcessingDemo#runDispatch:129","threadName":"","threadId":65,"forkTime":"2026-07-31T15:08:05.792574542Z","completionTime":"2026-07-31T15:08:05.853801750Z","outcome":{"type":"success"}}]},{"scopeId":12,"name":"order-processing-ORD-004","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-07-31T15:08:05.917472125Z","closeTime":"2026-07-31T15:08:06.164816750Z","parent":null,"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runFulfillment:106","threadName":"","threadId":66,"forkTime":"2026-07-31T15:08:05.917715Z","completionTime":"2026-07-31T15:08:05.950150Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runFulfillment:107","threadName":"","threadId":67,"forkTime":"2026-07-31T15:08:05.917921500Z","completionTime":"2026-07-31T15:08:06.164568375Z","outcome":{"type":"success"}},{"taskId":3,"taskName":"OrderProcessingDemo#runFulfillment:108","threadName":"","threadId":68,"forkTime":"2026-07-31T15:08:05.918074333Z","completionTime":"2026-07-31T15:08:06.068572500Z","outcome":{"type":"success"}}]},{"scopeId":13,"name":"payment-pipeline-004","ownerThreadName":"","ownerThreadId":67,"openTime":"2026-07-31T15:08:05.918186917Z","closeTime":"2026-07-31T15:08:06.164554958Z","parent":{"parentScopeId":12,"scopeName":"order-processing-ORD-004","taskId":2},"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runPaymentPipeline:152","threadName":"","threadId":70,"forkTime":"2026-07-31T15:08:05.918405708Z","completionTime":"2026-07-31T15:08:06.082412958Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runPaymentPipeline:153","threadName":"","threadId":72,"forkTime":"2026-07-31T15:08:05.918597083Z","completionTime":"2026-07-31T15:08:05.984822250Z","outcome":{"type":"success"}}]},{"scopeId":14,"name":"inventory-reservation-004","ownerThreadName":"","ownerThreadId":68,"openTime":"2026-07-31T15:08:05.918226417Z","closeTime":"2026-07-31T15:08:06.068562458Z","parent":{"parentScopeId":12,"scopeName":"order-processing-ORD-004","taskId":3},"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runInventoryReservation:171","threadName":"","threadId":69,"forkTime":"2026-07-31T15:08:05.918410375Z","completionTime":"2026-07-31T15:08:06.039387417Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runInventoryReservation:172","threadName":"","threadId":71,"forkTime":"2026-07-31T15:08:05.918575458Z","completionTime":"2026-07-31T15:08:06.004086958Z","outcome":{"type":"success"}}]},{"scopeId":15,"name":"order-dispatch-ORD-004","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-07-31T15:08:06.164859750Z","closeTime":"2026-07-31T15:08:06.234584208Z","parent":null,"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runDispatch:127","threadName":"","threadId":73,"forkTime":"2026-07-31T15:08:06.165039417Z","completionTime":"2026-07-31T15:08:06.217852250Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runDispatch:128","threadName":"","threadId":74,"forkTime":"2026-07-31T15:08:06.165173375Z","completionTime":"2026-07-31T15:08:06.234367625Z","outcome":{"type":"success"}},{"taskId":3,"taskName":"OrderProcessingDemo#runDispatch:129","threadName":"","threadId":75,"forkTime":"2026-07-31T15:08:06.165273417Z","completionTime":"2026-07-31T15:08:06.221051208Z","outcome":{"type":"success"}}]},{"scopeId":16,"name":"order-processing-ORD-005","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-07-31T15:08:06.234985042Z","closeTime":"2026-07-31T15:08:06.502308708Z","parent":null,"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runFulfillment:106","threadName":"","threadId":76,"forkTime":"2026-07-31T15:08:06.235166208Z","completionTime":"2026-07-31T15:08:06.256497208Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runFulfillment:107","threadName":"","threadId":77,"forkTime":"2026-07-31T15:08:06.235344708Z","completionTime":"2026-07-31T15:08:06.501804917Z","outcome":{"type":"success"}},{"taskId":3,"taskName":"OrderProcessingDemo#runFulfillment:108","threadName":"","threadId":78,"forkTime":"2026-07-31T15:08:06.235477750Z","completionTime":"2026-07-31T15:08:06.374625417Z","outcome":{"type":"success"}}]},{"scopeId":17,"name":"payment-pipeline-005","ownerThreadName":"","ownerThreadId":77,"openTime":"2026-07-31T15:08:06.235581917Z","closeTime":"2026-07-31T15:08:06.501738667Z","parent":{"parentScopeId":16,"scopeName":"order-processing-ORD-005","taskId":2},"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runPaymentPipeline:152","threadName":"","threadId":79,"forkTime":"2026-07-31T15:08:06.235728167Z","completionTime":"2026-07-31T15:08:06.436373167Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runPaymentPipeline:153","threadName":"","threadId":81,"forkTime":"2026-07-31T15:08:06.235943917Z","completionTime":"2026-07-31T15:08:06.385334333Z","outcome":{"type":"success"}}]},{"scopeId":18,"name":"inventory-reservation-005","ownerThreadName":"","ownerThreadId":78,"openTime":"2026-07-31T15:08:06.235635458Z","closeTime":"2026-07-31T15:08:06.374522458Z","parent":{"parentScopeId":16,"scopeName":"order-processing-ORD-005","taskId":3},"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runInventoryReservation:171","threadName":"","threadId":80,"forkTime":"2026-07-31T15:08:06.235759208Z","completionTime":"2026-07-31T15:08:06.325803292Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runInventoryReservation:172","threadName":"","threadId":82,"forkTime":"2026-07-31T15:08:06.235953667Z","completionTime":"2026-07-31T15:08:06.298665792Z","outcome":{"type":"success"}}]},{"scopeId":19,"name":"order-dispatch-ORD-005","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-07-31T15:08:06.502438458Z","closeTime":"2026-07-31T15:08:06.650575417Z","parent":null,"tasks":[{"taskId":1,"taskName":"OrderProcessingDemo#runDispatch:127","threadName":"","threadId":83,"forkTime":"2026-07-31T15:08:06.502910083Z","completionTime":"2026-07-31T15:08:06.649670833Z","outcome":{"type":"success"}},{"taskId":2,"taskName":"OrderProcessingDemo#runDispatch:128","threadName":"","threadId":84,"forkTime":"2026-07-31T15:08:06.503118708Z","completionTime":"2026-07-31T15:08:06.590879208Z","outcome":{"type":"success"}},{"taskId":3,"taskName":"OrderProcessingDemo#runDispatch:129","threadName":"","threadId":85,"forkTime":"2026-07-31T15:08:06.503281875Z","completionTime":"2026-07-31T15:08:06.533782875Z","outcome":{"type":"success"}}]}]}</script>
-<p class="summary">9 scope(s) &nbsp;|&nbsp; <span style="color:#2e7d32">8 success</span> &nbsp;·&nbsp; <span style="color:#c62828">1 failed</span> &nbsp;|&nbsp; median: 175.39ms &nbsp;|&nbsp; p95: 267.32ms &nbsp;|&nbsp; wall: 1.614s</p>
+<script type="application/json" id="trace-data">{"scopes":[{"scopeId":40,"name":"order-processing-ORD-001","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:23.602286708Z","closeTime":"2026-11-18T20:04:23.760351291Z","parent":null,"tasks":[{"taskId":1,"taskName":"validate-order","threadName":"","threadId":151,"forkTime":"2026-11-18T20:04:23.602443791Z","completionTime":"2026-11-18T20:04:23.647862208Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":126}},{"taskId":2,"taskName":"payment","threadName":"","threadId":152,"forkTime":"2026-11-18T20:04:23.602591041Z","completionTime":"2026-11-18T20:04:23.734903541Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":128}},{"taskId":3,"taskName":"inventory","threadName":"","threadId":153,"forkTime":"2026-11-18T20:04:23.602680208Z","completionTime":"2026-11-18T20:04:23.760100041Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":129}}]},{"scopeId":41,"name":"inventory-reservation-001","ownerThreadName":"","ownerThreadId":153,"openTime":"2026-11-18T20:04:23.602829208Z","closeTime":"2026-11-18T20:04:23.760073958Z","parent":{"parentScopeId":40,"scopeName":"order-processing-ORD-001","taskId":3},"tasks":[{"taskId":1,"taskName":"warehouse-A","threadName":"","threadId":154,"forkTime":"2026-11-18T20:04:23.602907416Z","completionTime":"2026-11-18T20:04:23.702332708Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runInventoryReservation","line":194}},{"taskId":2,"taskName":"warehouse-B","threadName":"","threadId":155,"forkTime":"2026-11-18T20:04:23.602994083Z","completionTime":"2026-11-18T20:04:23.657164166Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runInventoryReservation","line":195}}]},{"scopeId":42,"name":"payment-pipeline-001","ownerThreadName":"","ownerThreadId":152,"openTime":"2026-11-18T20:04:23.602918291Z","closeTime":"2026-11-18T20:04:23.734868083Z","parent":{"parentScopeId":40,"scopeName":"order-processing-ORD-001","taskId":2},"tasks":[{"taskId":1,"taskName":"fraud-check","threadName":"","threadId":156,"forkTime":"2026-11-18T20:04:23.603213958Z","completionTime":"2026-11-18T20:04:23.689592333Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runPaymentPipeline","line":175}},{"taskId":2,"taskName":"card-authorisation","threadName":"","threadId":157,"forkTime":"2026-11-18T20:04:23.603313500Z","completionTime":"2026-11-18T20:04:23.689624041Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runPaymentPipeline","line":176}}]},{"scopeId":43,"name":"order-dispatch-ORD-001","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:23.760415458Z","closeTime":"2026-11-18T20:04:23.858881166Z","parent":null,"tasks":[{"taskId":1,"taskName":"assign-courier","threadName":"","threadId":158,"forkTime":"2026-11-18T20:04:23.760612041Z","completionTime":"2026-11-18T20:04:23.824548208Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":150}},{"taskId":2,"taskName":"generate-label","threadName":"","threadId":159,"forkTime":"2026-11-18T20:04:23.760752875Z","completionTime":"2026-11-18T20:04:23.858521Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":151}},{"taskId":3,"taskName":"notify-customer","threadName":"","threadId":160,"forkTime":"2026-11-18T20:04:23.760869583Z","completionTime":"2026-11-18T20:04:23.792466083Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":152}}]},{"scopeId":44,"name":"order-processing-ORD-002","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:23.859565083Z","closeTime":"2026-11-18T20:04:24.012556291Z","parent":null,"tasks":[{"taskId":1,"taskName":"validate-order","threadName":"","threadId":161,"forkTime":"2026-11-18T20:04:23.859817541Z","completionTime":"2026-11-18T20:04:23.876312875Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":126}},{"taskId":2,"taskName":"payment","threadName":"","threadId":162,"forkTime":"2026-11-18T20:04:23.860100083Z","completionTime":"2026-11-18T20:04:24.011900583Z","outcome":{"type":"failed","exceptionType":"java.lang.RuntimeException","exceptionMessage":"fraud-check: high-risk transaction declined for ORD-002","stackTrace":"java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.runPaymentPipeline(OrderProcessingDemo.java:183)\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runFulfillment$1(OrderProcessingDemo.java:128)\n\tat com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)\n\tat java.base\/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)\n\tat java.base\/java.lang.VirtualThread.run(VirtualThread.java:470)\nCaused by: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.checkFraud(OrderProcessingDemo.java:226)\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runPaymentPipeline$0(OrderProcessingDemo.java:175)\n\t... 3 more\n"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":128}},{"taskId":3,"taskName":"inventory","threadName":"","threadId":163,"forkTime":"2026-11-18T20:04:23.860267291Z","completionTime":"2026-11-18T20:04:24.012493375Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":129}}]},{"scopeId":45,"name":"payment-pipeline-002","ownerThreadName":"","ownerThreadId":162,"openTime":"2026-11-18T20:04:23.860338291Z","closeTime":"2026-11-18T20:04:24.011626375Z","parent":{"parentScopeId":44,"scopeName":"order-processing-ORD-002","taskId":2},"tasks":[{"taskId":1,"taskName":"fraud-check","threadName":"","threadId":164,"forkTime":"2026-11-18T20:04:23.860448208Z","completionTime":"2026-11-18T20:04:24.011217166Z","outcome":{"type":"failed","exceptionType":"java.lang.RuntimeException","exceptionMessage":"fraud-check: high-risk transaction declined for ORD-002","stackTrace":"java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.checkFraud(OrderProcessingDemo.java:226)\n\tat com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runPaymentPipeline$0(OrderProcessingDemo.java:175)\n\tat com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)\n\tat java.base\/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)\n\tat java.base\/java.lang.VirtualThread.run(VirtualThread.java:470)\n"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runPaymentPipeline","line":175}},{"taskId":2,"taskName":"card-authorisation","threadName":"","threadId":166,"forkTime":"2026-11-18T20:04:23.860716250Z","completionTime":"2026-11-18T20:04:23.942428458Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runPaymentPipeline","line":176}}]},{"scopeId":46,"name":"inventory-reservation-002","ownerThreadName":"","ownerThreadId":163,"openTime":"2026-11-18T20:04:23.860423333Z","closeTime":"2026-11-18T20:04:24.012462541Z","parent":{"parentScopeId":44,"scopeName":"order-processing-ORD-002","taskId":3},"tasks":[{"taskId":1,"taskName":"warehouse-A","threadName":"","threadId":165,"forkTime":"2026-11-18T20:04:23.860643833Z","completionTime":"2026-11-18T20:04:23.954993916Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runInventoryReservation","line":194}},{"taskId":2,"taskName":"warehouse-B","threadName":"","threadId":167,"forkTime":"2026-11-18T20:04:23.860798500Z","completionTime":"2026-11-18T20:04:24.012347708Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runInventoryReservation","line":195}}]},{"scopeId":47,"name":"order-processing-ORD-003","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:24.013307916Z","closeTime":"2026-11-18T20:04:24.220497541Z","parent":null,"tasks":[{"taskId":1,"taskName":"validate-order","threadName":"","threadId":168,"forkTime":"2026-11-18T20:04:24.013515833Z","completionTime":"2026-11-18T20:04:24.051759125Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":126}},{"taskId":2,"taskName":"payment","threadName":"","threadId":169,"forkTime":"2026-11-18T20:04:24.014058291Z","completionTime":"2026-11-18T20:04:24.220007333Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":128}},{"taskId":3,"taskName":"inventory","threadName":"","threadId":170,"forkTime":"2026-11-18T20:04:24.014144291Z","completionTime":"2026-11-18T20:04:24.181766125Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":129}}]},{"scopeId":48,"name":"payment-pipeline-003","ownerThreadName":"","ownerThreadId":169,"openTime":"2026-11-18T20:04:24.014279375Z","closeTime":"2026-11-18T20:04:24.219960833Z","parent":{"parentScopeId":47,"scopeName":"order-processing-ORD-003","taskId":2},"tasks":[{"taskId":1,"taskName":"fraud-check","threadName":"","threadId":171,"forkTime":"2026-11-18T20:04:24.014359208Z","completionTime":"2026-11-18T20:04:24.183046625Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runPaymentPipeline","line":175}},{"taskId":2,"taskName":"card-authorisation","threadName":"","threadId":174,"forkTime":"2026-11-18T20:04:24.014549583Z","completionTime":"2026-11-18T20:04:24.151500625Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runPaymentPipeline","line":176}}]},{"scopeId":49,"name":"inventory-reservation-003","ownerThreadName":"","ownerThreadId":170,"openTime":"2026-11-18T20:04:24.014280333Z","closeTime":"2026-11-18T20:04:24.181720875Z","parent":{"parentScopeId":47,"scopeName":"order-processing-ORD-003","taskId":3},"tasks":[{"taskId":1,"taskName":"warehouse-A","threadName":"","threadId":172,"forkTime":"2026-11-18T20:04:24.014376041Z","completionTime":"2026-11-18T20:04:24.099709583Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runInventoryReservation","line":194}},{"taskId":2,"taskName":"warehouse-B","threadName":"","threadId":173,"forkTime":"2026-11-18T20:04:24.014538166Z","completionTime":"2026-11-18T20:04:24.131038083Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runInventoryReservation","line":195}}]},{"scopeId":50,"name":"order-dispatch-ORD-003","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:24.220583166Z","closeTime":"2026-11-18T20:04:24.278621Z","parent":null,"tasks":[{"taskId":1,"taskName":"assign-courier","threadName":"","threadId":175,"forkTime":"2026-11-18T20:04:24.220837125Z","completionTime":"2026-11-18T20:04:24.278257125Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":150}},{"taskId":2,"taskName":"generate-label","threadName":"","threadId":176,"forkTime":"2026-11-18T20:04:24.221057625Z","completionTime":"2026-11-18T20:04:24.278262833Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":151}},{"taskId":3,"taskName":"notify-customer","threadName":"","threadId":177,"forkTime":"2026-11-18T20:04:24.221208375Z","completionTime":"2026-11-18T20:04:24.266012291Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":152}}]},{"scopeId":51,"name":"order-processing-ORD-004","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:24.279169166Z","closeTime":"2026-11-18T20:04:24.507162375Z","parent":null,"tasks":[{"taskId":1,"taskName":"validate-order","threadName":"","threadId":178,"forkTime":"2026-11-18T20:04:24.279416541Z","completionTime":"2026-11-18T20:04:24.313786500Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":126}},{"taskId":2,"taskName":"payment","threadName":"","threadId":179,"forkTime":"2026-11-18T20:04:24.279657625Z","completionTime":"2026-11-18T20:04:24.507020166Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":128}},{"taskId":3,"taskName":"inventory","threadName":"","threadId":180,"forkTime":"2026-11-18T20:04:24.279805500Z","completionTime":"2026-11-18T20:04:24.411129875Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":129}}]},{"scopeId":52,"name":"payment-pipeline-004","ownerThreadName":"","ownerThreadId":179,"openTime":"2026-11-18T20:04:24.279884833Z","closeTime":"2026-11-18T20:04:24.507002916Z","parent":{"parentScopeId":51,"scopeName":"order-processing-ORD-004","taskId":2},"tasks":[{"taskId":1,"taskName":"fraud-check","threadName":"","threadId":181,"forkTime":"2026-11-18T20:04:24.280010333Z","completionTime":"2026-11-18T20:04:24.430855458Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runPaymentPipeline","line":175}},{"taskId":2,"taskName":"card-authorisation","threadName":"","threadId":183,"forkTime":"2026-11-18T20:04:24.280104750Z","completionTime":"2026-11-18T20:04:24.369124166Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runPaymentPipeline","line":176}}]},{"scopeId":53,"name":"inventory-reservation-004","ownerThreadName":"","ownerThreadId":180,"openTime":"2026-11-18T20:04:24.279983875Z","closeTime":"2026-11-18T20:04:24.411111458Z","parent":{"parentScopeId":51,"scopeName":"order-processing-ORD-004","taskId":3},"tasks":[{"taskId":1,"taskName":"warehouse-A","threadName":"","threadId":182,"forkTime":"2026-11-18T20:04:24.280052708Z","completionTime":"2026-11-18T20:04:24.387062333Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runInventoryReservation","line":194}},{"taskId":2,"taskName":"warehouse-B","threadName":"","threadId":184,"forkTime":"2026-11-18T20:04:24.280139666Z","completionTime":"2026-11-18T20:04:24.329691166Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runInventoryReservation","line":195}}]},{"scopeId":54,"name":"order-dispatch-ORD-004","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:24.507213208Z","closeTime":"2026-11-18T20:04:24.640443916Z","parent":null,"tasks":[{"taskId":1,"taskName":"assign-courier","threadName":"","threadId":185,"forkTime":"2026-11-18T20:04:24.507331291Z","completionTime":"2026-11-18T20:04:24.640006333Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":150}},{"taskId":2,"taskName":"generate-label","threadName":"","threadId":186,"forkTime":"2026-11-18T20:04:24.507408750Z","completionTime":"2026-11-18T20:04:24.602511375Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":151}},{"taskId":3,"taskName":"notify-customer","threadName":"","threadId":187,"forkTime":"2026-11-18T20:04:24.507465916Z","completionTime":"2026-11-18T20:04:24.560563750Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":152}}]},{"scopeId":55,"name":"order-processing-ORD-005","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:24.641127583Z","closeTime":"2026-11-18T20:04:24.920640375Z","parent":null,"tasks":[{"taskId":1,"taskName":"validate-order","threadName":"","threadId":188,"forkTime":"2026-11-18T20:04:24.641422125Z","completionTime":"2026-11-18T20:04:24.681843958Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":126}},{"taskId":2,"taskName":"payment","threadName":"","threadId":189,"forkTime":"2026-11-18T20:04:24.641675625Z","completionTime":"2026-11-18T20:04:24.920254875Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":128}},{"taskId":3,"taskName":"inventory","threadName":"","threadId":190,"forkTime":"2026-11-18T20:04:24.641837125Z","completionTime":"2026-11-18T20:04:24.876038166Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runFulfillment","line":129}}]},{"scopeId":56,"name":"payment-pipeline-005","ownerThreadName":"","ownerThreadId":189,"openTime":"2026-11-18T20:04:24.641972708Z","closeTime":"2026-11-18T20:04:24.920208083Z","parent":{"parentScopeId":55,"scopeName":"order-processing-ORD-005","taskId":2},"tasks":[{"taskId":1,"taskName":"fraud-check","threadName":"","threadId":191,"forkTime":"2026-11-18T20:04:24.642160041Z","completionTime":"2026-11-18T20:04:24.842273916Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runPaymentPipeline","line":175}},{"taskId":2,"taskName":"card-authorisation","threadName":"","threadId":193,"forkTime":"2026-11-18T20:04:24.642371708Z","completionTime":"2026-11-18T20:04:24.733547583Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runPaymentPipeline","line":176}}]},{"scopeId":57,"name":"inventory-reservation-005","ownerThreadName":"","ownerThreadId":190,"openTime":"2026-11-18T20:04:24.642093458Z","closeTime":"2026-11-18T20:04:24.875994416Z","parent":{"parentScopeId":55,"scopeName":"order-processing-ORD-005","taskId":3},"tasks":[{"taskId":1,"taskName":"warehouse-A","threadName":"","threadId":192,"forkTime":"2026-11-18T20:04:24.642279208Z","completionTime":"2026-11-18T20:04:24.738089041Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runInventoryReservation","line":194}},{"taskId":2,"taskName":"warehouse-B","threadName":"","threadId":194,"forkTime":"2026-11-18T20:04:24.642492041Z","completionTime":"2026-11-18T20:04:24.842275333Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runInventoryReservation","line":195}}]},{"scopeId":58,"name":"order-dispatch-ORD-005","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T20:04:24.920726250Z","closeTime":"2026-11-18T20:04:24.991715083Z","parent":null,"tasks":[{"taskId":1,"taskName":"assign-courier","threadName":"","threadId":195,"forkTime":"2026-11-18T20:04:24.921034166Z","completionTime":"2026-11-18T20:04:24.973682666Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":150}},{"taskId":2,"taskName":"generate-label","threadName":"","threadId":196,"forkTime":"2026-11-18T20:04:24.921306250Z","completionTime":"2026-11-18T20:04:24.991340041Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":151}},{"taskId":3,"taskName":"notify-customer","threadName":"","threadId":197,"forkTime":"2026-11-18T20:04:24.921447583Z","completionTime":"2026-11-18T20:04:24.973673916Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.OrderProcessingDemo","methodName":"runDispatch","line":152}}]}]}</script>
+<p class="summary">9 scope(s) &nbsp;|&nbsp; <span style="color:#2e7d32">8 success</span> &nbsp;·&nbsp; <span style="color:#c62828">1 failed</span> &nbsp;|&nbsp; median: 152.99ms &nbsp;|&nbsp; p95: 279.51ms &nbsp;|&nbsp; wall: 1.389s</p>
 <div class="filter-bar">
 <input type="text" id="search" placeholder="filter by name…" autocomplete="off"/>
 <span class="filter-sep">|</span>
@@ -81,336 +81,362 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <svg class="timeline" viewBox="0 0 800 44" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="8" width="800" height="18" fill="#f0f0f0" rx="2"/>
 <a href="#scope-0" style="text-decoration:none">
-<rect x="0.00" y="8" width="96.77" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
-<title>order-processing-ORD-001 | 195.19ms</title>
+<rect x="0.00" y="8" width="91.01" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
+<title>order-processing-ORD-001 | 158.06ms</title>
 </rect>
 </a>
 <a href="#scope-1" style="text-decoration:none">
-<rect x="96.82" y="8" width="75.13" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
-<title>order-dispatch-ORD-001 | 151.54ms</title>
+<rect x="91.05" y="8" width="56.69" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
+<title>order-dispatch-ORD-001 | 98.47ms</title>
 </rect>
 </a>
 <a href="#scope-2" style="text-decoration:none">
-<rect x="172.07" y="8" width="86.95" height="18" rx="1" style="fill:#e53935;opacity:0.85">
-<title>order-processing-ORD-002 | 175.39ms</title>
+<rect x="148.13" y="8" width="88.09" height="18" rx="1" style="fill:#e53935;opacity:0.85">
+<title>order-processing-ORD-002 | 152.99ms</title>
 </rect>
 </a>
 <a href="#scope-3" style="text-decoration:none">
-<rect x="259.18" y="8" width="115.17" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
-<title>order-processing-ORD-003 | 232.32ms</title>
+<rect x="236.66" y="8" width="119.29" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
+<title>order-processing-ORD-003 | 207.19ms</title>
 </rect>
 </a>
 <a href="#scope-4" style="text-decoration:none">
-<rect x="374.38" y="8" width="61.98" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
-<title>order-dispatch-ORD-003 | 125.03ms</title>
+<rect x="356.00" y="8" width="33.42" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
+<title>order-dispatch-ORD-003 | 58.04ms</title>
 </rect>
 </a>
 <a href="#scope-5" style="text-decoration:none">
-<rect x="436.56" y="8" width="122.62" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
-<title>order-processing-ORD-004 | 247.34ms</title>
+<rect x="389.73" y="8" width="131.27" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
+<title>order-processing-ORD-004 | 227.99ms</title>
 </rect>
 </a>
 <a href="#scope-6" style="text-decoration:none">
-<rect x="559.21" y="8" width="34.57" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
-<title>order-dispatch-ORD-004 | 69.72ms</title>
+<rect x="521.04" y="8" width="76.71" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
+<title>order-dispatch-ORD-004 | 133.23ms</title>
 </rect>
 </a>
 <a href="#scope-7" style="text-decoration:none">
-<rect x="593.97" y="8" width="132.53" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
-<title>order-processing-ORD-005 | 267.32ms</title>
+<rect x="598.14" y="8" width="160.94" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
+<title>order-processing-ORD-005 | 279.51ms</title>
 </rect>
 </a>
 <a href="#scope-8" style="text-decoration:none">
-<rect x="726.56" y="8" width="73.44" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
-<title>order-dispatch-ORD-005 | 148.14ms</title>
+<rect x="759.13" y="8" width="40.87" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
+<title>order-dispatch-ORD-005 | 70.99ms</title>
 </rect>
 </a>
-<text x="0" y="40" font-size="8" fill="#9e9e9e" font-family="monospace">15:08:05.036</text>
-<text x="800" y="40" font-size="8" fill="#9e9e9e" font-family="monospace" text-anchor="end">15:08:06.650</text>
+<text x="0" y="40" font-size="8" fill="#9e9e9e" font-family="monospace">20:04:23.602</text>
+<text x="800" y="40" font-size="8" fill="#9e9e9e" font-family="monospace" text-anchor="end">20:04:24.991</text>
 </svg>
 </div>
 <details class="scope-group" open>
-<summary>001 <span class="group-stats">(2 scopes &nbsp;·&nbsp; 2/2 success · median 173.36ms)</span></summary>
+<summary>001 <span class="group-stats">(2 scopes &nbsp;·&nbsp; 2/2 success · median 128.27ms)</span></summary>
 <section id="scope-0" data-scope="order-processing-ORD-001" data-outcome="success">
 <h2>order-processing-ORD-001 <a class="anchor-link" href="#scope-0" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 15:08:05.036 &nbsp;|&nbsp; duration: 195.19ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:23.602 &nbsp;|&nbsp; duration: 158.06ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runFulfillment:106</td><td>vt-32</td><td>+5.42ms</td><td>31.28ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runFulfillment:107</td><td>vt-34</td><td>+8.95ms</td><td>185.97ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +194.92ms</span> <span class="nested-scope-ref">↳ payment-pipeline-001</span></td></tr>
-<tr><td>3</td><td>OrderProcessingDemo#runFulfillment:108</td><td>vt-37</td><td>+9.28ms</td><td>127.20ms</td><td><span class="outcome-success">success</span> <span class="nested-scope-ref">↳ inventory-reservation-001</span></td></tr>
+<tr><td>1</td><td>validate-order</td><td>vt-151</td><td>+157.08µs</td><td>45.42ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>payment</td><td>vt-152</td><td>+304.33µs</td><td>132.31ms</td><td><span class="outcome-success">success</span> <span class="nested-scope-ref">↳ payment-pipeline-001</span></td></tr>
+<tr><td>3</td><td>inventory</td><td>vt-153</td><td>+393.50µs</td><td>157.42ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +157.81ms</span> <span class="nested-scope-ref">↳ inventory-reservation-001</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>order-processing-ORD-001 | 195.19ms</title>
+<title>order-processing-ORD-001 | 158.06ms</title>
 </rect>
-<svg x="22.20" y="32" width="128.20" height="18" overflow="hidden">
-<rect x="0" y="0" width="128.20" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runFulfillment:106 | vt-32 | success</title>
+<svg x="0.80" y="32" width="229.87" height="18" overflow="hidden">
+<rect x="0" y="0" width="229.87" height="18" fill="#4caf50" rx="2">
+<title>task 1 | validate-order | vt-151 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 runFulfillmen…</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 validate-order</text>
 </svg>
-<svg x="36.69" y="58" width="762.20" height="18" overflow="hidden">
-<rect x="0" y="0" width="762.20" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runFulfillment:107 | vt-34 | success · critical path +194.92ms</title>
+<svg x="1.54" y="58" width="669.66" height="18" overflow="hidden">
+<rect x="0" y="0" width="669.66" height="18" fill="#4caf50" rx="2">
+<title>task 2 | payment | vt-152 | success</title>
 </rect>
-<rect x="0" y="0" width="762.20" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runFulfillment:107</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 payment</text>
 </svg>
-<svg x="38.06" y="84" width="521.34" height="18" overflow="hidden">
-<rect x="0" y="0" width="521.34" height="18" fill="#4caf50" rx="2">
-<title>task 3 | OrderProcessingDemo#runFulfillment:108 | vt-37 | success</title>
+<svg x="1.99" y="84" width="796.74" height="18" overflow="hidden">
+<rect x="0" y="0" width="796.74" height="18" fill="#4caf50" rx="2">
+<title>task 3 | inventory | vt-153 | success · critical path +157.81ms</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 OrderProcessingDemo#runFulfillment:108</text>
+<rect x="0" y="0" width="796.74" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 inventory</text>
 </svg>
 <line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="204.93" y1="113" x2="204.93" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="206.93" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="409.86" y1="113" x2="409.86" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="411.86" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="614.79" y1="113" x2="614.79" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="616.79" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="101.22" y1="113" x2="101.22" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="103.22" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="202.45" y1="113" x2="202.45" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="204.45" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="303.67" y1="113" x2="303.67" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="305.67" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="404.90" y1="113" x2="404.90" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="406.90" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
+<line x1="506.12" y1="113" x2="506.12" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="508.12" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="607.35" y1="113" x2="607.35" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="609.35" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
+<line x1="708.57" y1="113" x2="708.57" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="710.57" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+140ms</text>
 </svg>
 </div>
 </section>
-<div class="child-scope">
-<section>
-<h2>payment-pipeline-001 <span class="parent-ref">↳ task 2 of order-processing-ORD-001</span></h2>
-<div class="scope-meta">thread: vt-34 &nbsp;|&nbsp; opened: 15:08:05.046 &nbsp;|&nbsp; duration: 185.31ms &nbsp;|&nbsp; tasks: 2</div>
-<table>
-<tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runPaymentPipeline:152</td><td>vt-39</td><td>+374.00µs</td><td>86.26ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runPaymentPipeline:153</td><td>vt-43</td><td>+831.13µs</td><td>112.20ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +113.03ms</span></td></tr>
-</table>
-<div class="timeline-wrap">
-<svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
-<rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>payment-pipeline-001 | 185.31ms</title>
-</rect>
-<svg x="1.61" y="32" width="372.38" height="18" overflow="hidden">
-<rect x="0" y="0" width="372.38" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runPaymentPipeline:152 | vt-39 | success</title>
-</rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runPaymentPipeline:152</text>
-</svg>
-<svg x="3.59" y="58" width="484.38" height="18" overflow="hidden">
-<rect x="0" y="0" width="484.38" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runPaymentPipeline:153 | vt-43 | success · critical path +113.03ms</title>
-</rect>
-<rect x="0" y="0" width="484.38" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runPaymentPipeline:153</text>
-</svg>
-<line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
-<line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="215.86" y1="87" x2="215.86" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="217.86" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="431.71" y1="87" x2="431.71" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="433.71" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="647.57" y1="87" x2="647.57" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="649.57" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
-</svg>
-</div>
-</section>
-</div>
 <div class="child-scope">
 <section>
 <h2>inventory-reservation-001 <span class="parent-ref">↳ task 3 of order-processing-ORD-001</span></h2>
-<div class="scope-meta">thread: vt-37 &nbsp;|&nbsp; opened: 15:08:05.046 &nbsp;|&nbsp; duration: 126.81ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-153 &nbsp;|&nbsp; opened: 20:04:23.602 &nbsp;|&nbsp; duration: 157.24ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runInventoryReservation:171</td><td>vt-38</td><td>+316.17µs</td><td>61.56ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runInventoryReservation:172</td><td>vt-42</td><td>+690.17µs</td><td>91.25ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +91.94ms</span></td></tr>
+<tr><td>1</td><td>warehouse-A</td><td>vt-154</td><td>+78.21µs</td><td>99.43ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +99.50ms</span></td></tr>
+<tr><td>2</td><td>warehouse-B</td><td>vt-155</td><td>+164.88µs</td><td>54.17ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>inventory-reservation-001 | 126.81ms</title>
+<title>inventory-reservation-001 | 157.24ms</title>
 </rect>
-<svg x="1.99" y="32" width="388.37" height="18" overflow="hidden">
-<rect x="0" y="0" width="388.37" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runInventoryReservation:171 | vt-38 | success</title>
+<svg x="0.40" y="32" width="505.84" height="18" overflow="hidden">
+<rect x="0" y="0" width="505.84" height="18" fill="#4caf50" rx="2">
+<title>task 1 | warehouse-A | vt-154 | success · critical path +99.50ms</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runInventoryReservation:171</text>
+<rect x="0" y="0" width="505.84" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 warehouse-A</text>
 </svg>
-<svg x="4.35" y="58" width="575.65" height="18" overflow="hidden">
-<rect x="0" y="0" width="575.65" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runInventoryReservation:172 | vt-42 | success · critical path +91.94ms</title>
+<svg x="0.84" y="58" width="275.60" height="18" overflow="hidden">
+<rect x="0" y="0" width="275.60" height="18" fill="#4caf50" rx="2">
+<title>task 2 | warehouse-B | vt-155 | success</title>
 </rect>
-<rect x="0" y="0" width="575.65" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runInventoryReservation:172</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 warehouse-B</text>
 </svg>
 <line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="126.17" y1="87" x2="126.17" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="128.17" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
-<line x1="252.34" y1="87" x2="252.34" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="254.34" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
-<line x1="378.51" y1="87" x2="378.51" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="380.51" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
-<line x1="504.68" y1="87" x2="504.68" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="506.68" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
-<line x1="630.85" y1="87" x2="630.85" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="632.85" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="757.02" y1="87" x2="757.02" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="759.02" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
+<line x1="101.75" y1="87" x2="101.75" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="103.75" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="203.50" y1="87" x2="203.50" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="205.50" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="305.26" y1="87" x2="305.26" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="307.26" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="407.01" y1="87" x2="407.01" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="409.01" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
+<line x1="508.76" y1="87" x2="508.76" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="510.76" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="610.51" y1="87" x2="610.51" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="612.51" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
+<line x1="712.27" y1="87" x2="712.27" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="714.27" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+140ms</text>
+</svg>
+</div>
+</section>
+</div>
+<div class="child-scope">
+<section>
+<h2>payment-pipeline-001 <span class="parent-ref">↳ task 2 of order-processing-ORD-001</span></h2>
+<div class="scope-meta">thread: vt-152 &nbsp;|&nbsp; opened: 20:04:23.602 &nbsp;|&nbsp; duration: 131.95ms &nbsp;|&nbsp; tasks: 2</div>
+<table>
+<tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
+<tr><td>1</td><td>fraud-check</td><td>vt-156</td><td>+295.67µs</td><td>86.38ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>card-authorisation</td><td>vt-157</td><td>+395.21µs</td><td>86.31ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +86.71ms</span></td></tr>
+</table>
+<div class="timeline-wrap">
+<svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
+<title>payment-pipeline-001 | 131.95ms</title>
+</rect>
+<svg x="1.79" y="32" width="523.70" height="18" overflow="hidden">
+<rect x="0" y="0" width="523.70" height="18" fill="#4caf50" rx="2">
+<title>task 1 | fraud-check | vt-156 | success</title>
+</rect>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 fraud-check</text>
+</svg>
+<svg x="2.40" y="58" width="523.29" height="18" overflow="hidden">
+<rect x="0" y="0" width="523.29" height="18" fill="#4caf50" rx="2">
+<title>task 2 | card-authorisation | vt-157 | success · critical path +86.71ms</title>
+</rect>
+<rect x="0" y="0" width="523.29" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 card-authorisation</text>
+</svg>
+<line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
+<line x1="121.26" y1="87" x2="121.26" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="123.26" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="242.52" y1="87" x2="242.52" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="244.52" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="363.77" y1="87" x2="363.77" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="365.77" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="485.03" y1="87" x2="485.03" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="487.03" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
+<line x1="606.29" y1="87" x2="606.29" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="608.29" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="727.55" y1="87" x2="727.55" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="729.55" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
 </svg>
 </div>
 </section>
 </div>
 <section id="scope-1" data-scope="order-dispatch-ORD-001" data-outcome="success">
 <h2>order-dispatch-ORD-001 <a class="anchor-link" href="#scope-1" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 15:08:05.232 &nbsp;|&nbsp; duration: 151.54ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:23.760 &nbsp;|&nbsp; duration: 98.47ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runDispatch:127</td><td>vt-44</td><td>+589.21µs</td><td>150.70ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +151.29ms</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runDispatch:128</td><td>vt-45</td><td>+993.17µs</td><td>58.77ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>3</td><td>OrderProcessingDemo#runDispatch:129</td><td>vt-46</td><td>+1.49ms</td><td>58.28ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>1</td><td>assign-courier</td><td>vt-158</td><td>+196.58µs</td><td>63.94ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>generate-label</td><td>vt-159</td><td>+337.42µs</td><td>97.77ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +98.11ms</span></td></tr>
+<tr><td>3</td><td>notify-customer</td><td>vt-160</td><td>+454.13µs</td><td>31.60ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>order-dispatch-ORD-001 | 151.54ms</title>
+<title>order-dispatch-ORD-001 | 98.47ms</title>
 </rect>
-<svg x="3.11" y="32" width="795.57" height="18" overflow="hidden">
-<rect x="0" y="0" width="795.57" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runDispatch:127 | vt-44 | success · critical path +151.29ms</title>
+<svg x="1.60" y="32" width="519.46" height="18" overflow="hidden">
+<rect x="0" y="0" width="519.46" height="18" fill="#4caf50" rx="2">
+<title>task 1 | assign-courier | vt-158 | success</title>
 </rect>
-<rect x="0" y="0" width="795.57" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runDispatch:127</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 assign-courier</text>
 </svg>
-<svg x="5.24" y="58" width="310.26" height="18" overflow="hidden">
-<rect x="0" y="0" width="310.26" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runDispatch:128 | vt-45 | success</title>
+<svg x="2.74" y="58" width="794.33" height="18" overflow="hidden">
+<rect x="0" y="0" width="794.33" height="18" fill="#4caf50" rx="2">
+<title>task 2 | generate-label | vt-159 | success · critical path +98.11ms</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runDispatch:128</text>
+<rect x="0" y="0" width="794.33" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 generate-label</text>
 </svg>
-<svg x="7.84" y="84" width="307.67" height="18" overflow="hidden">
-<rect x="0" y="0" width="307.67" height="18" fill="#4caf50" rx="2">
-<title>task 3 | OrderProcessingDemo#runDispatch:129 | vt-46 | success</title>
+<svg x="3.69" y="84" width="256.71" height="18" overflow="hidden">
+<rect x="0" y="0" width="256.71" height="18" fill="#4caf50" rx="2">
+<title>task 3 | notify-customer | vt-160 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 OrderProcessingDemo#runDispatch:129</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 notify-customer</text>
 </svg>
 <line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="105.58" y1="113" x2="105.58" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="107.58" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
-<line x1="211.17" y1="113" x2="211.17" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="213.17" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
-<line x1="316.75" y1="113" x2="316.75" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="318.75" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
-<line x1="422.34" y1="113" x2="422.34" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="424.34" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
-<line x1="527.92" y1="113" x2="527.92" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="529.92" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="633.50" y1="113" x2="633.50" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="635.50" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
-<line x1="739.09" y1="113" x2="739.09" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="741.09" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+140ms</text>
+<line x1="162.49" y1="113" x2="162.49" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="164.49" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="324.99" y1="113" x2="324.99" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="326.99" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="487.48" y1="113" x2="487.48" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="489.48" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="649.97" y1="113" x2="649.97" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="651.97" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
 </svg>
 </div>
 </section>
 </details>
 <section id="scope-2" data-scope="order-processing-ORD-002" data-outcome="failed">
 <h2>order-processing-ORD-002 <a class="anchor-link" href="#scope-2" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 15:08:05.383 &nbsp;|&nbsp; duration: 175.39ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:23.859 &nbsp;|&nbsp; duration: 152.99ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runFulfillment:106</td><td>vt-47</td><td>+142.75µs</td><td>38.24ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runFulfillment:107</td><td>vt-48</td><td>+243.96µs</td><td>172.95ms</td><td><span class="outcome-failed">failed: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002</span><details class="stack-trace"><summary>stack trace</summary><pre class="stack-trace-body">java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002
-	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.runPaymentPipeline(OrderProcessingDemo.java:160)
-	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runFulfillment$1(OrderProcessingDemo.java:107)
-	at com.ionutbanu.scopetracer.core.TracedScope.lambda$1(TracedScope.java:267)
-	at java.base/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:350)
-	at java.base/java.lang.VirtualThread.run(VirtualThread.java:475)
+<tr><td>1</td><td>validate-order</td><td>vt-161</td><td>+252.46µs</td><td>16.50ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>payment</td><td>vt-162</td><td>+535.00µs</td><td>151.80ms</td><td><span class="outcome-failed">failed: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002</span><details class="stack-trace"><summary>stack trace</summary><pre class="stack-trace-body">java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002
+	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.runPaymentPipeline(OrderProcessingDemo.java:183)
+	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runFulfillment$1(OrderProcessingDemo.java:128)
+	at com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)
+	at java.base/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:470)
 Caused by: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002
-	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.checkFraud(OrderProcessingDemo.java:202)
-	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runPaymentPipeline$0(OrderProcessingDemo.java:152)
+	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.checkFraud(OrderProcessingDemo.java:226)
+	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runPaymentPipeline$0(OrderProcessingDemo.java:175)
 	... 3 more
 </pre></details> <span class="nested-scope-ref">↳ payment-pipeline-002</span></td></tr>
-<tr><td>3</td><td>OrderProcessingDemo#runFulfillment:108</td><td>vt-49</td><td>+331.88µs</td><td>175.02ms</td><td><span class="outcome-cancelled">cancelled ← #2</span> <span class="nested-scope-ref">↳ inventory-reservation-002</span></td></tr>
+<tr><td>3</td><td>inventory</td><td>vt-163</td><td>+702.21µs</td><td>152.23ms</td><td><span class="outcome-cancelled">cancelled ← #2</span> <span class="nested-scope-ref">↳ inventory-reservation-002</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>order-processing-ORD-002 | 175.39ms</title>
+<title>order-processing-ORD-002 | 152.99ms</title>
 </rect>
-<svg x="0.65" y="32" width="174.43" height="18" overflow="hidden">
-<rect x="0" y="0" width="174.43" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runFulfillment:106 | vt-47 | success</title>
+<svg x="1.32" y="32" width="86.26" height="18" overflow="hidden">
+<rect x="0" y="0" width="86.26" height="18" fill="#4caf50" rx="2">
+<title>task 1 | validate-order | vt-161 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 runFulfillment:106</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 validat…</text>
 </svg>
-<svg x="1.11" y="58" width="788.86" height="18" overflow="hidden">
-<rect x="0" y="0" width="788.86" height="18" fill="#e53935" rx="2">
-<title>task 2 | OrderProcessingDemo#runFulfillment:107 | vt-48 | failed: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002</title>
+<svg x="2.80" y="58" width="793.77" height="18" overflow="hidden">
+<rect x="0" y="0" width="793.77" height="18" fill="#e53935" rx="2">
+<title>task 2 | payment | vt-162 | failed: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runFulfillment:107</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 payment</text>
 </svg>
-<svg x="1.51" y="84" width="798.34" height="18" overflow="hidden">
-<rect x="0" y="0" width="798.34" height="18" fill="#fb8c00" rx="2">
-<title>task 3 | OrderProcessingDemo#runFulfillment:108 | vt-49 | cancelled ← #2</title>
+<svg x="3.67" y="84" width="796.00" height="18" overflow="hidden">
+<rect x="0" y="0" width="796.00" height="18" fill="#fb8c00" rx="2">
+<title>task 3 | inventory | vt-163 | cancelled ← #2</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 OrderProcessingDemo#runFulfillment:108</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 inventory</text>
 </svg>
 <line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="228.07" y1="113" x2="228.07" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="230.07" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="456.13" y1="113" x2="456.13" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="458.13" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="684.20" y1="113" x2="684.20" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="686.20" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="104.58" y1="113" x2="104.58" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="106.58" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="209.16" y1="113" x2="209.16" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="211.16" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="313.74" y1="113" x2="313.74" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="315.74" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="418.32" y1="113" x2="418.32" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="420.32" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
+<line x1="522.91" y1="113" x2="522.91" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="524.91" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="627.49" y1="113" x2="627.49" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="629.49" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
+<line x1="732.07" y1="113" x2="732.07" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="734.07" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+140ms</text>
 </svg>
 </div>
 </section>
 <div class="child-scope">
 <section>
 <h2>payment-pipeline-002 <span class="parent-ref">↳ task 2 of order-processing-ORD-002</span></h2>
-<div class="scope-meta">thread: vt-48 &nbsp;|&nbsp; opened: 15:08:05.384 &nbsp;|&nbsp; duration: 172.72ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-162 &nbsp;|&nbsp; opened: 20:04:23.860 &nbsp;|&nbsp; duration: 151.29ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runPaymentPipeline:152</td><td>vt-50</td><td>+161.17µs</td><td>171.56ms</td><td><span class="outcome-failed">failed: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002</span><details class="stack-trace"><summary>stack trace</summary><pre class="stack-trace-body">java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002
-	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.checkFraud(OrderProcessingDemo.java:202)
-	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runPaymentPipeline$0(OrderProcessingDemo.java:152)
-	at com.ionutbanu.scopetracer.core.TracedScope.lambda$1(TracedScope.java:267)
-	at java.base/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:350)
-	at java.base/java.lang.VirtualThread.run(VirtualThread.java:475)
+<tr><td>1</td><td>fraud-check</td><td>vt-164</td><td>+109.92µs</td><td>150.77ms</td><td><span class="outcome-failed">failed: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002</span><details class="stack-trace"><summary>stack trace</summary><pre class="stack-trace-body">java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002
+	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.checkFraud(OrderProcessingDemo.java:226)
+	at com.ionutbanu.scopetracer.demos.OrderProcessingDemo.lambda$runPaymentPipeline$0(OrderProcessingDemo.java:175)
+	at com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)
+	at java.base/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:470)
 </pre></details></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runPaymentPipeline:153</td><td>vt-52</td><td>+291.33µs</td><td>85.20ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>card-authorisation</td><td>vt-166</td><td>+377.96µs</td><td>81.71ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>payment-pipeline-002 | 172.72ms</title>
+<title>payment-pipeline-002 | 151.29ms</title>
 </rect>
-<svg x="0.75" y="32" width="794.60" height="18" overflow="hidden">
-<rect x="0" y="0" width="794.60" height="18" fill="#e53935" rx="2">
-<title>task 1 | OrderProcessingDemo#runPaymentPipeline:152 | vt-50 | failed: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002</title>
+<svg x="0.58" y="32" width="797.25" height="18" overflow="hidden">
+<rect x="0" y="0" width="797.25" height="18" fill="#e53935" rx="2">
+<title>task 1 | fraud-check | vt-164 | failed: java.lang.RuntimeException: fraud-check: high-risk transaction declined for ORD-002</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runPaymentPipeline:152</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 fraud-check</text>
 </svg>
-<svg x="1.35" y="58" width="394.62" height="18" overflow="hidden">
-<rect x="0" y="0" width="394.62" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runPaymentPipeline:153 | vt-52 | success</title>
+<svg x="2.00" y="58" width="432.09" height="18" overflow="hidden">
+<rect x="0" y="0" width="432.09" height="18" fill="#4caf50" rx="2">
+<title>task 2 | card-authorisation | vt-166 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runPaymentPipeline:153</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 card-authorisation</text>
 </svg>
 <line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="231.59" y1="87" x2="231.59" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="233.59" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="463.17" y1="87" x2="463.17" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="465.17" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="694.76" y1="87" x2="694.76" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="696.76" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="105.76" y1="87" x2="105.76" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="107.76" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="211.52" y1="87" x2="211.52" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="213.52" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="317.28" y1="87" x2="317.28" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="319.28" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="423.03" y1="87" x2="423.03" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="425.03" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
+<line x1="528.79" y1="87" x2="528.79" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="530.79" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="634.55" y1="87" x2="634.55" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="636.55" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
+<line x1="740.31" y1="87" x2="740.31" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="742.31" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+140ms</text>
 </svg>
 </div>
 </section>
@@ -418,129 +444,137 @@ Caused by: java.lang.RuntimeException: fraud-check: high-risk transaction declin
 <div class="child-scope">
 <section>
 <h2>inventory-reservation-002 <span class="parent-ref">↳ task 3 of order-processing-ORD-002</span></h2>
-<div class="scope-meta">thread: vt-49 &nbsp;|&nbsp; opened: 15:08:05.384 &nbsp;|&nbsp; duration: 174.91ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-163 &nbsp;|&nbsp; opened: 20:04:23.860 &nbsp;|&nbsp; duration: 152.04ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runInventoryReservation:171</td><td>vt-51</td><td>+141.08µs</td><td>58.33ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runInventoryReservation:172</td><td>vt-53</td><td>+230.75µs</td><td>174.60ms</td><td><span class="outcome-cancelled">cancelled</span></td></tr>
+<tr><td>1</td><td>warehouse-A</td><td>vt-165</td><td>+220.50µs</td><td>94.35ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>warehouse-B</td><td>vt-167</td><td>+375.17µs</td><td>151.55ms</td><td><span class="outcome-cancelled">cancelled</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>inventory-reservation-002 | 174.91ms</title>
+<title>inventory-reservation-002 | 152.04ms</title>
 </rect>
-<svg x="0.65" y="32" width="266.81" height="18" overflow="hidden">
-<rect x="0" y="0" width="266.81" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runInventoryReservation:171 | vt-51 | success</title>
+<svg x="1.16" y="32" width="496.45" height="18" overflow="hidden">
+<rect x="0" y="0" width="496.45" height="18" fill="#4caf50" rx="2">
+<title>task 1 | warehouse-A | vt-165 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 runInventoryReservation:171</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 warehouse-A</text>
 </svg>
-<svg x="1.06" y="58" width="798.60" height="18" overflow="hidden">
-<rect x="0" y="0" width="798.60" height="18" fill="#fb8c00" rx="2">
-<title>task 2 | OrderProcessingDemo#runInventoryReservation:172 | vt-53 | cancelled</title>
+<svg x="1.97" y="58" width="797.42" height="18" overflow="hidden">
+<rect x="0" y="0" width="797.42" height="18" fill="#fb8c00" rx="2">
+<title>task 2 | warehouse-B | vt-167 | cancelled</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runInventoryReservation:172</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 warehouse-B</text>
 </svg>
 <line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="228.70" y1="87" x2="228.70" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="230.70" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="457.39" y1="87" x2="457.39" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="459.39" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="686.09" y1="87" x2="686.09" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="688.09" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="105.24" y1="87" x2="105.24" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="107.24" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="210.47" y1="87" x2="210.47" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="212.47" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="315.71" y1="87" x2="315.71" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="317.71" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="420.94" y1="87" x2="420.94" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="422.94" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
+<line x1="526.18" y1="87" x2="526.18" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="528.18" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="631.42" y1="87" x2="631.42" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="633.42" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
+<line x1="736.65" y1="87" x2="736.65" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="738.65" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+140ms</text>
 </svg>
 </div>
 </section>
 </div>
 <details class="scope-group" open>
-<summary>003 <span class="group-stats">(2 scopes &nbsp;·&nbsp; 2/2 success · median 178.67ms)</span></summary>
+<summary>003 <span class="group-stats">(2 scopes &nbsp;·&nbsp; 2/2 success · median 132.61ms)</span></summary>
 <section id="scope-3" data-scope="order-processing-ORD-003" data-outcome="success">
 <h2>order-processing-ORD-003 <a class="anchor-link" href="#scope-3" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 15:08:05.559 &nbsp;|&nbsp; duration: 232.32ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:24.013 &nbsp;|&nbsp; duration: 207.19ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runFulfillment:106</td><td>vt-56</td><td>+101.25µs</td><td>43.95ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runFulfillment:107</td><td>vt-57</td><td>+496.25µs</td><td>231.48ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +231.97ms</span> <span class="nested-scope-ref">↳ payment-pipeline-003</span></td></tr>
-<tr><td>3</td><td>OrderProcessingDemo#runFulfillment:108</td><td>vt-58</td><td>+594.50µs</td><td>117.62ms</td><td><span class="outcome-success">success</span> <span class="nested-scope-ref">↳ inventory-reservation-003</span></td></tr>
+<tr><td>1</td><td>validate-order</td><td>vt-168</td><td>+207.92µs</td><td>38.24ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>payment</td><td>vt-169</td><td>+750.38µs</td><td>205.95ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +206.70ms</span> <span class="nested-scope-ref">↳ payment-pipeline-003</span></td></tr>
+<tr><td>3</td><td>inventory</td><td>vt-170</td><td>+836.38µs</td><td>167.62ms</td><td><span class="outcome-success">success</span> <span class="nested-scope-ref">↳ inventory-reservation-003</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>order-processing-ORD-003 | 232.32ms</title>
+<title>order-processing-ORD-003 | 207.19ms</title>
 </rect>
-<svg x="0.35" y="32" width="151.34" height="18" overflow="hidden">
-<rect x="0" y="0" width="151.34" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runFulfillment:106 | vt-56 | success</title>
+<svg x="0.80" y="32" width="147.66" height="18" overflow="hidden">
+<rect x="0" y="0" width="147.66" height="18" fill="#4caf50" rx="2">
+<title>task 1 | validate-order | vt-168 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 runFulfillment:1…</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 validate-order</text>
 </svg>
-<svg x="1.71" y="58" width="797.09" height="18" overflow="hidden">
-<rect x="0" y="0" width="797.09" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runFulfillment:107 | vt-57 | success · critical path +231.97ms</title>
+<svg x="2.90" y="58" width="795.21" height="18" overflow="hidden">
+<rect x="0" y="0" width="795.21" height="18" fill="#4caf50" rx="2">
+<title>task 2 | payment | vt-169 | success · critical path +206.70ms</title>
 </rect>
-<rect x="0" y="0" width="797.09" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runFulfillment:107</text>
+<rect x="0" y="0" width="795.21" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 payment</text>
 </svg>
-<svg x="2.05" y="84" width="405.03" height="18" overflow="hidden">
-<rect x="0" y="0" width="405.03" height="18" fill="#4caf50" rx="2">
-<title>task 3 | OrderProcessingDemo#runFulfillment:108 | vt-58 | success</title>
+<svg x="3.23" y="84" width="647.22" height="18" overflow="hidden">
+<rect x="0" y="0" width="647.22" height="18" fill="#4caf50" rx="2">
+<title>task 3 | inventory | vt-170 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 OrderProcessingDemo#runFulfillment:108</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 inventory</text>
 </svg>
 <line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="172.18" y1="113" x2="172.18" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="174.18" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="344.35" y1="113" x2="344.35" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="346.35" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="516.53" y1="113" x2="516.53" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="518.53" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
-<line x1="688.71" y1="113" x2="688.71" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="690.71" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
+<line x1="193.06" y1="113" x2="193.06" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="195.06" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
+<line x1="386.12" y1="113" x2="386.12" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="388.12" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="579.18" y1="113" x2="579.18" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="581.18" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="772.24" y1="113" x2="772.24" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="774.24" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
 </svg>
 </div>
 </section>
 <div class="child-scope">
 <section>
 <h2>payment-pipeline-003 <span class="parent-ref">↳ task 2 of order-processing-ORD-003</span></h2>
-<div class="scope-meta">thread: vt-57 &nbsp;|&nbsp; opened: 15:08:05.560 &nbsp;|&nbsp; duration: 231.28ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-169 &nbsp;|&nbsp; opened: 20:04:24.014 &nbsp;|&nbsp; duration: 205.68ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runPaymentPipeline:152</td><td>vt-59</td><td>+86.58µs</td><td>193.65ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +193.74ms</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runPaymentPipeline:153</td><td>vt-61</td><td>+188.08µs</td><td>82.23ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>1</td><td>fraud-check</td><td>vt-171</td><td>+79.83µs</td><td>168.69ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +168.77ms</span></td></tr>
+<tr><td>2</td><td>card-authorisation</td><td>vt-174</td><td>+270.21µs</td><td>136.95ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>payment-pipeline-003 | 231.28ms</title>
+<title>payment-pipeline-003 | 205.68ms</title>
 </rect>
-<svg x="0.30" y="32" width="669.85" height="18" overflow="hidden">
-<rect x="0" y="0" width="669.85" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runPaymentPipeline:152 | vt-59 | success · critical path +193.74ms</title>
+<svg x="0.31" y="32" width="656.11" height="18" overflow="hidden">
+<rect x="0" y="0" width="656.11" height="18" fill="#4caf50" rx="2">
+<title>task 1 | fraud-check | vt-171 | success · critical path +168.77ms</title>
 </rect>
-<rect x="0" y="0" width="669.85" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runPaymentPipeline:152</text>
+<rect x="0" y="0" width="656.11" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 fraud-check</text>
 </svg>
-<svg x="0.65" y="58" width="284.44" height="18" overflow="hidden">
-<rect x="0" y="0" width="284.44" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runPaymentPipeline:153 | vt-61 | success</title>
+<svg x="1.05" y="58" width="532.67" height="18" overflow="hidden">
+<rect x="0" y="0" width="532.67" height="18" fill="#4caf50" rx="2">
+<title>task 2 | card-authorisation | vt-174 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 runPaymentPipeline:153</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 card-authorisation</text>
 </svg>
 <line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="172.95" y1="87" x2="172.95" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="174.95" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="345.90" y1="87" x2="345.90" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="347.90" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="518.85" y1="87" x2="518.85" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="520.85" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
-<line x1="691.80" y1="87" x2="691.80" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="693.80" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
+<line x1="194.48" y1="87" x2="194.48" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="196.48" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
+<line x1="388.95" y1="87" x2="388.95" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="390.95" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="583.43" y1="87" x2="583.43" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="585.43" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="777.90" y1="87" x2="777.90" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="779.90" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
 </svg>
 </div>
 </section>
@@ -548,186 +582,180 @@ Caused by: java.lang.RuntimeException: fraud-check: high-risk transaction declin
 <div class="child-scope">
 <section>
 <h2>inventory-reservation-003 <span class="parent-ref">↳ task 3 of order-processing-ORD-003</span></h2>
-<div class="scope-meta">thread: vt-58 &nbsp;|&nbsp; opened: 15:08:05.560 &nbsp;|&nbsp; duration: 117.47ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-170 &nbsp;|&nbsp; opened: 20:04:24.014 &nbsp;|&nbsp; duration: 167.44ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runInventoryReservation:171</td><td>vt-60</td><td>+66.58µs</td><td>90.95ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +91.01ms</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runInventoryReservation:172</td><td>vt-62</td><td>+161.42µs</td><td>43.20ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>1</td><td>warehouse-A</td><td>vt-172</td><td>+95.71µs</td><td>85.33ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>warehouse-B</td><td>vt-173</td><td>+257.83µs</td><td>116.50ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +116.76ms</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>inventory-reservation-003 | 117.47ms</title>
+<title>inventory-reservation-003 | 167.44ms</title>
 </rect>
-<svg x="0.45" y="32" width="619.38" height="18" overflow="hidden">
-<rect x="0" y="0" width="619.38" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runInventoryReservation:171 | vt-60 | success · critical path +91.01ms</title>
+<svg x="0.46" y="32" width="407.71" height="18" overflow="hidden">
+<rect x="0" y="0" width="407.71" height="18" fill="#4caf50" rx="2">
+<title>task 1 | warehouse-A | vt-172 | success</title>
 </rect>
-<rect x="0" y="0" width="619.38" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runInventoryReservation:171</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 warehouse-A</text>
 </svg>
-<svg x="1.10" y="58" width="294.20" height="18" overflow="hidden">
-<rect x="0" y="0" width="294.20" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runInventoryReservation:172 | vt-62 | success</title>
+<svg x="1.23" y="58" width="556.62" height="18" overflow="hidden">
+<rect x="0" y="0" width="556.62" height="18" fill="#4caf50" rx="2">
+<title>task 2 | warehouse-B | vt-173 | success · critical path +116.76ms</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 runInventoryReservation:172</text>
+<rect x="0" y="0" width="556.62" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 warehouse-B</text>
 </svg>
 <line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="136.21" y1="87" x2="136.21" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="138.21" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
-<line x1="272.42" y1="87" x2="272.42" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="274.42" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
-<line x1="408.63" y1="87" x2="408.63" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="410.63" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
-<line x1="544.83" y1="87" x2="544.83" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="546.83" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
-<line x1="681.04" y1="87" x2="681.04" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="683.04" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="238.89" y1="87" x2="238.89" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="240.89" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
+<line x1="477.78" y1="87" x2="477.78" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="479.78" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="716.67" y1="87" x2="716.67" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="718.67" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
 </svg>
 </div>
 </section>
 </div>
 <section id="scope-4" data-scope="order-dispatch-ORD-003" data-outcome="success">
 <h2>order-dispatch-ORD-003 <a class="anchor-link" href="#scope-4" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 15:08:05.792 &nbsp;|&nbsp; duration: 125.03ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:24.220 &nbsp;|&nbsp; duration: 58.04ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runDispatch:127</td><td>vt-63</td><td>+249.21µs</td><td>124.37ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +124.62ms</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runDispatch:128</td><td>vt-64</td><td>+417.88µs</td><td>86.72ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>3</td><td>OrderProcessingDemo#runDispatch:129</td><td>vt-65</td><td>+529.50µs</td><td>61.23ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>1</td><td>assign-courier</td><td>vt-175</td><td>+253.96µs</td><td>57.42ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>generate-label</td><td>vt-176</td><td>+474.46µs</td><td>57.21ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +57.68ms</span></td></tr>
+<tr><td>3</td><td>notify-customer</td><td>vt-177</td><td>+625.21µs</td><td>44.80ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>order-dispatch-ORD-003 | 125.03ms</title>
+<title>order-dispatch-ORD-003 | 58.04ms</title>
 </rect>
-<svg x="1.59" y="32" width="795.78" height="18" overflow="hidden">
-<rect x="0" y="0" width="795.78" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runDispatch:127 | vt-63 | success · critical path +124.62ms</title>
+<svg x="3.50" y="32" width="791.48" height="18" overflow="hidden">
+<rect x="0" y="0" width="791.48" height="18" fill="#4caf50" rx="2">
+<title>task 1 | assign-courier | vt-175 | success</title>
 </rect>
-<rect x="0" y="0" width="795.78" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runDispatch:127</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 assign-courier</text>
 </svg>
-<svg x="2.67" y="58" width="554.88" height="18" overflow="hidden">
-<rect x="0" y="0" width="554.88" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runDispatch:128 | vt-64 | success</title>
+<svg x="6.54" y="58" width="788.52" height="18" overflow="hidden">
+<rect x="0" y="0" width="788.52" height="18" fill="#4caf50" rx="2">
+<title>task 2 | generate-label | vt-176 | success · critical path +57.68ms</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runDispatch:128</text>
+<rect x="0" y="0" width="788.52" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 generate-label</text>
 </svg>
-<svg x="3.39" y="84" width="391.77" height="18" overflow="hidden">
-<rect x="0" y="0" width="391.77" height="18" fill="#4caf50" rx="2">
-<title>task 3 | OrderProcessingDemo#runDispatch:129 | vt-65 | success</title>
+<svg x="8.62" y="84" width="617.58" height="18" overflow="hidden">
+<rect x="0" y="0" width="617.58" height="18" fill="#4caf50" rx="2">
+<title>task 3 | notify-customer | vt-177 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 OrderProcessingDemo#runDispatch:129</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 notify-customer</text>
 </svg>
 <line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="127.97" y1="113" x2="127.97" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="129.97" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
-<line x1="255.94" y1="113" x2="255.94" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="257.94" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
-<line x1="383.92" y1="113" x2="383.92" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="385.92" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
-<line x1="511.89" y1="113" x2="511.89" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="513.89" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
-<line x1="639.86" y1="113" x2="639.86" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="641.86" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="767.83" y1="113" x2="767.83" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="769.83" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
+<line x1="137.84" y1="113" x2="137.84" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="139.84" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+10ms</text>
+<line x1="275.68" y1="113" x2="275.68" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="277.68" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="413.52" y1="113" x2="413.52" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="415.52" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+30ms</text>
+<line x1="551.36" y1="113" x2="551.36" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="553.36" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="689.21" y1="113" x2="689.21" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="691.21" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
 </svg>
 </div>
 </section>
 </details>
 <details class="scope-group" open>
-<summary>004 <span class="group-stats">(2 scopes &nbsp;·&nbsp; 2/2 success · median 158.53ms)</span></summary>
+<summary>004 <span class="group-stats">(2 scopes &nbsp;·&nbsp; 2/2 success · median 180.61ms)</span></summary>
 <section id="scope-5" data-scope="order-processing-ORD-004" data-outcome="success">
 <h2>order-processing-ORD-004 <a class="anchor-link" href="#scope-5" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 15:08:05.917 &nbsp;|&nbsp; duration: 247.34ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:24.279 &nbsp;|&nbsp; duration: 227.99ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runFulfillment:106</td><td>vt-66</td><td>+242.88µs</td><td>32.44ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runFulfillment:107</td><td>vt-67</td><td>+449.38µs</td><td>246.65ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +247.10ms</span> <span class="nested-scope-ref">↳ payment-pipeline-004</span></td></tr>
-<tr><td>3</td><td>OrderProcessingDemo#runFulfillment:108</td><td>vt-68</td><td>+602.21µs</td><td>150.50ms</td><td><span class="outcome-success">success</span> <span class="nested-scope-ref">↳ inventory-reservation-004</span></td></tr>
+<tr><td>1</td><td>validate-order</td><td>vt-178</td><td>+247.38µs</td><td>34.37ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>payment</td><td>vt-179</td><td>+488.46µs</td><td>227.36ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +227.85ms</span> <span class="nested-scope-ref">↳ payment-pipeline-004</span></td></tr>
+<tr><td>3</td><td>inventory</td><td>vt-180</td><td>+636.33µs</td><td>131.32ms</td><td><span class="outcome-success">success</span> <span class="nested-scope-ref">↳ inventory-reservation-004</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>order-processing-ORD-004 | 247.34ms</title>
+<title>order-processing-ORD-004 | 227.99ms</title>
 </rect>
-<svg x="0.79" y="32" width="104.91" height="18" overflow="hidden">
-<rect x="0" y="0" width="104.91" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runFulfillment:106 | vt-66 | success</title>
+<svg x="0.87" y="32" width="120.60" height="18" overflow="hidden">
+<rect x="0" y="0" width="120.60" height="18" fill="#4caf50" rx="2">
+<title>task 1 | validate-order | vt-178 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 runFulfil…</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 validate-ord…</text>
 </svg>
-<svg x="1.45" y="58" width="797.74" height="18" overflow="hidden">
-<rect x="0" y="0" width="797.74" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runFulfillment:107 | vt-67 | success · critical path +247.10ms</title>
+<svg x="1.71" y="58" width="797.79" height="18" overflow="hidden">
+<rect x="0" y="0" width="797.79" height="18" fill="#4caf50" rx="2">
+<title>task 2 | payment | vt-179 | success · critical path +227.85ms</title>
 </rect>
-<rect x="0" y="0" width="797.74" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runFulfillment:107</text>
+<rect x="0" y="0" width="797.79" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 payment</text>
 </svg>
-<svg x="1.95" y="84" width="486.76" height="18" overflow="hidden">
-<rect x="0" y="0" width="486.76" height="18" fill="#4caf50" rx="2">
-<title>task 3 | OrderProcessingDemo#runFulfillment:108 | vt-68 | success</title>
+<svg x="2.23" y="84" width="460.80" height="18" overflow="hidden">
+<rect x="0" y="0" width="460.80" height="18" fill="#4caf50" rx="2">
+<title>task 3 | inventory | vt-180 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 OrderProcessingDemo#runFulfillment:108</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 inventory</text>
 </svg>
 <line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="161.72" y1="113" x2="161.72" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="163.72" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="323.44" y1="113" x2="323.44" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="325.44" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="485.15" y1="113" x2="485.15" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="487.15" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
-<line x1="646.87" y1="113" x2="646.87" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="648.87" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
+<line x1="175.44" y1="113" x2="175.44" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="177.44" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
+<line x1="350.89" y1="113" x2="350.89" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="352.89" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="526.33" y1="113" x2="526.33" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="528.33" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="701.78" y1="113" x2="701.78" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="703.78" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
 </svg>
 </div>
 </section>
 <div class="child-scope">
 <section>
 <h2>payment-pipeline-004 <span class="parent-ref">↳ task 2 of order-processing-ORD-004</span></h2>
-<div class="scope-meta">thread: vt-67 &nbsp;|&nbsp; opened: 15:08:05.918 &nbsp;|&nbsp; duration: 246.37ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-179 &nbsp;|&nbsp; opened: 20:04:24.279 &nbsp;|&nbsp; duration: 227.12ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runPaymentPipeline:152</td><td>vt-70</td><td>+218.79µs</td><td>164.01ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +164.23ms</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runPaymentPipeline:153</td><td>vt-72</td><td>+410.17µs</td><td>66.23ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>1</td><td>fraud-check</td><td>vt-181</td><td>+125.50µs</td><td>150.85ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +150.97ms</span></td></tr>
+<tr><td>2</td><td>card-authorisation</td><td>vt-183</td><td>+219.92µs</td><td>89.02ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>payment-pipeline-004 | 246.37ms</title>
+<title>payment-pipeline-004 | 227.12ms</title>
 </rect>
-<svg x="0.71" y="32" width="532.56" height="18" overflow="hidden">
-<rect x="0" y="0" width="532.56" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runPaymentPipeline:152 | vt-70 | success · critical path +164.23ms</title>
+<svg x="0.44" y="32" width="531.34" height="18" overflow="hidden">
+<rect x="0" y="0" width="531.34" height="18" fill="#4caf50" rx="2">
+<title>task 1 | fraud-check | vt-181 | success · critical path +150.97ms</title>
 </rect>
-<rect x="0" y="0" width="532.56" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runPaymentPipeline:152</text>
+<rect x="0" y="0" width="531.34" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 fraud-check</text>
 </svg>
-<svg x="1.33" y="58" width="215.04" height="18" overflow="hidden">
-<rect x="0" y="0" width="215.04" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runPaymentPipeline:153 | vt-72 | success</title>
+<svg x="0.77" y="58" width="313.56" height="18" overflow="hidden">
+<rect x="0" y="0" width="313.56" height="18" fill="#4caf50" rx="2">
+<title>task 2 | card-authorisation | vt-183 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 runPaymentPipeline:153</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 card-authorisation</text>
 </svg>
 <line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="162.36" y1="87" x2="162.36" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="164.36" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="324.72" y1="87" x2="324.72" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="326.72" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="487.08" y1="87" x2="487.08" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="489.08" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
-<line x1="649.43" y1="87" x2="649.43" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="651.43" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
+<line x1="176.12" y1="87" x2="176.12" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="178.12" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
+<line x1="352.24" y1="87" x2="352.24" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="354.24" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="528.36" y1="87" x2="528.36" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="530.36" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="704.48" y1="87" x2="704.48" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="706.48" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
 </svg>
 </div>
 </section>
@@ -735,194 +763,192 @@ Caused by: java.lang.RuntimeException: fraud-check: high-risk transaction declin
 <div class="child-scope">
 <section>
 <h2>inventory-reservation-004 <span class="parent-ref">↳ task 3 of order-processing-ORD-004</span></h2>
-<div class="scope-meta">thread: vt-68 &nbsp;|&nbsp; opened: 15:08:05.918 &nbsp;|&nbsp; duration: 150.34ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-180 &nbsp;|&nbsp; opened: 20:04:24.279 &nbsp;|&nbsp; duration: 131.13ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runInventoryReservation:171</td><td>vt-69</td><td>+183.96µs</td><td>120.98ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +121.16ms</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runInventoryReservation:172</td><td>vt-71</td><td>+349.04µs</td><td>85.51ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>1</td><td>warehouse-A</td><td>vt-182</td><td>+68.83µs</td><td>107.01ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +107.08ms</span></td></tr>
+<tr><td>2</td><td>warehouse-B</td><td>vt-184</td><td>+155.79µs</td><td>49.55ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>inventory-reservation-004 | 150.34ms</title>
+<title>inventory-reservation-004 | 131.13ms</title>
 </rect>
-<svg x="0.98" y="32" width="643.77" height="18" overflow="hidden">
-<rect x="0" y="0" width="643.77" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runInventoryReservation:171 | vt-69 | success · critical path +121.16ms</title>
+<svg x="0.42" y="32" width="652.86" height="18" overflow="hidden">
+<rect x="0" y="0" width="652.86" height="18" fill="#4caf50" rx="2">
+<title>task 1 | warehouse-A | vt-182 | success · critical path +107.08ms</title>
 </rect>
-<rect x="0" y="0" width="643.77" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runInventoryReservation:171</text>
+<rect x="0" y="0" width="652.86" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 warehouse-A</text>
 </svg>
-<svg x="1.86" y="58" width="455.04" height="18" overflow="hidden">
-<rect x="0" y="0" width="455.04" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runInventoryReservation:172 | vt-71 | success</title>
+<svg x="0.95" y="58" width="302.31" height="18" overflow="hidden">
+<rect x="0" y="0" width="302.31" height="18" fill="#4caf50" rx="2">
+<title>task 2 | warehouse-B | vt-184 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runInventoryReservation:172</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 warehouse-B</text>
 </svg>
 <line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="106.43" y1="87" x2="106.43" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="108.43" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
-<line x1="212.86" y1="87" x2="212.86" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="214.86" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
-<line x1="319.28" y1="87" x2="319.28" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="321.28" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
-<line x1="425.71" y1="87" x2="425.71" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="427.71" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
-<line x1="532.14" y1="87" x2="532.14" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="534.14" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="638.57" y1="87" x2="638.57" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="640.57" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
-<line x1="745.00" y1="87" x2="745.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="747.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+140ms</text>
+<line x1="122.02" y1="87" x2="122.02" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="124.02" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="244.04" y1="87" x2="244.04" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="246.04" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="366.06" y1="87" x2="366.06" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="368.06" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="488.07" y1="87" x2="488.07" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="490.07" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
+<line x1="610.09" y1="87" x2="610.09" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="612.09" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="732.11" y1="87" x2="732.11" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="734.11" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
 </svg>
 </div>
 </section>
 </div>
 <section id="scope-6" data-scope="order-dispatch-ORD-004" data-outcome="success">
 <h2>order-dispatch-ORD-004 <a class="anchor-link" href="#scope-6" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 15:08:06.164 &nbsp;|&nbsp; duration: 69.72ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:24.507 &nbsp;|&nbsp; duration: 133.23ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runDispatch:127</td><td>vt-73</td><td>+179.67µs</td><td>52.81ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runDispatch:128</td><td>vt-74</td><td>+313.63µs</td><td>69.19ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +69.51ms</span></td></tr>
-<tr><td>3</td><td>OrderProcessingDemo#runDispatch:129</td><td>vt-75</td><td>+413.67µs</td><td>55.78ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>1</td><td>assign-courier</td><td>vt-185</td><td>+118.08µs</td><td>132.68ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +132.79ms</span></td></tr>
+<tr><td>2</td><td>generate-label</td><td>vt-186</td><td>+195.54µs</td><td>95.10ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>3</td><td>notify-customer</td><td>vt-187</td><td>+252.71µs</td><td>53.10ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>order-dispatch-ORD-004 | 69.72ms</title>
+<title>order-dispatch-ORD-004 | 133.23ms</title>
 </rect>
-<svg x="2.06" y="32" width="605.96" height="18" overflow="hidden">
-<rect x="0" y="0" width="605.96" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runDispatch:127 | vt-73 | success</title>
+<svg x="0.71" y="32" width="796.66" height="18" overflow="hidden">
+<rect x="0" y="0" width="796.66" height="18" fill="#4caf50" rx="2">
+<title>task 1 | assign-courier | vt-185 | success · critical path +132.79ms</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runDispatch:127</text>
+<rect x="0" y="0" width="796.66" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 assign-courier</text>
 </svg>
-<svg x="3.60" y="58" width="793.92" height="18" overflow="hidden">
-<rect x="0" y="0" width="793.92" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runDispatch:128 | vt-74 | success · critical path +69.51ms</title>
+<svg x="1.17" y="58" width="571.06" height="18" overflow="hidden">
+<rect x="0" y="0" width="571.06" height="18" fill="#4caf50" rx="2">
+<title>task 2 | generate-label | vt-186 | success</title>
 </rect>
-<rect x="0" y="0" width="793.92" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runDispatch:128</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 generate-label</text>
 </svg>
-<svg x="4.75" y="84" width="639.98" height="18" overflow="hidden">
-<rect x="0" y="0" width="639.98" height="18" fill="#4caf50" rx="2">
-<title>task 3 | OrderProcessingDemo#runDispatch:129 | vt-75 | success</title>
+<svg x="1.52" y="84" width="318.83" height="18" overflow="hidden">
+<rect x="0" y="0" width="318.83" height="18" fill="#4caf50" rx="2">
+<title>task 3 | notify-customer | vt-187 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 OrderProcessingDemo#runDispatch:129</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 notify-customer</text>
 </svg>
 <line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="114.74" y1="113" x2="114.74" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="116.74" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+10ms</text>
-<line x1="229.47" y1="113" x2="229.47" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="231.47" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
-<line x1="344.21" y1="113" x2="344.21" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="346.21" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+30ms</text>
-<line x1="458.95" y1="113" x2="458.95" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="460.95" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
-<line x1="573.69" y1="113" x2="573.69" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="575.69" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="688.42" y1="113" x2="688.42" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="690.42" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="120.09" y1="113" x2="120.09" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="122.09" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="240.18" y1="113" x2="240.18" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="242.18" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="360.28" y1="113" x2="360.28" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="362.28" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="480.37" y1="113" x2="480.37" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="482.37" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
+<line x1="600.46" y1="113" x2="600.46" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="602.46" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="720.55" y1="113" x2="720.55" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="722.55" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
 </svg>
 </div>
 </section>
 </details>
 <details class="scope-group" open>
-<summary>005 <span class="group-stats">(2 scopes &nbsp;·&nbsp; 2/2 success · median 207.73ms)</span></summary>
+<summary>005 <span class="group-stats">(2 scopes &nbsp;·&nbsp; 2/2 success · median 175.25ms)</span></summary>
 <section id="scope-7" data-scope="order-processing-ORD-005" data-outcome="success">
 <h2>order-processing-ORD-005 <a class="anchor-link" href="#scope-7" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 15:08:06.234 &nbsp;|&nbsp; duration: 267.32ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:24.641 &nbsp;|&nbsp; duration: 279.51ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runFulfillment:106</td><td>vt-76</td><td>+181.17µs</td><td>21.33ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runFulfillment:107</td><td>vt-77</td><td>+359.67µs</td><td>266.46ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +266.82ms</span> <span class="nested-scope-ref">↳ payment-pipeline-005</span></td></tr>
-<tr><td>3</td><td>OrderProcessingDemo#runFulfillment:108</td><td>vt-78</td><td>+492.71µs</td><td>139.15ms</td><td><span class="outcome-success">success</span> <span class="nested-scope-ref">↳ inventory-reservation-005</span></td></tr>
+<tr><td>1</td><td>validate-order</td><td>vt-188</td><td>+294.54µs</td><td>40.42ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>payment</td><td>vt-189</td><td>+548.04µs</td><td>278.58ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +279.13ms</span> <span class="nested-scope-ref">↳ payment-pipeline-005</span></td></tr>
+<tr><td>3</td><td>inventory</td><td>vt-190</td><td>+709.54µs</td><td>234.20ms</td><td><span class="outcome-success">success</span> <span class="nested-scope-ref">↳ inventory-reservation-005</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>order-processing-ORD-005 | 267.32ms</title>
+<title>order-processing-ORD-005 | 279.51ms</title>
 </rect>
-<svg x="0.54" y="32" width="63.84" height="18" overflow="hidden">
-<rect x="0" y="0" width="63.84" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runFulfillment:106 | vt-76 | success</title>
+<svg x="0.84" y="32" width="115.69" height="18" overflow="hidden">
+<rect x="0" y="0" width="115.69" height="18" fill="#4caf50" rx="2">
+<title>task 1 | validate-order | vt-188 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 validate-or…</text>
 </svg>
-<svg x="1.08" y="58" width="797.42" height="18" overflow="hidden">
-<rect x="0" y="0" width="797.42" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runFulfillment:107 | vt-77 | success · critical path +266.82ms</title>
+<svg x="1.57" y="58" width="797.33" height="18" overflow="hidden">
+<rect x="0" y="0" width="797.33" height="18" fill="#4caf50" rx="2">
+<title>task 2 | payment | vt-189 | success · critical path +279.13ms</title>
 </rect>
-<rect x="0" y="0" width="797.42" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runFulfillment:107</text>
+<rect x="0" y="0" width="797.33" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 payment</text>
 </svg>
-<svg x="1.47" y="84" width="416.42" height="18" overflow="hidden">
-<rect x="0" y="0" width="416.42" height="18" fill="#4caf50" rx="2">
-<title>task 3 | OrderProcessingDemo#runFulfillment:108 | vt-78 | success</title>
+<svg x="2.03" y="84" width="670.31" height="18" overflow="hidden">
+<rect x="0" y="0" width="670.31" height="18" fill="#4caf50" rx="2">
+<title>task 3 | inventory | vt-190 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 OrderProcessingDemo#runFulfillment:108</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 inventory</text>
 </svg>
 <line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="149.63" y1="113" x2="149.63" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="151.63" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="299.26" y1="113" x2="299.26" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="301.26" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="448.89" y1="113" x2="448.89" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="450.89" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
-<line x1="598.53" y1="113" x2="598.53" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="600.53" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
-<line x1="748.16" y1="113" x2="748.16" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="750.16" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+250ms</text>
+<line x1="143.11" y1="113" x2="143.11" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="145.11" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
+<line x1="286.21" y1="113" x2="286.21" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="288.21" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="429.32" y1="113" x2="429.32" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="431.32" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="572.42" y1="113" x2="572.42" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="574.42" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
+<line x1="715.53" y1="113" x2="715.53" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="717.53" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+250ms</text>
 </svg>
 </div>
 </section>
 <div class="child-scope">
 <section>
 <h2>payment-pipeline-005 <span class="parent-ref">↳ task 2 of order-processing-ORD-005</span></h2>
-<div class="scope-meta">thread: vt-77 &nbsp;|&nbsp; opened: 15:08:06.235 &nbsp;|&nbsp; duration: 266.16ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-189 &nbsp;|&nbsp; opened: 20:04:24.641 &nbsp;|&nbsp; duration: 278.24ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runPaymentPipeline:152</td><td>vt-79</td><td>+146.25µs</td><td>200.65ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +200.79ms</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runPaymentPipeline:153</td><td>vt-81</td><td>+362.00µs</td><td>149.39ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>1</td><td>fraud-check</td><td>vt-191</td><td>+187.33µs</td><td>200.11ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +200.30ms</span></td></tr>
+<tr><td>2</td><td>card-authorisation</td><td>vt-193</td><td>+399.00µs</td><td>91.18ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>payment-pipeline-005 | 266.16ms</title>
+<title>payment-pipeline-005 | 278.24ms</title>
 </rect>
-<svg x="0.44" y="32" width="603.09" height="18" overflow="hidden">
-<rect x="0" y="0" width="603.09" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runPaymentPipeline:152 | vt-79 | success · critical path +200.79ms</title>
+<svg x="0.54" y="32" width="575.38" height="18" overflow="hidden">
+<rect x="0" y="0" width="575.38" height="18" fill="#4caf50" rx="2">
+<title>task 1 | fraud-check | vt-191 | success · critical path +200.30ms</title>
 </rect>
-<rect x="0" y="0" width="603.09" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runPaymentPipeline:152</text>
+<rect x="0" y="0" width="575.38" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 fraud-check</text>
 </svg>
-<svg x="1.09" y="58" width="449.03" height="18" overflow="hidden">
-<rect x="0" y="0" width="449.03" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runPaymentPipeline:153 | vt-81 | success</title>
+<svg x="1.15" y="58" width="262.15" height="18" overflow="hidden">
+<rect x="0" y="0" width="262.15" height="18" fill="#4caf50" rx="2">
+<title>task 2 | card-authorisation | vt-193 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runPaymentPipeline:153</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 card-authorisation</text>
 </svg>
 <line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="150.29" y1="87" x2="150.29" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="152.29" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
-<line x1="300.57" y1="87" x2="300.57" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="302.57" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="450.86" y1="87" x2="450.86" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="452.86" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
-<line x1="601.15" y1="87" x2="601.15" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="603.15" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
-<line x1="751.44" y1="87" x2="751.44" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="753.44" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+250ms</text>
+<line x1="143.76" y1="87" x2="143.76" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="145.76" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
+<line x1="287.53" y1="87" x2="287.53" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="289.53" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="431.29" y1="87" x2="431.29" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="433.29" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="575.05" y1="87" x2="575.05" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="577.05" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
+<line x1="718.82" y1="87" x2="718.82" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="720.82" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+250ms</text>
 </svg>
 </div>
 </section>
@@ -930,99 +956,95 @@ Caused by: java.lang.RuntimeException: fraud-check: high-risk transaction declin
 <div class="child-scope">
 <section>
 <h2>inventory-reservation-005 <span class="parent-ref">↳ task 3 of order-processing-ORD-005</span></h2>
-<div class="scope-meta">thread: vt-78 &nbsp;|&nbsp; opened: 15:08:06.235 &nbsp;|&nbsp; duration: 138.89ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-190 &nbsp;|&nbsp; opened: 20:04:24.642 &nbsp;|&nbsp; duration: 233.90ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runInventoryReservation:171</td><td>vt-80</td><td>+123.75µs</td><td>90.04ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +90.17ms</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runInventoryReservation:172</td><td>vt-82</td><td>+318.21µs</td><td>62.71ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>1</td><td>warehouse-A</td><td>vt-192</td><td>+185.75µs</td><td>95.81ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>warehouse-B</td><td>vt-194</td><td>+398.58µs</td><td>199.78ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +200.18ms</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>inventory-reservation-005 | 138.89ms</title>
+<title>inventory-reservation-005 | 233.90ms</title>
 </rect>
-<svg x="0.71" y="32" width="518.66" height="18" overflow="hidden">
-<rect x="0" y="0" width="518.66" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runInventoryReservation:171 | vt-80 | success · critical path +90.17ms</title>
+<svg x="0.64" y="32" width="327.69" height="18" overflow="hidden">
+<rect x="0" y="0" width="327.69" height="18" fill="#4caf50" rx="2">
+<title>task 1 | warehouse-A | vt-192 | success</title>
 </rect>
-<rect x="0" y="0" width="518.66" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runInventoryReservation:171</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 warehouse-A</text>
 </svg>
-<svg x="1.83" y="58" width="361.23" height="18" overflow="hidden">
-<rect x="0" y="0" width="361.23" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runInventoryReservation:172 | vt-82 | success</title>
+<svg x="1.36" y="58" width="683.31" height="18" overflow="hidden">
+<rect x="0" y="0" width="683.31" height="18" fill="#4caf50" rx="2">
+<title>task 2 | warehouse-B | vt-194 | success · critical path +200.18ms</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runInventoryReservation:172</text>
+<rect x="0" y="0" width="683.31" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 warehouse-B</text>
 </svg>
 <line x1="0" y1="90" x2="800" y2="90" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="115.20" y1="87" x2="115.20" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="117.20" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
-<line x1="230.40" y1="87" x2="230.40" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="232.40" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
-<line x1="345.60" y1="87" x2="345.60" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="347.60" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
-<line x1="460.81" y1="87" x2="460.81" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="462.81" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
-<line x1="576.01" y1="87" x2="576.01" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="578.01" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="691.21" y1="87" x2="691.21" y2="93" stroke="#bdbdbd" stroke-width="1"/>
-<text x="693.21" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
+<line x1="171.01" y1="87" x2="171.01" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="173.01" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
+<line x1="342.03" y1="87" x2="342.03" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="344.03" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
+<line x1="513.04" y1="87" x2="513.04" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="515.04" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+150ms</text>
+<line x1="684.05" y1="87" x2="684.05" y2="93" stroke="#bdbdbd" stroke-width="1"/>
+<text x="686.05" y="102" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
 </svg>
 </div>
 </section>
 </div>
 <section id="scope-8" data-scope="order-dispatch-ORD-005" data-outcome="success">
 <h2>order-dispatch-ORD-005 <a class="anchor-link" href="#scope-8" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 15:08:06.502 &nbsp;|&nbsp; duration: 148.14ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 20:04:24.920 &nbsp;|&nbsp; duration: 70.99ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>OrderProcessingDemo#runDispatch:127</td><td>vt-83</td><td>+471.63µs</td><td>146.76ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +147.23ms</span></td></tr>
-<tr><td>2</td><td>OrderProcessingDemo#runDispatch:128</td><td>vt-84</td><td>+680.25µs</td><td>87.76ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>3</td><td>OrderProcessingDemo#runDispatch:129</td><td>vt-85</td><td>+843.42µs</td><td>30.50ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>1</td><td>assign-courier</td><td>vt-195</td><td>+307.92µs</td><td>52.65ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>generate-label</td><td>vt-196</td><td>+580.00µs</td><td>70.03ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +70.61ms</span></td></tr>
+<tr><td>3</td><td>notify-customer</td><td>vt-197</td><td>+721.33µs</td><td>52.23ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>order-dispatch-ORD-005 | 148.14ms</title>
+<title>order-dispatch-ORD-005 | 70.99ms</title>
 </rect>
-<svg x="2.55" y="32" width="792.57" height="18" overflow="hidden">
-<rect x="0" y="0" width="792.57" height="18" fill="#4caf50" rx="2">
-<title>task 1 | OrderProcessingDemo#runDispatch:127 | vt-83 | success · critical path +147.23ms</title>
+<svg x="3.47" y="32" width="593.32" height="18" overflow="hidden">
+<rect x="0" y="0" width="593.32" height="18" fill="#4caf50" rx="2">
+<title>task 1 | assign-courier | vt-195 | success</title>
 </rect>
-<rect x="0" y="0" width="792.57" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 OrderProcessingDemo#runDispatch:127</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 assign-courier</text>
 </svg>
-<svg x="3.67" y="58" width="473.94" height="18" overflow="hidden">
-<rect x="0" y="0" width="473.94" height="18" fill="#4caf50" rx="2">
-<title>task 2 | OrderProcessingDemo#runDispatch:128 | vt-84 | success</title>
+<svg x="6.54" y="58" width="789.24" height="18" overflow="hidden">
+<rect x="0" y="0" width="789.24" height="18" fill="#4caf50" rx="2">
+<title>task 2 | generate-label | vt-196 | success · critical path +70.61ms</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 OrderProcessingDemo#runDispatch:128</text>
+<rect x="0" y="0" width="789.24" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 generate-label</text>
 </svg>
-<svg x="4.55" y="84" width="164.72" height="18" overflow="hidden">
-<rect x="0" y="0" width="164.72" height="18" fill="#4caf50" rx="2">
-<title>task 3 | OrderProcessingDemo#runDispatch:129 | vt-85 | success</title>
+<svg x="8.13" y="84" width="588.56" height="18" overflow="hidden">
+<rect x="0" y="0" width="588.56" height="18" fill="#4caf50" rx="2">
+<title>task 3 | notify-customer | vt-197 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 runDispatch:129</text>
+<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 notify-customer</text>
 </svg>
 <line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
 <text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="108.01" y1="113" x2="108.01" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="110.01" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
-<line x1="216.02" y1="113" x2="216.02" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="218.02" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
-<line x1="324.02" y1="113" x2="324.02" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="326.02" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
-<line x1="432.03" y1="113" x2="432.03" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="434.03" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+80ms</text>
-<line x1="540.04" y1="113" x2="540.04" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="542.04" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="648.05" y1="113" x2="648.05" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="650.05" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+120ms</text>
-<line x1="756.06" y1="113" x2="756.06" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="758.06" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+140ms</text>
+<line x1="112.69" y1="113" x2="112.69" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="114.69" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+10ms</text>
+<line x1="225.39" y1="113" x2="225.39" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="227.39" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+20ms</text>
+<line x1="338.08" y1="113" x2="338.08" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="340.08" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+30ms</text>
+<line x1="450.78" y1="113" x2="450.78" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="452.78" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+40ms</text>
+<line x1="563.47" y1="113" x2="563.47" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="565.47" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+50ms</text>
+<line x1="676.16" y1="113" x2="676.16" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="678.16" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+60ms</text>
+<line x1="788.86" y1="113" x2="788.86" y2="119" stroke="#bdbdbd" stroke-width="1"/>
+<text x="790.86" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+70ms</text>
 </svg>
 </div>
 </section>
