@@ -78,14 +78,23 @@ import net.bytebuddy.utility.OpenedClassReader;
  *   <li>{@code min.scopes=<N>} — skip auto-HTML generation if the recording contains fewer than N
  *       scopes. Default is 1 (any non-empty recording produces a report).
  *   <li>{@code include.name=<glob>} — only capture scopes whose name matches the glob. Patterns
- *       support {@code *}, {@code **} (both ≡ {@code .*}), and {@code ?}. Not path-aware: {@code
- *       checkout-*} matches {@code checkout-payment} and {@code checkout-foo-bar} alike.
+ *       support {@code *}, {@code **} (both ≡ {@code .*}, any characters including dots), and
+ *       {@code ?} (one character). Not path-aware: {@code checkout-*} matches {@code
+ *       checkout-payment} and {@code checkout-foo-bar} alike. A glob is matched against the whole
+ *       name.
  *   <li>{@code exclude.name=<glob>} — drop scopes whose name matches the glob. Exclude wins over
  *       include.
  *   <li>{@code include.package=<glob>} — only capture scopes opened from a class whose
- *       fully-qualified package matches the glob (e.g. {@code include.package=com.acme.**}). Fails
+ *       fully-qualified package matches the glob. The glob is matched against the whole package
+ *       name, and {@code *} and {@code **} match any characters including dots: {@code
+ *       com.acme.checkout*} matches {@code com.acme.checkout}, its sub-packages and also a sibling
+ *       such as {@code com.acme.checkoutx}; {@code com.acme.**} matches everything under {@code
+ *       com.acme.} and not {@code com.acme} itself; a literal such as {@code com.acme.checkout}
+ *       matches that one package. No glob means "this package and everything below it". Fails
  *       closed: scopes opened from frames the stack walker cannot identify are dropped.
- *   <li>{@code exclude.package=<glob>} — drop scopes whose call-site package matches the glob.
+ *   <li>{@code exclude.package=<glob>} — drop scopes whose call-site package matches the glob, with
+ *       the same matching rules ({@code exclude.package=com.acme.checkout*} also drops {@code
+ *       com.acme.checkoutx}).
  *   <li>{@code sample.rate=<0.0-1.0>} — sample only this fraction of scopes that survive
  *       include/exclude filtering. {@code 1.0} (default) captures every surviving scope; {@code
  *       0.0} drops everything; {@code 0.01} keeps roughly 1%. Sampling is evaluated last so
@@ -188,15 +197,13 @@ public final class ScopeTracerAgent {
     // loses what it would have added (tracing, reports, the agent's recording) and nothing else.
     AgentConfig config;
     try {
-      // ByteBuddy 1.18.11 reads class files up to Java 27 (major 71) on its own: on JDK 27 the
-      // agent
-      // ITs pass without this property (checked for #54), and only AgentIsolationIT, which asserts
-      // the property, fails. It is kept so a JDK newer than the ByteBuddy release (28 early-access
-      // builds, #55) is still instrumented rather than refused.
+      // The pinned ByteBuddy (<bytebuddy.version>) reads class files up to Java 27 (major 71) on
+      // its own: on JDK 27 the agent ITs pass without this property (checked for #54), and only
+      // AgentIsolationIT, which asserts the property, fails. It is kept so a JDK newer than the
+      // ByteBuddy release (28 early-access builds, #55) is still instrumented rather than refused.
       // The fat-jar relocates ByteBuddy, and Shade rewrites this inlined constant exactly as it
-      // does
-      // inside ByteBuddy: the agent sets the relocated name its own ByteBuddy reads and leaves the
-      // application's ByteBuddy alone. AgentIsolationIT checks it.
+      // does inside ByteBuddy: the agent sets the relocated name its own ByteBuddy reads and
+      // leaves the application's ByteBuddy alone. AgentIsolationIT checks it.
       System.setProperty(OpenedClassReader.EXPERIMENTAL_PROPERTY, "true");
 
       config = AgentConfig.parse(args);
