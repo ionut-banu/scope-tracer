@@ -651,7 +651,12 @@ try (var file = new RecordingFile(tempPath)) {
   major 71.
 - Releases are cut by tagging `v*.*.*`; `.github/workflows/release.yml`
   deploys to Maven Central and creates a GitHub Release from the
-  matching `CHANGELOG.md` section. Steps are in `CONTRIBUTING.md`.
+  matching `CHANGELOG.md` section. Its `check` job (tag matches the
+  POM, then `.github/scripts/check-release-docs.sh`: README, docs,
+  CHANGELOG heading and link, and the `Released:` line below name the
+  release version) must pass before the `publish` job runs; a
+  `check_only` dispatch input runs the check job alone. Steps are in
+  `CONTRIBUTING.md`.
 - Released: 0.1.0 (2026-05-14), 0.2.0 (2026-05-24), 0.3.0
   (2026-11-14). `main` is 0.4.0-SNAPSHOT.
 - GitHub Pages serves `docs/` (landing page and a real example

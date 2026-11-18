@@ -779,3 +779,27 @@ parent's `<dependencyManagement>`, so no new dependency. This
 supersedes #139's "no tests or test dependencies in the demos
 module" for the demos module as a whole: #139's rule held for the
 demos' logging setup, and the module may now carry tests.
+
+## 2026-11-18 - The release docs check runs in `release.yml` only (#105)
+
+0.2.0 shipped a README that said `<version>0.1.0</version>` and a
+`docs/maven-central-setup.md` that said `scope-tracer-core:0.1.0`.
+`.github/scripts/check-release-docs.sh X.Y.Z` now fails the release
+when a version in README, CONTRIBUTING, `docs/*.md`, `docs/index.html`
+or `jbang-catalog.json` is not X.Y.Z, or when the CHANGELOG heading
+and link or spec section 5 `Released:` lack it. It runs in the `check`
+job of `release.yml`, which `publish` needs, and by hand in
+CONTRIBUTING step 2.
+
+Release only, no `main` or PR check: on `main` the POM is a SNAPSHOT
+and the README rightly names the last release, so there is nothing to
+compare; the release PR opens after the tag is pushed, so a PR check
+comes after the point of no return (Central cannot be un-published).
+Spec section 4 test counts are not checked: they are a dated
+snapshot that changes with every merged issue, and comparing them
+needs `verify`, the stress profile and `:model`. README prose such as
+the JDK sentence is not checked either. A qualifier tag
+(`v0.4.0-rc1`) exits 2; there has never been one. The plugin's
+`pluginVersion` and a jar manifest check are not part of it (#151).
+`check_only` on `workflow_dispatch` runs the check job alone, the
+only way to see it on a real runner without publishing.

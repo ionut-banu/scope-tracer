@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Release check.** `release.yml` now runs `.github/scripts/check-release-docs.sh X.Y.Z` in a
+  `check` job before the Central publish, and fails the release when the README, `docs/`,
+  `CONTRIBUTING.md`, the `CHANGELOG.md` heading and link, or spec section 5 `Released:` name a
+  version other than the one being released (0.2.0 shipped a README that said 0.1.0). A
+  `check_only` dispatch input runs the checks without publishing. A tag with a qualifier such
+  as `v0.4.0-rc1` is rejected. Nothing changes for users of the library.
+
 ### Added
 
 - **Agent `record` argument.** `-javaagent:scope-tracer-agent-<v>-agent.jar=record` makes
