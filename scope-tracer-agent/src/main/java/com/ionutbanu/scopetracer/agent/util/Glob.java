@@ -16,8 +16,13 @@ import java.util.regex.Pattern;
  *
  * <p>This is intentionally <b>not</b> path-segment aware: {@code com.acme.*} matches both {@code
  * com.acme.foo} and {@code com.acme.foo.bar}. Scope names and package names have no canonical
- * separator in the agent's filter API, so a single dialect is used for both. Operators who want a
- * strict prefix should write a literal pattern (e.g. {@code com.acme.checkout}).
+ * separator in the agent's filter API, so a single dialect is used for both.
+ *
+ * <p>The whole input must match. For package names that means: {@code com.acme.checkout*} matches
+ * {@code com.acme.checkout}, its sub-packages and also a sibling such as {@code
+ * com.acme.checkoutx}; {@code com.acme.**} matches everything under {@code com.acme.} and not
+ * {@code com.acme} itself; a literal such as {@code com.acme.checkout} matches that one package
+ * only. No glob means "this package and everything below it".
  *
  * <p>This class must be accessible from the bootstrap classloader (it is included in the agent
  * fat-jar listed on {@code Boot-Class-Path}).

@@ -483,7 +483,13 @@ agent, so each warning appears once, also under a renamed jar.
 
 Filtering happens at scope open. A filtered scope emits no events at
 all, for its whole lifetime. Exclude beats include; sampling runs
-last. Globs support `*`, `**`, `?` and are not segment-aware.
+last. Globs support `*`, `**`, `?` and are not segment-aware: `*` and
+`**` match any characters, dots included, and the whole name must
+match. `com.acme.checkout*` matches `com.acme.checkout`, its
+sub-packages and a sibling such as `com.acme.checkoutx`;
+`com.acme.**` matches everything under `com.acme.` and not `com.acme`
+itself; a literal matches one package. No glob means "this package
+and below".
 
 **Auto-HTML.** A `FlightRecorderListener` writes an HTML report next
 to any recording that has a destination the moment it stops: on
