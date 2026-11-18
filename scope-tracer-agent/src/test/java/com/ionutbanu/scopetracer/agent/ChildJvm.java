@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -69,6 +70,20 @@ final class ChildJvm implements AutoCloseable {
   static ChildJvm start(
       Path workDir, List<String> jvmArgs, List<String> classPathBefore, String... subjectArgs)
       throws IOException {
+    return start(workDir, Map.of(), jvmArgs, classPathBefore, subjectArgs);
+  }
+
+  /**
+   * {@link #start(Path, List, List, String...)} with {@code environment} added to the child's
+   * environment, as for {@code JAVA_TOOL_OPTIONS}.
+   */
+  static ChildJvm start(
+      Path workDir,
+      Map<String, String> environment,
+      List<String> jvmArgs,
+      List<String> classPathBefore,
+      String... subjectArgs)
+      throws IOException {
     var command = new ArrayList<String>();
     command.add(javaHome().resolve("bin").resolve("java").toString());
     command.add("--enable-preview");
@@ -80,7 +95,9 @@ final class ChildJvm implements AutoCloseable {
     command.add(String.join(java.io.File.pathSeparator, classPath));
     command.add(ExitSubject.class.getName());
     command.addAll(List.of(subjectArgs));
-    return new ChildJvm(new ProcessBuilder(command).directory(workDir.toFile()).start());
+    var builder = new ProcessBuilder(command).directory(workDir.toFile());
+    builder.environment().putAll(environment);
+    return new ChildJvm(builder.start());
   }
 
   /** Runs to the end and returns what it did. */
@@ -95,6 +112,19 @@ final class ChildJvm implements AutoCloseable {
       Path workDir, List<String> jvmArgs, List<String> classPathBefore, String... subjectArgs)
       throws Exception {
     try (var child = start(workDir, jvmArgs, classPathBefore, subjectArgs)) {
+      return child.finish();
+    }
+  }
+
+  /** {@link #run(Path, List, List, String...)} with {@code environment} added to the child's. */
+  static Result run(
+      Path workDir,
+      Map<String, String> environment,
+      List<String> jvmArgs,
+      List<String> classPathBefore,
+      String... subjectArgs)
+      throws Exception {
+    try (var child = start(workDir, environment, jvmArgs, classPathBefore, subjectArgs)) {
       return child.finish();
     }
   }
