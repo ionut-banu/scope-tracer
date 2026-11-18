@@ -304,6 +304,13 @@ line.
   recording started, or events dropped). A model with scopes gets
   neither, orphan events or not. Warnings do not change the exit
   code.
+- A fourth warning, `analyzer: warning: could not check <input> for
+  problems: <exception>` (the input path, then the exception's
+  `toString`), is printed when computing the warnings above throws
+  after the report is written. It replaces them, and the exit code
+  stays 0. No recording makes it happen today; it is there so a
+  failure after `Report written` is never an exit code. It is not
+  escaped or bounded, like the analyzer's other stderr lines (#149).
 - The library's SLF4J output is hidden. `--verbose` shows it on
   stderr at DEBUG and up, as `LEVEL logger - message`, and adds the
   stack trace after the error line of a run that exits 3 or 4. It is
@@ -567,14 +574,14 @@ input. Both sides change in the same issue.
 | Suite | Runner | Count (2026-11-17, #58, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
-| analyzer unit | surefire | 167 |
+| analyzer unit | surefire | 169 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
 | agent unit | surefire | 166 |
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 266 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first five: 733 tests (surefire plus
+`mvn -q verify` runs the first five: 735 tests (surefire plus
 failsafe, measured on 2026-11-17 on the branch of #138 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of

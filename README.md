@@ -128,6 +128,10 @@ means the program ran without the agent or `TracedScope`, or the recording did n
 `com.ionutbanu.scopetracer.*`; and a recording whose scope-tracer events have no
 `ScopeOpened` to belong to, usually because it started after those scopes were opened.
 
+If computing these warnings itself fails, after the report is written, one line
+`analyzer: warning: could not check <input> for problems: <exception>` is printed instead and the
+exit code is still 0. No recording is known to cause this.
+
 Exit codes:
 
 | Code | Meaning |
