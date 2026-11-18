@@ -133,6 +133,8 @@ git push origin release/$VERSION v$VERSION
 # 4. Open the release PR and merge it with "Create a merge commit", not rebase or squash:
 #    both rewrite the commit, and the tag must point at a commit on main
 #    (check afterwards: git merge-base --is-ancestor vX.Y.Z origin/main)
+#    Merge only after the GitHub Release exists: merging publishes the landing page, whose
+#    download links point at that release and 404 until it does
 
 # 5. Bump to next SNAPSHOT on main
 git checkout main && git pull
@@ -145,6 +147,8 @@ Step 2 is what keeps a release from shipping stale text. Before the release comm
 
 1. Set the `<version>` in the README's quick-start dependency snippet, and any jar name
    (`scope-tracer-core-X.Y.Z.jar`) or `releases/download/vX.Y.Z` URL, to the release version.
+   Do the same in `docs/index.html`: its jar names and `releases/download/vX.Y.Z` download
+   URLs are literal versions, never a shell variable.
 2. Update the "Released:" lines in `_docs/spec.md` §5 (the release and its date, and what
    `main` is now).
 3. Rename `[Unreleased]` in `CHANGELOG.md` to `[X.Y.Z]` with today's date, and regenerate its

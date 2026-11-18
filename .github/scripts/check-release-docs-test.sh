@@ -39,7 +39,7 @@ EOT
   printf '# Contributing\n\nSee scope-tracer-core-%s.jar.\n' "$V" > "$d/CONTRIBUTING.md"
   printf '# Central\n\nUse com.ionutbanu:scope-tracer-core:%s here.\n' "$V" > "$d/docs/maven-central-setup.md"
   printf '# Events\n\nNo version here.\n' > "$d/docs/jfr-events.md"
-  printf '<html><body>scope-tracer-agent-%s-agent.jar</body></html>\n' "$V" > "$d/docs/index.html"
+  printf '<html><body>https://example.com/releases/download/v%s/scope-tracer-agent-%s-agent.jar</body></html>\n' "$V" "$V" > "$d/docs/index.html"
   cat > "$d/CHANGELOG.md" <<EOT
 # Changelog
 
@@ -106,6 +106,7 @@ m_readme_coordinate() { echo "implementation com.ionutbanu:scope-tracer-core:$OL
 m_contributing_jar() { echo "scope-tracer-analyzer-$OLD.jar" >> "$1/CONTRIBUTING.md"; }
 m_docs_md() { echo "com.ionutbanu:scope-tracer-agent:$OLD" >> "$1/docs/jfr-events.md"; }
 m_docs_index() { echo "<p>scope-tracer-agent-$OLD-agent.jar</p>" >> "$1/docs/index.html"; }
+m_docs_index_no_url() { printf '<html><body>scope-tracer-agent-${VERSION}-agent.jar</body></html>\n' > "$1/docs/index.html"; }
 m_jbang_stale() { echo "{\"scripts\":{\"x\":{\"script-ref\":\"com.ionutbanu:scope-tracer-analyzer:$OLD\"}}}" > "$1/jbang-catalog.json"; }
 m_jbang_good() { echo "{\"scripts\":{\"x\":{\"script-ref\":\"com.ionutbanu:scope-tracer-analyzer:$V\"}}}" > "$1/jbang-catalog.json"; }
 m_changelog_heading() { grep -v "^## \[$V\]" "$1/CHANGELOG.md" > "$1/x" && mv "$1/x" "$1/CHANGELOG.md"; }
@@ -152,6 +153,7 @@ run_case "README stale coordinate"                   1 "README.md::line"        
 run_case "CONTRIBUTING stale jar"                    1 "CONTRIBUTING.md::line"       m_contributing_jar
 run_case "docs/*.md stale coordinate"                1 "docs/jfr-events.md::line"    m_docs_md
 run_case "docs/index.html stale jar"                 1 "docs/index.html::line"       m_docs_index
+run_case "docs/index.html names no download URL"     1 "docs/index.html::no releases/download" m_docs_index_no_url
 run_case "jbang-catalog.json stale"                  1 "jbang-catalog.json::line"    m_jbang_stale
 run_case "CHANGELOG heading removed"                 1 "CHANGELOG.md::no '## [$V]"   m_changelog_heading
 run_case "CHANGELOG link removed"                    1 "CHANGELOG.md::no '[$V]:"     m_changelog_link
