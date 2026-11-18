@@ -2,8 +2,10 @@
 # Fails when a file a reader copies a version from names a scope-tracer version other than
 # the one being released.
 #
-# Usage: .github/scripts/check-release-docs.sh X.Y.Z
-#   Run from the root of the tree to check (the repository, or an extracted `git archive`).
+# Usage: .github/scripts/check-release-docs.sh X.Y.Z [DOCS_ROOT]
+#   DOCS_ROOT is the root of the tree to check (the repository, or an extracted `git archive`);
+#   it defaults to the current directory. The script and the docs can come from different
+#   trees: release.yml runs the dispatched ref's script against the tag's docs.
 #   X.Y.Z is the release version: no 'v' prefix, no -SNAPSHOT, no qualifier such as -rc1.
 #
 # Exit codes: 0 all good, 1 at least one problem (every problem is listed, not only the
@@ -20,6 +22,13 @@ if ! [[ "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "  X.Y.Z is a release version: no 'v' prefix, no -SNAPSHOT, no qualifier (got '$V')" >&2
   exit 2
 fi
+
+ROOT="${2:-.}"
+if [ ! -d "$ROOT" ]; then
+  echo "check-release-docs.sh: docs root '$ROOT' is not a directory" >&2
+  exit 2
+fi
+cd "$ROOT" || exit 2
 
 fail=0
 err() {
@@ -49,7 +58,7 @@ for f in $FILES; do
     [ -n "$line" ] || continue
     found=$((found + 1))
     [ "$ver" = "$V" ] || err "$f" "line $line: dependency <version> is '$ver', releasing '$V'"
-  done < <(awk '
+  done < <(tr -d '\r' < "$f" | awk '
     /<artifactId>scope-tracer-/ { a = NR }
     /<version>/ && a && NR - a <= 2 {
       s = $0
@@ -57,7 +66,7 @@ for f in $FILES; do
       sub(/<\/version>.*/, "", s)
       print NR ":" s
       a = 0
-    }' "$f")
+    }')
   if [ "$f" = "README.md" ] && [ "$found" -lt 1 ]; then
     err README.md "no scope-tracer dependency <version> found; the quick-start snippet is gone or reshaped"
   fi
@@ -67,15 +76,15 @@ for f in $FILES; do
     [ -n "$line" ] || continue
     ver=$(echo "$tok" | grep -oE "$VER_RE" | head -1)
     [ "$ver" = "$V" ] || err "$f" "line $line: '$tok' names version '$ver', releasing '$V'"
-  done < <(grep -n -o -E "scope-tracer-(core|analyzer|agent|demos)-$VER_RE|com\.ionutbanu:scope-tracer-[a-z]+:$VER_RE|releases/download/v$VER_RE" "$f")
+  done < <(tr -d '\r' < "$f" | grep -n -o -E "scope-tracer-(core|analyzer|agent|demos)-$VER_RE|com\.ionutbanu:scope-tracer-[a-z]+:$VER_RE|releases/download/v$VER_RE")
 done
 
 # 3. CHANGELOG: [Unreleased] renamed and linked.
 if [ -f CHANGELOG.md ]; then
   checked=$((checked + 1))
-  grep -q -E "^## \[$V\] - [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md \
+  tr -d '\r' < CHANGELOG.md | grep -q -E "^## \[$V\] - [0-9]{4}-[0-9]{2}-[0-9]{2}" \
     || err CHANGELOG.md "no '## [$V] - YYYY-MM-DD' heading; [Unreleased] was not renamed"
-  grep -q -E "^\[$V\]: " CHANGELOG.md \
+  tr -d '\r' < CHANGELOG.md | grep -q -E "^\[$V\]: " \
     || err CHANGELOG.md "no '[$V]: ...' link reference at the foot"
 else
   err CHANGELOG.md "file not found; the release docs check expects it"
@@ -87,7 +96,7 @@ if [ -f _docs/spec.md ]; then
   rel=$(awk '
     /^- Released:/ { p = 1; print; next }
     p && /^(- |#|---|$)/ { exit }
-    p { print }' _docs/spec.md | tr '\n' ' ' | tr -s ' ')
+    p { print }' <(tr -d '\r' < _docs/spec.md) | tr '\n' ' ' | tr -s ' ')
   case "$rel" in
     "") err _docs/spec.md "no '- Released:' bullet found in section 5" ;;
     *" $V ("*) ;;

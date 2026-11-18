@@ -24,16 +24,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # The dispatched ref supplies the check script, so a dry run from main can check an old
+      # tag. On a tag push the dispatched ref is the tag, so both checkouts are the same tree.
+      - uses: actions/checkout@v7
+
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag || github.ref }}
-          fetch-depth: 0
+          path: tagged
 
       - name: Verify tag matches pom version
         run: |
           TAG="${GITHUB_REF_NAME#v}"
           if [ -n "${{ inputs.tag }}" ]; then TAG="${{ inputs.tag }}"; TAG="${TAG#v}"; fi
-          POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          POM_VERSION=$(mvn -f tagged/pom.xml help:evaluate -Dexpression=project.version -q -DforceStdout)
           if [ "$TAG" != "$POM_VERSION" ]; then
             echo "::error::Tag '$TAG' does not match pom version '$POM_VERSION'"
             exit 1
@@ -44,7 +48,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           if [ -n "${{ inputs.tag }}" ]; then VERSION="${{ inputs.tag }}"; VERSION="${VERSION#v}"; fi
-          bash .github/scripts/check-release-docs.sh "$VERSION"
+          bash .github/scripts/check-release-docs.sh "$VERSION" tagged
 
   publish:
     needs: check

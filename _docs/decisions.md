@@ -802,4 +802,9 @@ the JDK sentence is not checked either. A qualifier tag
 (`v0.4.0-rc1`) exits 2; there has never been one. The plugin's
 `pluginVersion` and a jar manifest check are not part of it (#151).
 `check_only` on `workflow_dispatch` runs the check job alone, the
-only way to see it on a real runner without publishing.
+only way to see it on a real runner without publishing. The `check`
+job checks out the dispatched ref (the script) and the tag into
+`tagged/` (the docs and POM), so a dry run from `main` can check a tag
+that predates the script; on a tag push the two are the same tree.
+The script takes the docs root as a second argument and strips CR, so
+a CRLF checkout is not a false "Released:" error.
