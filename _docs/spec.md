@@ -690,7 +690,7 @@ try (var file = new RecordingFile(tempPath)) {
   `main` can check an old tag. Steps are in
   `CONTRIBUTING.md`.
 - Released: 0.1.0 (2026-05-14), 0.2.0 (2026-05-24), 0.3.0
-  (2026-11-14). `main` is 0.4.0-SNAPSHOT.
+  (2026-11-14), 0.4.0 (2026-11-19). `main` is 0.5.0-SNAPSHOT.
 - GitHub Pages serves `docs/`: the landing page, the gallery at
   `gallery/` (a page and eight reports, one per join policy, plus the
   example report) and `example/order-processing-report.html`. The

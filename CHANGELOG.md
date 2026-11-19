@@ -7,14 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- **Release check.** `release.yml` now runs `.github/scripts/check-release-docs.sh X.Y.Z` in a
-  `check` job before the Central publish, and fails the release when the README, `docs/`,
-  `CONTRIBUTING.md`, the `CHANGELOG.md` heading and link, or spec section 5 `Released:` name a
-  version other than the one being released (0.2.0 shipped a README that said 0.1.0). A
-  `check_only` dispatch input runs the checks without publishing. A tag with a qualifier such
-  as `v0.4.0-rc1` is rejected. Nothing changes for users of the library.
+## [0.4.0] - 2026-11-19
 
 ### Added
 
@@ -63,6 +56,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Release check.** `release.yml` now runs `.github/scripts/check-release-docs.sh X.Y.Z` in a
+  `check` job before the Central publish, and fails the release when the README, `docs/`,
+  `CONTRIBUTING.md`, the `CHANGELOG.md` heading and link, or spec section 5 `Released:` name a
+  version other than the one being released (0.2.0 shipped a README that said 0.1.0). A
+  `check_only` dispatch input runs the checks without publishing. A tag with a qualifier such
+  as `v0.4.0-rc1` is rejected. Nothing changes for users of the library.
 - **Analyzer exit codes are documented as they are.** The codes are unchanged since 0.3.0;
   the `AnalyzerMain` Javadoc, the spec and the README now describe them, and correct the two
   cases the Javadoc got wrong: a non-JFR input exits 3 (not 4) and an output in a missing
@@ -181,6 +180,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "this package and below". README, spec, `ScopeTracerAgent` and `Glob` Javadoc agree, and
   a test pins every row. The "use a literal pattern for a strict prefix" advice was wrong
   and is gone. Glob behaviour is unchanged.
+
+### Dependencies
+
+- gradle/actions/setup-gradle GitHub Action v4 → v6
 
 ## [0.3.0] - 2026-11-14
 
@@ -428,7 +431,8 @@ public API may change without notice until the first tagged release.
 - License: PolyForm Noncommercial 1.0.0.
 - `docs/jfr-events.md` documents the JFR event schema.
 
-[Unreleased]: https://github.com/ionut-banu/scope-tracer/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ionut-banu/scope-tracer/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.1.0-SNAPSHOT...v0.1.0
