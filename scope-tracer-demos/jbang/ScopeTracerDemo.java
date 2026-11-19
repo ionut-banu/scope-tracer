@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A small structured-concurrency program for trying scope-tracer without a clone or a build:
@@ -33,11 +34,14 @@ public class ScopeTracerDemo {
     if (!agentAttached()) {
       String agentJar = agentJarOnClassPath();
       if (agentJar != null && System.getProperty(CHILD) == null) {
-        System.exit(relaunchWithAgent(agentJar));
+        System.exit(relaunchWithAgent(agentJar, args));
       }
       System.out.println(
           "The scope-tracer agent is not attached, so no report will be written."
               + " Run: jbang demo@ionut-banu/scope-tracer");
+    }
+    if (args.length > 0) {
+      System.out.println("arguments: " + String.join(" ", args));
     }
     checkout();
   }
@@ -101,7 +105,7 @@ public class ScopeTracerDemo {
   }
 
   /** Runs this class again with the agent attached, without scope-tracer's jars on the path. */
-  private static int relaunchWithAgent(String agentJar) throws Exception {
+  private static int relaunchWithAgent(String agentJar, String[] args) throws Exception {
     List<String> classPath = new ArrayList<>();
     for (String entry : System.getProperty("java.class.path").split(File.pathSeparator)) {
       if (!new File(entry).getName().startsWith("scope-tracer-")) {
@@ -109,14 +113,32 @@ public class ScopeTracerDemo {
       }
     }
     List<String> command =
-        List.of(
+        new ArrayList<>(
+            List.of(
             System.getProperty("java.home") + File.separator + "bin" + File.separator + "java",
             "-javaagent:" + agentJar + "=record=scope-tracer-demo.jfr",
             "--enable-preview",
             "-D" + CHILD + "=true",
             "-classpath",
             String.join(File.pathSeparator, classPath),
-            ScopeTracerDemo.class.getName());
-    return new ProcessBuilder(command).inheritIO().start().waitFor();
+            ScopeTracerDemo.class.getName()));
+    command.addAll(List.of(args));
+    Process child = new ProcessBuilder(command).inheritIO().start();
+    // SIGTERM to this JVM must not orphan the child: stop it too, and give its own shutdown hooks
+    // (the agent writing the report) a few seconds. Ctrl-C reaches both JVMs already.
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  child.destroy();
+                  try {
+                    if (!child.waitFor(10, TimeUnit.SECONDS)) {
+                      child.destroyForcibly();
+                    }
+                  } catch (InterruptedException e) {
+                    child.destroyForcibly();
+                  }
+                }));
+    return child.waitFor();
   }
 }

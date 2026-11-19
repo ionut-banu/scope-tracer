@@ -79,5 +79,19 @@ class JbangFilesTest {
     String catalog = Files.readString(CATALOG);
 
     assertThat(catalog).doesNotContain("SNAPSHOT", "RELEASE", "LATEST", "${");
+    assertThat(catalog.toLowerCase(java.util.Locale.ROOT)).doesNotContain("releases/latest");
+    assertThat(Files.readString(DEMO).toLowerCase(java.util.Locale.ROOT))
+        .doesNotContain("releases/latest");
+  }
+
+  @Test
+  void theCatalogItselfNamesAPinnedScopeTracerArtifact() throws IOException {
+    String catalog = Files.readString(CATALOG);
+
+    // The analyze alias: the released -executable jar, or a coordinate, at a literal version.
+    assertThat(catalog)
+        .containsPattern(
+            "releases/download/v\\d+\\.\\d+\\.\\d+/scope-tracer-analyzer-\\d+\\.\\d+\\.\\d+-executable\\.jar"
+                + "|com\\.ionutbanu:scope-tracer-[a-z]+:\\d+\\.\\d+\\.\\d+");
   }
 }

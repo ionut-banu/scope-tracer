@@ -193,20 +193,29 @@ Step 2 is what keeps a release from shipping stale text. Before the release comm
    version differs as "old → new", final values only. The release workflow builds the GitHub
    Release body from this section, so a dependency missing here is missing from the release notes.
 
-`.github/scripts/check-release-docs.sh` checks the first three and the CHANGELOG heading and link
-of the fourth. It reads `README.md`, `CONTRIBUTING.md`, `docs/*.md`, `docs/index.html` and
-`jbang-catalog.json` and `scope-tracer-demos/jbang/ScopeTracerDemo.java` (both required) and fails on any scope-tracer `<version>`, jar name,
-`group:artifact:version` coordinate or `releases/download/vX.Y.Z` URL that is not the release
-version, on a scope-tracer coordinate in the JBang files that has no literal `X.Y.Z`, on a README with no dependency snippet, on a missing `## [X.Y.Z] - date` heading or
-`[X.Y.Z]:` link in `CHANGELOG.md`, and on a spec §5 `Released:` line that does not list
-`X.Y.Z (`, and on a `README.md` or `docs/index.html` without the agent's
-`-javaagent:scope-tracer-agent-X.Y.Z-agent.jar=record` command (the quick start and the landing
-page's trial command are the same block). It prints every problem as a GitHub annotation, then exits 1. It does not read
-`pom.xml` (the source of truth), the CHANGELOG bodies, `_docs/decisions.md`, test fixtures or
-`*.java`, and it does not check the README's JDK prose or the §4 test counts. The version is
-`X.Y.Z` only: a tag with a qualifier such as `v0.4.0-rc1` matches the `v*.*.*` trigger, but the
-script exits 2 on it and the release stops. There has never been one; supporting it is a later
-decision. `.github/scripts/check-release-docs-test.sh` is its self-test and runs in CI.
+`.github/scripts/check-release-docs.sh` checks the first three and the CHANGELOG heading and
+link of the fourth. It reads `README.md`, `CONTRIBUTING.md`, `docs/*.md`, `docs/index.html`,
+`jbang-catalog.json` and `scope-tracer-demos/jbang/ScopeTracerDemo.java` (the last two are
+required) and fails on:
+
+- any scope-tracer `<version>`, jar name, `group:artifact:version` coordinate or
+  `releases/download/vX.Y.Z` URL that is not the release version;
+- in the two JBang files, a scope-tracer coordinate with no literal `X.Y.Z`, any
+  `releases/latest` URL, a catalog that names no pinned scope-tracer artifact itself, and a demo
+  source without its `//DEPS com.ionutbanu:scope-tracer-agent:X.Y.Z:agent` line;
+- a README with no dependency snippet, and a `README.md` or `docs/index.html` without the agent's
+  `-javaagent:scope-tracer-agent-X.Y.Z-agent.jar=record` command (the quick start and the
+  landing page's trial command are the same block);
+- a missing `## [X.Y.Z] - date` heading or `[X.Y.Z]:` link in `CHANGELOG.md`, and a spec §5
+  `Released:` line that does not list `X.Y.Z (`.
+
+It prints every problem as a GitHub annotation, then exits 1. It does not read `pom.xml` (the
+source of truth), the CHANGELOG bodies, `_docs/decisions.md`, test fixtures or any `*.java`
+other than the JBang demo source, and it does not check the README's JDK prose or the §4 test
+counts. The version is `X.Y.Z` only: a tag with a qualifier such as `v0.4.0-rc1` matches the
+`v*.*.*` trigger, but the script exits 2 on it and the release stops. There has never been one;
+supporting it is a later decision. `.github/scripts/check-release-docs-test.sh` is its self-test
+and runs in CI.
 
 The workflow's `check` job validates that the tag matches the pom version, runs
 `check-release-docs.sh` against the tag's docs, then builds the tag's Central bundle with

@@ -95,24 +95,27 @@ done
 
 # 2c. The JBang files are the only place a tool, not a reader, takes a version from, so every
 # scope-tracer coordinate in them has a literal X.Y.Z (JBang reads a bare group:artifact, RELEASE
-# or ${...} as "whatever is newest" and would move under the user), and together they name at
-# least one scope-tracer artifact.
+# or ${...} as "whatever is newest" and would move under the user), no URL says "latest", and the
+# catalog itself names a pinned scope-tracer artifact (the demo's //DEPS line alone is not enough:
+# an alias could then point at an unrelated or moving jar).
 jbang_named=0
 for f in $JBANG_FILES; do
   [ -f "$f" ] || continue
+  tr -d '\r' < "$f" | grep -q -i -E "releases/latest|/latest/download" \
+    && err "$f" "a releases/latest URL moves under the user; name the release with releases/download/vX.Y.Z"
   while IFS=: read -r line tok; do
     [ -n "$line" ] || continue
-    jbang_named=$((jbang_named + 1))
+    [ "$f" = "jbang-catalog.json" ] && jbang_named=$((jbang_named + 1))
     # com.ionutbanu:scope-tracer-<module>:X.Y.Z, optionally followed by :classifier
     echo "$tok" | grep -q -E "^com\.ionutbanu:scope-tracer-[a-z]+:[0-9]+\.[0-9]+\.[0-9]+(:[a-z]+)?$" \
       || err "$f" "line $line: coordinate '$tok' has no literal X.Y.Z version after the module name"
   done < <(tr -d '\r' < "$f" | grep -n -o -E "com\.ionutbanu:scope-tracer-[a-z]+[^[:space:]\"',)]*")
   # A release asset URL names an artifact too (section 2 checks its version).
   urls=$(tr -d '\r' < "$f" | grep -c -E "releases/download/v$VER_RE/scope-tracer-")
-  jbang_named=$((jbang_named + urls))
+  [ "$f" = "jbang-catalog.json" ] && jbang_named=$((jbang_named + urls))
 done
 if [ "$jbang_named" -lt 1 ]; then
-  err jbang-catalog.json "no scope-tracer artifact (com.ionutbanu:scope-tracer-<module>:X.Y.Z or a releases/download URL) found in the JBang catalog or demo source; the aliases are gone or reshaped"
+  err jbang-catalog.json "no scope-tracer artifact (com.ionutbanu:scope-tracer-<module>:X.Y.Z or a releases/download URL) found in jbang-catalog.json; an alias is gone, reshaped or points at an unrelated jar"
 fi
 if [ -f scope-tracer-demos/jbang/ScopeTracerDemo.java ] \
   && ! tr -d '\r' < scope-tracer-demos/jbang/ScopeTracerDemo.java | grep -q -E "^//DEPS com\.ionutbanu:scope-tracer-agent:$VER_RE:agent"; then
