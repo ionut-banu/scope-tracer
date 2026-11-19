@@ -50,6 +50,24 @@ jobs:
           if [ -n "${{ inputs.tag }}" ]; then VERSION="${{ inputs.tag }}"; VERSION="${VERSION#v}"; fi
           bash .github/scripts/check-release-docs.sh "$VERSION" tagged
 
+      # The central-publishing extension builds and uploads in one `deploy`, so the bundle cannot
+      # be checked in `publish` before the upload. Build it here with -DskipUpload=true: no
+      # credentials and no signing key are needed. The checkout of the dispatched ref supplies the
+      # script; the tag's tree supplies the bundle.
+      - name: Set up JDK 27
+        uses: actions/setup-java@v5
+        with:
+          java-version: '27'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build the Central bundle without uploading it
+        working-directory: tagged
+        run: mvn -B -P release deploy -DskipTests -DskipITs -Dgpg.skip=true -DskipUpload=true -Dmaven.javadoc.skip=true
+
+      - name: Check the bundle holds only the published artifacts
+        run: bash .github/scripts/check-release-bundle.sh tagged/target/central-publishing/central-bundle.zip
+
   publish:
     needs: check
     if: ${{ !inputs.check_only }}
