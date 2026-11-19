@@ -30,8 +30,9 @@ jobs:
 
       # The gallery under docs/ is generated. This fails the pull request when the renderer or a
       # scenario changed and the reports were not regenerated (run GalleryMain without --check
-      # and commit; then run .github/scripts/readme-image.sh). Not part of `mvn verify`: it records real scopes, and a timing flake must
-      # not fail the build the way it would in a unit test.
+      # and commit). The README image is shot from one of those reports: after regenerating, run
+      # .github/scripts/readme-image.sh too. Not part of `mvn verify`: it records real scopes, and a
+      # timing flake must not fail the build the way it would in a unit test.
       - name: Check the gallery and the README image are up to date
         run: |
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)

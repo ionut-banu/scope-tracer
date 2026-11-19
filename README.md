@@ -83,7 +83,7 @@ The analyzer's options, warnings and exit codes are in [the analyzer reference](
 ### Requirements
 
 - **JDK 27 or newer** for every scope-tracer jar (`java -version`). On JDK 26 or older the jars fail with `UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 71.0)`. 0.2.0 is the last release for JDK 26.
-- **`--enable-preview`** for the program being traced, until JDK 28: `StructuredTaskScope` is a preview API on JDK 27, and without the flag the program fails with `StructuredTaskScope is a preview API and is disabled by default`. The analyzer needs none.
+- **`--enable-preview`** for the program being traced, until JDK 28: `StructuredTaskScope` is a preview API on JDK 27, and without the flag it fails: compiling or running source (`java Trial.java`) stops with `StructuredTaskScope is a preview API and is disabled by default`, and running a class compiled with preview features stops with `Preview features are not enabled for Trial (class file version 71.65535)`. The analyzer needs none.
 - **A POSIX shell with `curl`** for the quick start (macOS, Linux, WSL). It is not tested on Windows.
 - **Maven 3.9+** only for the `TracedScope` section's build and for [Contributing](#contributing).
 
