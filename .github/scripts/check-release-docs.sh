@@ -39,9 +39,12 @@ err() {
 VER_RE='[0-9]+\.[0-9]+\.[0-9]+(-SNAPSHOT)?'
 checked=0
 
-# Files a reader copies a version from. jbang-catalog.json does not exist yet (#57).
-FILES="README.md CONTRIBUTING.md"
-for f in docs/*.md docs/index.html jbang-catalog.json; do
+# Files a reader copies a version from. jbang-catalog.json and the JBang demo source are
+# required: a user's `jbang demo@...` reads them from main, so a missing one is a release problem,
+# not a file to skip (#57).
+JBANG_FILES="jbang-catalog.json scope-tracer-demos/jbang/ScopeTracerDemo.java"
+FILES="README.md CONTRIBUTING.md $JBANG_FILES"
+for f in docs/*.md docs/index.html; do
   [ -f "$f" ] && FILES="$FILES $f"
 done
 
@@ -89,6 +92,32 @@ for f in README.md docs/index.html; do
   tr -d '\r' < "$f" | grep -q -F -- "-javaagent:scope-tracer-agent-$V-agent.jar=record" \
     || err "$f" "no '-javaagent:scope-tracer-agent-$V-agent.jar=record' command; the quick start and the landing page's trial command must both carry it at the release version"
 done
+
+# 2c. The JBang files are the only place a tool, not a reader, takes a version from, so every
+# scope-tracer coordinate in them has a literal X.Y.Z (JBang reads a bare group:artifact, RELEASE
+# or ${...} as "whatever is newest" and would move under the user), and together they name at
+# least one scope-tracer artifact.
+jbang_named=0
+for f in $JBANG_FILES; do
+  [ -f "$f" ] || continue
+  while IFS=: read -r line tok; do
+    [ -n "$line" ] || continue
+    jbang_named=$((jbang_named + 1))
+    # com.ionutbanu:scope-tracer-<module>:X.Y.Z, optionally followed by :classifier
+    echo "$tok" | grep -q -E "^com\.ionutbanu:scope-tracer-[a-z]+:[0-9]+\.[0-9]+\.[0-9]+(:[a-z]+)?$" \
+      || err "$f" "line $line: coordinate '$tok' has no literal X.Y.Z version after the module name"
+  done < <(tr -d '\r' < "$f" | grep -n -o -E "com\.ionutbanu:scope-tracer-[a-z]+[^[:space:]\"',)]*")
+  # A release asset URL names an artifact too (section 2 checks its version).
+  urls=$(tr -d '\r' < "$f" | grep -c -E "releases/download/v$VER_RE/scope-tracer-")
+  jbang_named=$((jbang_named + urls))
+done
+if [ "$jbang_named" -lt 1 ]; then
+  err jbang-catalog.json "no scope-tracer artifact (com.ionutbanu:scope-tracer-<module>:X.Y.Z or a releases/download URL) found in the JBang catalog or demo source; the aliases are gone or reshaped"
+fi
+if [ -f scope-tracer-demos/jbang/ScopeTracerDemo.java ] \
+  && ! tr -d '\r' < scope-tracer-demos/jbang/ScopeTracerDemo.java | grep -q -E "^//DEPS com\.ionutbanu:scope-tracer-agent:$VER_RE:agent"; then
+  err scope-tracer-demos/jbang/ScopeTracerDemo.java "no '//DEPS com.ionutbanu:scope-tracer-agent:X.Y.Z:agent' line; the demo cannot find the agent"
+fi
 
 # 3. CHANGELOG: [Unreleased] renamed and linked.
 if [ -f CHANGELOG.md ]; then
