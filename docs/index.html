@@ -87,14 +87,32 @@
   </section>
 
   <section>
-    <h2>Zero-code-change tracing</h2>
+    <h2>Try it in one command</h2>
+    <p style="color:var(--muted);font-size:0.85rem;">
+      Needs JDK 27+, <code>curl</code> and a POSIX shell. This downloads the agent, runs a small
+      program with a succeeding, a failing and a slow task under it, and leaves
+      <code>trial.jfr</code> and <code>trial.html</code> beside it.
+    </p>
     <pre>curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.4.0/scope-tracer-agent-0.4.0-agent.jar
-curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.4.0/scope-tracer-analyzer-0.4.0-executable.jar
-java --enable-preview \
-     -javaagent:scope-tracer-agent-0.4.0-agent.jar \
-     -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
-     -cp &lt;your-classpath&gt; com.example.MyApp
-java -jar scope-tracer-analyzer-0.4.0-executable.jar myapp.jfr report.html</pre>
+
+cat &gt; Trial.java &lt;&lt;'EOF'
+import java.util.concurrent.StructuredTaskScope;
+
+public class Trial {
+    public static void main(String[] args) throws InterruptedException {
+        try (var scope = StructuredTaskScope.open()) {
+            scope.fork(() -&gt; { Thread.sleep(50); return "profile"; });
+            scope.fork(() -&gt; { Thread.sleep(100); throw new IllegalStateException("inventory unavailable"); });
+            scope.fork(() -&gt; { Thread.sleep(5_000); return "reviews"; });
+            scope.join();
+        } catch (Exception e) {
+            System.out.println("scope failed: " + e.getCause());
+        }
+    }
+}
+EOF
+
+java --enable-preview --source 27 -javaagent:scope-tracer-agent-0.4.0-agent.jar=record=trial.jfr Trial.java</pre>
     <p style="color:var(--muted);font-size:0.85rem;">
       Any JDK 27+ application using <code>StructuredTaskScope</code> gets traced —
       no source changes. See the
