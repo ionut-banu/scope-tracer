@@ -114,6 +114,14 @@ EOF
 
 java --enable-preview --source 27 -javaagent:scope-tracer-agent-0.4.0-agent.jar=record=trial.jfr Trial.java</pre>
     <p style="color:var(--muted);font-size:0.85rem;">
+      Or, with <a href="https://www.jbang.dev/download/">JBang</a> and nothing else:
+      <code>jbang demo@ionut-banu/scope-tracer</code> runs a small program with the agent
+      attached and leaves <code>scope-tracer-demo.html</code> in the current directory;
+      <code>jbang analyze@ionut-banu/scope-tracer recording.jfr report.html</code> turns your own
+      recording into a report. JBang fetches JDK 27 if you have none, and asks once whether you
+      trust the source: answer it.
+    </p>
+    <p style="color:var(--muted);font-size:0.85rem;">
       Any JDK 27+ application using <code>StructuredTaskScope</code> gets traced —
       no source changes. See the
       <a href="https://github.com/ionut-banu/scope-tracer#readme">README</a>

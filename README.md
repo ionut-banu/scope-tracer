@@ -54,6 +54,8 @@ scope failed: java.lang.IllegalStateException: inventory unavailable
 
 Open `trial.html` in any browser: one task succeeded, one failed with `inventory unavailable`, and one was `cancelled ← #2`, the same shape as the image above. The file is fully self-contained, no server needed.
 
+With [JBang](https://www.jbang.dev/) installed, there is nothing to download or clone: `jbang demo@ionut-banu/scope-tracer` runs a small program with the agent attached and leaves `scope-tracer-demo.jfr` and `scope-tracer-demo.html` in the current directory, and `jbang analyze@ionut-banu/scope-tracer recording.jfr report.html` turns a recording you already have into a report. JBang fetches JDK 27 itself if you have none. The first run asks whether you trust the source it is about to run (the demo's source file, and for `analyze` the released analyzer jar on GitHub); you have to answer it, `1` trusts it once. With no terminal, as on macOS when launched from a GUI, it is a pop-up, and if left unanswered for about 10 seconds JBang trusts the source for that run only.
+
 ### Trace your own program
 
 The same `java` line, with your classpath and main class in place of `Trial.java`. Plain `StructuredTaskScope` code is enough, with no source change:
@@ -446,7 +448,7 @@ mvn spotless:apply   # auto-fix formatting if needed
 
 ### Demos
 
-Eight runnable examples, and the gallery generator, are included in `scope-tracer-demos`:
+Eight runnable examples, and the gallery generator, are included in `scope-tracer-demos`, next to a ninth, JBang-only one that needs no clone:
 
 | Demo | What it shows |
 |------|--------------|
@@ -458,6 +460,7 @@ Eight runnable examples, and the gallery generator, are included in `scope-trace
 | `OrderProcessingDemo` | Multi-level nesting — e-commerce pipeline with payment and inventory sub-scopes; fraud failures; critical-path highlighting |
 | `LiveOrderProcessingDemo` | Live version of `OrderProcessingDemo` — runs until Ctrl+C; use `jcmd` to capture windows of the nested pipeline |
 | `FilteringDemo` | The agent's capture filters and sampling — opens five kinds of scope (one of them ten times); the `include.name`, `exclude.name`, `include.package`, `exclude.package` and `sample.rate` arguments decide which reach the report |
+| `ScopeTracerDemo` | Cancellation and nesting under the agent, with no clone or build: `jbang demo@ionut-banu/scope-tracer` (see the quick start); the source is `scope-tracer-demos/jbang/ScopeTracerDemo.java`, not part of the `mvn` demos below |
 | `GalleryMain` | Not an example but the generator of the [gallery](https://ionut-banu.github.io/scope-tracer/gallery/): records one scenario per join policy under `TracedScope` and writes the page and its nine reports into `docs/` (see below) |
 
 Six demos write a `.jfr` and an `.html` file to `target/` and exit: `ParallelFetchDemo`,
