@@ -14,10 +14,12 @@
   <description>Example programs (correct and intentionally buggy) exercising scope-tracer-core.</description>
 
   <properties>
-    <!-- Examples module: not published to Maven Central -->
+    <!-- Examples module: not published to Maven Central. The central-publishing extension reads
+         skipPublishing; maven.deploy.skip is not honoured because the extension replaces
+         maven-deploy-plugin. check-release-bundle.sh fails a release that bundles this module. -->
+    <skipPublishing>true</skipPublishing>
     <maven.deploy.skip>true</maven.deploy.skip>
     <maven.install.skip>false</maven.install.skip>
-    <central.publishing.skip>true</central.publishing.skip>
   </properties>
 
   <dependencies>

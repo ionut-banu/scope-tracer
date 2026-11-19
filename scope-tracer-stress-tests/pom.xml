@@ -13,6 +13,12 @@
   <name>scope-tracer-stress-tests</name>
   <description>High-concurrency load tests for TracedScope and the scope-tracer agent. Opt-in via -Pstress; not part of the default build.</description>
 
+  <properties>
+    <!-- Not published to Maven Central, even with -P release,stress (the central-publishing
+         extension reads skipPublishing). See the demos pom. -->
+    <skipPublishing>true</skipPublishing>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>com.ionutbanu</groupId>
