@@ -82,6 +82,14 @@ for f in $FILES; do
   done < <(tr -d '\r' < "$f" | grep -n -o -E "scope-tracer-(core|analyzer|agent|demos)-$VER_RE|com\.ionutbanu:scope-tracer-[a-z]+:$VER_RE|releases/download/v$VER_RE")
 done
 
+# 2b. The README's quick start and the landing page's trial command are the same command: both
+# carry the agent's `record` form at the release version, so one cannot move without the other.
+for f in README.md docs/index.html; do
+  [ -f "$f" ] || continue
+  tr -d '\r' < "$f" | grep -q -F -- "-javaagent:scope-tracer-agent-$V-agent.jar=record" \
+    || err "$f" "no '-javaagent:scope-tracer-agent-$V-agent.jar=record' command; the quick start and the landing page's trial command must both carry it at the release version"
+done
+
 # 3. CHANGELOG: [Unreleased] renamed and linked.
 if [ -f CHANGELOG.md ]; then
   checked=$((checked + 1))

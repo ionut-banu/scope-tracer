@@ -52,6 +52,13 @@ gallery and commit the result:**
 java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.GalleryMain
 ```
 
+After regenerating the gallery, run `.github/scripts/readme-image.sh` and commit the PNG and the
+sidecar it writes (`docs/img/readme-report.png` and `.source`): the README's lead image is a
+screenshot of `docs/gallery/reports/fail-fast.html`, and the sidecar holds the SHA-256 of the
+report it was shot from. The script needs headless Chrome (`$CHROME`, or a Chrome or Chromium it
+finds); nothing else needs one. CI runs `.github/scripts/readme-image.sh --check`, which needs no
+Chrome and fails when the report changed and the image was not shot again.
+
 CI runs the same command with `--check` after `mvn -q verify`, and fails the pull request when a
 committed report no longer matches what the renderer and the JDK produce (it ignores times,
 durations, thread names and JDK frames, which differ on every run). `mvn -q verify` itself runs
@@ -153,6 +160,12 @@ git push origin release/$VERSION v$VERSION
 #    Merge only after the GitHub Release exists: merging publishes the landing page, whose
 #    download links point at that release and 404 until it does
 
+# 4b. After the GitHub Release exists, run the tagged README's quick start in an empty directory
+#     and open trial.html: the tagged README is the one people read, and its X.Y.Z URLs only
+#     resolve once the release is published. Copy the first block of the quick start
+#     (https://github.com/ionut-banu/scope-tracer/blob/vX.Y.Z/README.md) into a new directory
+#     outside any git tree and run it as written.
+
 # 5. Bump to next SNAPSHOT on main
 git checkout main && git pull
 mvn versions:set -DnewVersion=X.Y+1.0-SNAPSHOT -DgenerateBackupPoms=false
@@ -181,7 +194,9 @@ of the third. It reads `README.md`, `CONTRIBUTING.md`, `docs/*.md`, `docs/index.
 `group:artifact:version` coordinate or `releases/download/vX.Y.Z` URL that is not the release
 version, on a README with no dependency snippet, on a missing `## [X.Y.Z] - date` heading or
 `[X.Y.Z]:` link in `CHANGELOG.md`, and on a spec §5 `Released:` line that does not list
-`X.Y.Z (`. It prints every problem as a GitHub annotation, then exits 1. It does not read
+`X.Y.Z (`, and on a `README.md` or `docs/index.html` without the agent's
+`-javaagent:scope-tracer-agent-X.Y.Z-agent.jar=record` command (the quick start and the landing
+page's trial command are the same block). It prints every problem as a GitHub annotation, then exits 1. It does not read
 `pom.xml` (the source of truth), the CHANGELOG bodies, `_docs/decisions.md`, test fixtures or
 `*.java`, and it does not check the README's JDK prose or the §4 test counts. The version is
 `X.Y.Z` only: a tag with a qualifier such as `v0.4.0-rc1` matches the `v*.*.*` trigger, but the

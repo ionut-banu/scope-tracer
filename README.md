@@ -2,36 +2,121 @@
 
 [![CI](https://github.com/ionut-banu/scope-tracer/actions/workflows/ci.yml/badge.svg)](https://github.com/ionut-banu/scope-tracer/actions/workflows/ci.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/com.ionutbanu/scope-tracer-core.svg?label=maven%20central)](https://central.sonatype.com/artifact/com.ionutbanu/scope-tracer-core)
-[![License](https://img.shields.io/github/license/ionut-banu/scope-tracer)](LICENSE)
+License: [Apache-2.0](LICENSE)
 
 Visualise Java structured concurrency task trees, lifetimes, and cancellation propagation.
+
+[![A scope-tracer report: one task succeeded, one failed with its exception, and the two siblings it cancelled](docs/img/readme-report.png)](https://ionut-banu.github.io/scope-tracer/gallery/reports/fail-fast.html)
+
+A real report, from the [gallery](https://ionut-banu.github.io/scope-tracer/gallery/): a task failed with `IllegalStateException`, and the scope cancelled the two siblings still running. Click the image to open it live.
 
 **[View a live example report →](https://ionut-banu.github.io/scope-tracer/example/order-processing-report.html)**
 (no install needed — nested scopes, a cancelled task, and critical-path highlighting)<br>
 **[The gallery: what each join policy does →](https://ionut-banu.github.io/scope-tracer/gallery/)**
 (fail-fast, any-successful, timeout, nested scopes and more, each as a real report)
 
-Wrap your `StructuredTaskScope` code with `TracedScope`, run the program under a JFR
-recording, feed the `.jfr` file to the analyzer, and open the resulting self-contained HTML
-report. The report shows a per-scope Gantt timeline and task table so you can see what ran
-in parallel, which tasks were cancelled, and how nested scopes relate to their parent task.
-
-Targets JDK 27+ with `--enable-preview` (`StructuredTaskScope` is a preview API).
-
----
-
-## Requirements
-
-| Tool | Version |
-|------|---------|
-| Java | 27+ (with `--enable-preview`) |
-| Maven | 3.9+ |
-
 ---
 
 ## Quick start
 
-### 1. Add the dependency
+Get a report of your own in one command on JDK 27, with nothing cloned and nothing built. This downloads the agent from the GitHub Release, writes a small program with a succeeding, a failing and a slow task, and runs it under the agent. When it exits there are `trial.jfr` and `trial.html` beside it:
+
+```bash
+curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.4.0/scope-tracer-agent-0.4.0-agent.jar
+
+cat > Trial.java <<'EOF'
+import java.util.concurrent.StructuredTaskScope;
+
+public class Trial {
+    public static void main(String[] args) throws InterruptedException {
+        try (var scope = StructuredTaskScope.open()) {
+            scope.fork(() -> { Thread.sleep(50); return "profile"; });
+            scope.fork(() -> { Thread.sleep(100); throw new IllegalStateException("inventory unavailable"); });
+            scope.fork(() -> { Thread.sleep(5_000); return "reviews"; });
+            scope.join();
+        } catch (Exception e) {
+            System.out.println("scope failed: " + e.getCause());
+        }
+    }
+}
+EOF
+
+java --enable-preview --source 27 -javaagent:scope-tracer-agent-0.4.0-agent.jar=record=trial.jfr Trial.java
+```
+
+It prints two lines on stderr, with absolute paths, around the program's own output:
+
+```text
+[scope-tracer] recording to /work/trial.jfr
+scope failed: java.lang.IllegalStateException: inventory unavailable
+[scope-tracer] HTML report written to /work/trial.html
+```
+
+Open `trial.html` in any browser: one task succeeded, one failed with `inventory unavailable`, and one was `cancelled ← #2`, the same shape as the image above. The file is fully self-contained, no server needed.
+
+### Trace your own program
+
+The same `java` line, with your classpath and main class in place of `Trial.java`. Plain `StructuredTaskScope` code is enough, with no source change:
+
+```bash
+java --enable-preview -javaagent:scope-tracer-agent-0.4.0-agent.jar=record -cp <your-classpath> com.example.MyApp
+```
+
+Without a path, `record` writes `scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr` and its `.html` report in the working directory (never over an existing file); `record=<path>` names the `.jfr`, and the report lands beside it. The agent jar is also on Maven Central, the same file: `https://repo1.maven.org/maven2/com/ionutbanu/scope-tracer-agent/0.4.0/scope-tracer-agent-0.4.0-agent.jar`. Every agent argument is in [the agent reference](#the-agent).
+
+### A report from a recording you made elsewhere
+
+A `.jfr` from `jcmd <pid> JFR.stop`, from `-XX:StartFlightRecording`, or from the IntelliJ plugin turns into the same report with the analyzer. It needs a JDK 27 and no `--enable-preview`:
+
+```bash
+curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.4.0/scope-tracer-analyzer-0.4.0-executable.jar
+
+java -jar scope-tracer-analyzer-0.4.0-executable.jar trial.jfr report.html
+```
+
+```text
+Report written to /work/report.html
+```
+
+The analyzer's options, warnings and exit codes are in [the analyzer reference](#the-analyzer).
+
+### Requirements
+
+- **JDK 27 or newer** for every scope-tracer jar (`java -version`). On JDK 26 or older the jars fail with `UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 71.0)`. 0.2.0 is the last release for JDK 26.
+- **`--enable-preview`** for the program being traced, until JDK 28: `StructuredTaskScope` is a preview API on JDK 27, and without the flag it fails: compiling or running source (`java Trial.java`) stops with `StructuredTaskScope is a preview API and is disabled by default`, and running a class compiled with preview features stops with `Preview features are not enabled for Trial (class file version 71.65535)`. The analyzer needs none.
+- **A POSIX shell with `curl`** for the quick start (macOS, Linux, WSL). It is not tested on Windows.
+- **Maven 3.9+** only for the `TracedScope` section's build and for [Contributing](#contributing).
+
+---
+
+## What the report shows
+
+Each scope gets its own section containing:
+
+- **Metadata line** — owner thread, open time (UTC), total duration, task count.
+- **Task table** — one row per forked task: task ID, task name (explicit, derived from
+  the `Callable` class, or `SimpleClass#method:line` from the call site), thread name,
+  fork offset from scope open, duration, and outcome. Failed tasks show the exception
+  type. Tasks that opened a nested scope show the child scope name. In all-success scopes
+  the slowest task is
+  annotated `← critical path +Xms`.
+- **SVG Gantt timeline** — a blue bar for the scope lifetime, colour-coded bars for each
+  task (green = success, amber = critical path, red = failed, orange = cancelled, grey =
+  incomplete), with the task ID and name labelled inside each bar; narrow bars drop the
+  class-name prefix and, if still too narrow, truncate with an ellipsis — the full name
+  is always available in the hover tooltip. Hover for details. The amber
+  critical-path bar is the task that determined the scope's total duration.
+
+Nested scopes are rendered indented beneath the parent task that opened them, with a
+breadcrumb showing which task spawned them.
+
+---
+
+## `TracedScope`: tracing by wrapping the scope
+
+If you would rather change the source than attach an agent, open a `TracedScope` instead of a `StructuredTaskScope`. It emits the same events, so the report is the same. (Never combine it with the agent in one JVM: every event would be emitted twice.)
+
+### Add the dependency
 
 ```xml
 <dependency>
@@ -40,8 +125,6 @@ Targets JDK 27+ with `--enable-preview` (`StructuredTaskScope` is a preview API)
   <version>0.4.0</version>
 </dependency>
 ```
-
-From 0.3.0 on, scope-tracer requires JDK 27 (every jar is built with `--release 27`); on JDK 26, stay on 0.2.0.
 
 `TracedScope` is a preview API on JDK 27, so your own build needs `--enable-preview` and
 `--release 27` to compile against it, and `--enable-preview` to run. Without them javac stops
@@ -62,7 +145,7 @@ with `... TracedScope.class uses preview features of Java SE 27`. In Maven:
 
 With plain `javac`: `javac --enable-preview --release 27 -cp scope-tracer-core-0.4.0.jar ...`.
 
-### 2. Open a `TracedScope` instead of a `StructuredTaskScope`
+### Open a `TracedScope` instead of a `StructuredTaskScope`
 
 `TracedScope` mirrors JDK 27's `StructuredTaskScope`: the same type parameters, the same
 `open` factories, `fork`, `join` and `close`. The differences are the entry point,
@@ -88,147 +171,41 @@ Checkout checkout(Cart cart) throws ExecutionException, InterruptedException {
 `TracedScope` emits six JFR events at every lifecycle moment (scope opened/closed, task
 forked/succeeded/failed/cancelled). No other configuration is required.
 
-### 3. Run under JFR recording
+### Run under a JFR recording, then the analyzer
 
 ```bash
-java -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
-     --enable-preview \
+java --enable-preview \
+     -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
      -cp <your-classpath> \
      com.example.MyApp
+
+curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.4.0/scope-tracer-analyzer-0.4.0-executable.jar
+java -jar scope-tracer-analyzer-0.4.0-executable.jar myapp.jfr report.html
 ```
 
-Put your own classpath (including the `scope-tracer-core` jar) where `<your-classpath>` is,
-and your main class where `com.example.MyApp` is.
-
-### 4. Run the analyzer
-
-Run this from a clone of this repository, after `mvn -q -DskipTests package`:
-
-```bash
-VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-java --enable-preview \
-     -jar scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}-executable.jar \
-     myapp.jfr report.html
-```
-
-The `-executable` jar is a self-contained fat-jar produced by `mvn package`. It bundles
-all runtime dependencies so no classpath assembly is needed.
-
-On success it prints one line on stdout and nothing else:
-
-```text
-Report written to /home/me/myapp/report.html
-```
-
-Errors and warnings go to stderr. A warning is one line starting `analyzer: warning:`,
-printed after the report is written, and the exit code stays 0. There are three: a recording
-with scopes that have no close event or tasks that have no completion event (they were still
-running when the recording was written, or JFR dropped their events — see
-[JFR buffer tuning](docs/jfr-events.md#high-volume-recordings-jfr-buffer-tuning)), which the
-report draws as incomplete; and a recording with no scope-tracer events at all, which usually
-means the program ran without the agent or `TracedScope`, or the recording did not enable
-`com.ionutbanu.scopetracer.*`; and a recording whose scope-tracer events have no
-`ScopeOpened` to belong to, usually because it started after those scopes were opened.
-
-If computing these warnings itself fails, after the report is written, one line
-`analyzer: warning: could not check <input> for problems: <exception>` is printed instead and the
-exit code is still 0. No recording is known to cause this.
-
-Exit codes:
-
-| Code | Meaning |
-| --- | --- |
-| 0 | success (warnings do not change it) |
-| 1 | wrong arguments, usage on stderr |
-| 2 | a file or directory was not found: the input, or the directory the output goes in |
-| 3 | an I/O error reading or writing: input that is not a JFR recording or is cut short in its header, an input that is a directory, an output that cannot be written |
-| 4 | the JFR parser threw on content it had started to read, such as a recording cut short inside a chunk |
-
-A script can test zero versus non-zero, or 3 and 4 for "the recording could not be read":
-which of the two a damaged recording gets depends on where the damage is. These exit codes
-are stable from 0.4.0; a later change to any code is listed in the CHANGELOG under "Changed".
-
-Pass `--format=json` to write the parsed trace as JSON instead of an
-HTML report (schema documented in `TraceModelJson`'s Javadoc) — intended for external
-tools, such as an IDE plugin, that want the parsed trace without loading any scope-tracer
-classes in-process:
-
-```bash
-java --enable-preview \
-     -jar scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}-executable.jar \
-     myapp.jfr trace.json --format=json
-```
-
-Pass `--verbose` to see the analyzer's own diagnostics on stderr: its log lines at DEBUG and
-up (with level and logger name, including one summary line per parse with the events read by
-type, the scopes and tasks found and the time taken), and a stack trace when it exits 3 or 4.
-Without it they are hidden, whatever `logback.*` system properties are set. Options may come
-before, between or after the two file arguments; an input path that starts with `-` is written
-`./-x.jfr`:
-
-```text
-Usage: analyzer <input.jfr> <output> [--format=json] [--verbose]
-```
-
-Or use the programmatic API (put the `scope-tracer-analyzer` jar on the classpath). The
-analyzer logs through SLF4J and brings no binding: your application's own decides where its
-lines go.
-
-```java
-import com.ionutbanu.scopetracer.analyzer.HtmlRenderer;
-import com.ionutbanu.scopetracer.analyzer.JfrParser;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-void writeReport() throws IOException {
-    var model = JfrParser.parse(Path.of("myapp.jfr"));
-    String html = HtmlRenderer.render(model);
-    Files.writeString(Path.of("report.html"), html);
-}
-```
-
-### 5. Open the report
-
-Open `report.html` in any browser. No server required — the file is fully self-contained.
+Put your own classpath (including `scope-tracer-core-0.4.0.jar`, from Maven Central or your build) where `<your-classpath>` is, and your main class where `com.example.MyApp` is. Nothing writes a report at exit with `TracedScope`: the recording is only the `.jfr`, and the analyzer turns it into `report.html`, which you open in any browser. See [the analyzer reference](#the-analyzer) for its output, warnings and exit codes.
 
 ---
 
-## What the report shows
+## IntelliJ plugin
 
-Each `TracedScope` gets its own section containing:
+`scope-tracer-plugin/` opens a recording inside IntelliJ IDEA: Tools → **Open .jfr Recording (Scope Tracer)…** loads a `.jfr` file into the **Scope Tracer** tool window, and clicking a task jumps to the `fork` call that created it. It is not on the Marketplace yet; [build it from source](#building-the-plugin).
 
-- **Metadata line** — owner thread, open time (UTC), total duration, task count.
-- **Task table** — one row per forked task: task ID, task name (explicit, derived from
-  the `Callable` class, or `SimpleClass#method:line` from the call site), thread name,
-  fork offset from scope open, duration, and outcome. Failed tasks show the exception
-  type. Tasks that opened a nested scope show the child scope name. In all-success scopes
-  the slowest task is
-  annotated `← critical path +Xms`.
-- **SVG Gantt timeline** — a blue bar for the scope lifetime, colour-coded bars for each
-  task (green = success, amber = critical path, red = failed, orange = cancelled, grey =
-  incomplete), with the task ID and name labelled inside each bar; narrow bars drop the
-  class-name prefix and, if still too narrow, truncate with an ellipsis — the full name
-  is always available in the hover tooltip. Hover for details. The amber
-  critical-path bar is the task that determined the scope's total duration.
-
-Nested scopes are rendered indented beneath the parent task that opened them, with a
-breadcrumb showing which task spawned them.
+The IDE itself runs on JDK 21, so the plugin runs the bundled analyzer as a subprocess on a JDK 27 that you configure; it needs that JDK installed, and refuses an older `java`. To trace your own code from the IDE, select a Java application run configuration and use Tools → **Run with Scope Tracer**: the plugin adds the agent, `--enable-preview` and a JFR recording to that run and opens the result when the process exits (the run configuration needs a JDK 27). You can also open a `.jfr` you recorded yourself (see "A report from a recording you made elsewhere" in the quick start, and the agent and `TracedScope` sections).
 
 ---
 
-## Zero-code-change tracing (Java agent)
+## Reference
 
-Don't want to change source code? Use the agent. It instruments `StructuredTaskScope` at
-the bytecode level — any JDK 27+ application is traced without touching its source.
+### The agent
 
-One flag is enough: with the `record` argument the agent starts a JFR recording of its own,
-and when the program exits it writes the `.jfr` and an HTML report next to it.
+Don't want to change source code? Use the agent. It instruments `StructuredTaskScope` at the bytecode level — any JDK 27+ application is traced without touching its source.
+
+One flag is enough: with the `record` argument the agent starts a JFR recording of its own, and when the program exits it writes the `.jfr` and an HTML report next to it.
 
 ```bash
-VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 java --enable-preview \
-     -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar=record \
+     -javaagent:scope-tracer-agent-0.4.0-agent.jar=record \
      -cp <your-classpath> \
      com.example.MyApp
 ```
@@ -248,7 +225,7 @@ A recording you start yourself gets its report at exit too, the same as one stop
 
 ```bash
 java --enable-preview \
-     -javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar \
+     -javaagent:scope-tracer-agent-0.4.0-agent.jar \
      -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
      -cp <your-classpath> \
      com.example.MyApp
@@ -297,7 +274,7 @@ other's events: the agent's file gets the JDK events of the `-XX` recording, and
 file gets the scope-tracer events whatever its own settings say.
 
 With `TracedScope` (no agent attached) nothing writes a report at exit: the recording is
-only the `.jfr`, and the analyzer CLI (step 4 of the quick start) turns it into the report.
+only the `.jfr`, and [the analyzer](#the-analyzer) turns it into the report.
 
 The agent:
 - Uses the name supplied to `Configuration.withName("my-scope")` when set (for example
@@ -342,9 +319,8 @@ Example — trace the checkout packages (and `com.acme.checkoutx`) at a 10% samp
 the shell does not expand the `*`):
 
 ```bash
-VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
 java --enable-preview \
-     "-javaagent:scope-tracer-agent/target/scope-tracer-agent-${VERSION}-agent.jar=include.package=com.acme.checkout*,sample.rate=0.1" \
+     "-javaagent:scope-tracer-agent-0.4.0-agent.jar=include.package=com.acme.checkout*,sample.rate=0.1" \
      -XX:StartFlightRecording=filename=checkout.jfr,dumponexit=true \
      -cp <your-classpath> com.acme.Main
 ```
@@ -363,30 +339,112 @@ Replace `<your-classpath>` and `com.acme.Main` with your own classpath and main 
 > not replace a renamed agent jar: the agent names the one it ignores in a second
 > `[scope-tracer]` line.
 
----
+### The analyzer
 
-## IntelliJ plugin
-
-`scope-tracer-plugin/` opens a recording inside IntelliJ IDEA: Tools → **Open .jfr Recording
-(Scope Tracer)…** loads a `.jfr` file into the **Scope Tracer** tool window, and clicking a
-task jumps to the `fork` call that created it. It is not published yet; build it from source:
+`scope-tracer-analyzer-0.4.0-executable.jar` is a self-contained fat-jar, attached to every GitHub Release (and on Maven Central under `com/ionutbanu/scope-tracer-analyzer/0.4.0/`). It bundles all runtime dependencies, so no classpath assembly is needed, and it needs a JDK 27 but no `--enable-preview`:
 
 ```bash
-mvn -q -DskipTests package                 # builds the analyzer's -executable jar
-cd scope-tracer-plugin && ./gradlew build  # bundles that jar and builds the plugin
-./gradlew runIde                           # try it in a sandbox IDE
+java -jar scope-tracer-analyzer-0.4.0-executable.jar myapp.jfr report.html
 ```
 
-The IDE itself runs on JDK 21, so the plugin runs the bundled analyzer as a subprocess on a
-JDK 27 that you configure; it needs that JDK installed, and refuses an older `java`. To trace your own code from the IDE, select a Java application run configuration and use Tools
-→ **Run with Scope Tracer**: the plugin adds the agent, `--enable-preview` and a JFR recording
-to that run and opens the result when the process exits (the run configuration needs a JDK 27).
-You can also open a `.jfr` you recorded yourself (see "Run under JFR recording" and
-"Zero-code-change tracing" above).
+On success it prints one line on stdout and nothing else:
+
+```text
+Report written to /home/me/myapp/report.html
+```
+
+Errors and warnings go to stderr. A warning is one line starting `analyzer: warning:`,
+printed after the report is written, and the exit code stays 0. There are three: a recording
+with scopes that have no close event or tasks that have no completion event (they were still
+running when the recording was written, or JFR dropped their events — see
+[JFR buffer tuning](docs/jfr-events.md#high-volume-recordings-jfr-buffer-tuning)), which the
+report draws as incomplete; and a recording with no scope-tracer events at all, which usually
+means the program ran without the agent or `TracedScope`, or the recording did not enable
+`com.ionutbanu.scopetracer.*`; and a recording whose scope-tracer events have no
+`ScopeOpened` to belong to, usually because it started after those scopes were opened.
+
+If computing these warnings itself fails, after the report is written, one line
+`analyzer: warning: could not check <input> for problems: <exception>` is printed instead and the
+exit code is still 0. No recording is known to cause this.
+
+Exit codes:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | success (warnings do not change it) |
+| 1 | wrong arguments, usage on stderr |
+| 2 | a file or directory was not found: the input, or the directory the output goes in |
+| 3 | an I/O error reading or writing: input that is not a JFR recording or is cut short in its header, an input that is a directory, an output that cannot be written |
+| 4 | the JFR parser threw on content it had started to read, such as a recording cut short inside a chunk |
+
+A script can test zero versus non-zero, or 3 and 4 for "the recording could not be read":
+which of the two a damaged recording gets depends on where the damage is. These exit codes
+are stable from 0.4.0; a later change to any code is listed in the CHANGELOG under "Changed".
+
+Pass `--format=json` to write the parsed trace as JSON instead of an
+HTML report (schema documented in `TraceModelJson`'s Javadoc) — intended for external
+tools, such as an IDE plugin, that want the parsed trace without loading any scope-tracer
+classes in-process:
+
+```bash
+
+java -jar scope-tracer-analyzer-0.4.0-executable.jar \
+     myapp.jfr trace.json --format=json
+```
+
+Pass `--verbose` to see the analyzer's own diagnostics on stderr: its log lines at DEBUG and
+up (with level and logger name, including one summary line per parse with the events read by
+type, the scopes and tasks found and the time taken), and a stack trace when it exits 3 or 4.
+Without it they are hidden, whatever `logback.*` system properties are set. Options may come
+before, between or after the two file arguments; an input path that starts with `-` is written
+`./-x.jfr`:
+
+```text
+Usage: analyzer <input.jfr> <output> [--format=json] [--verbose]
+```
+
+Or use the programmatic API (put the `scope-tracer-analyzer` jar on the classpath). The
+analyzer logs through SLF4J and brings no binding: your application's own decides where its
+lines go.
+
+```java
+import com.ionutbanu.scopetracer.analyzer.HtmlRenderer;
+import com.ionutbanu.scopetracer.analyzer.JfrParser;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+void writeReport() throws IOException {
+    var model = JfrParser.parse(Path.of("myapp.jfr"));
+    String html = HtmlRenderer.render(model);
+    Files.writeString(Path.of("report.html"), html);
+}
+```
+
+### JFR event schema
+
+The six events emitted by `TracedScope` and the agent are documented in
+[docs/jfr-events.md](docs/jfr-events.md). That file lists every field, its type, and
+when each event is emitted — useful when writing custom consumers of the raw `.jfr` file.
 
 ---
 
-## Demos
+## Contributing
+
+See [_docs/spec.md](_docs/spec.md) for architecture details, [AGENTS.md](AGENTS.md) for coding
+conventions, and [CONTRIBUTING.md](CONTRIBUTING.md) for contributor
+guidelines.
+
+### Building from source
+
+```bash
+git clone <repo-url>
+cd scope-tracer
+mvn -q verify        # compile, test, style check
+mvn spotless:apply   # auto-fix formatting if needed
+```
+
+### Demos
 
 Eight runnable examples, and the gallery generator, are included in `scope-tracer-demos`:
 
@@ -476,8 +534,7 @@ jcmd <pid> JFR.stop name=trace
 
 # analyze
 VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-java --enable-preview \
-     -jar scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}-executable.jar \
+java -jar scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}-executable.jar \
      /tmp/scope-trace.jfr /tmp/report.html
 open /tmp/report.html
 ```
@@ -485,24 +542,15 @@ open /tmp/report.html
 You can repeat `JFR.start` / `JFR.stop` as many times as you like without restarting the
 service. Each recording captures only the orders that ran during that window.
 
----
-
-## Building from source
+### Building the plugin
 
 ```bash
-git clone <repo-url>
-cd scope-tracer
-mvn -q verify        # compile, test, style check
-mvn spotless:apply   # auto-fix formatting if needed
+mvn -q -DskipTests package                 # builds the analyzer's -executable jar
+cd scope-tracer-plugin && ./gradlew build  # bundles that jar and builds the plugin
+./gradlew runIde                           # try it in a sandbox IDE
 ```
 
-See [_docs/spec.md](_docs/spec.md) for architecture details, [AGENTS.md](AGENTS.md) for coding
-conventions, and [CONTRIBUTING.md](CONTRIBUTING.md) for contributor
-guidelines.
-
----
-
-## Modules
+### Modules
 
 | Module | Artifact | Purpose |
 |--------|----------|---------|
@@ -512,14 +560,6 @@ guidelines.
 | `scope-tracer-demos` | `com.ionutbanu:scope-tracer-demos` | Runnable example programs |
 | `scope-tracer-stress-tests` | — | Concurrency stress tests; only built with `-Pstress` |
 | `scope-tracer-plugin` | — | IntelliJ plugin; separate Gradle build, not in the Maven reactor |
-
----
-
-## JFR event schema
-
-The six events emitted by `TracedScope` and the agent are documented in
-[docs/jfr-events.md](docs/jfr-events.md). That file lists every field, its type, and
-when each event is emitted — useful when writing custom consumers of the raw `.jfr` file.
 
 ---
 
