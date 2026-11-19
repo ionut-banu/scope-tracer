@@ -683,8 +683,8 @@ try (var file = new RecordingFile(tempPath)) {
   deploys to Maven Central and creates a GitHub Release from the
   matching `CHANGELOG.md` section. Its `check` job (tag matches the
   POM, then `.github/scripts/check-release-docs.sh`: README, docs,
-  CHANGELOG heading and link, and the `Released:` line below name the
-  release version) must pass before the `publish` job runs; a
+  CHANGELOG heading and link, the JBang catalog and demo, and the
+  `Released:` line below name the release version) must pass before the `publish` job runs; a
   `check_only` dispatch input runs the check job alone. The script comes
   from the dispatched ref and reads the tag's docs, so a dry run from
   `main` can check an old tag. The release publishes the parent POM,
@@ -693,6 +693,19 @@ try (var file = new RecordingFile(tempPath)) {
   `.github/scripts/check-release-bundle.sh` fails it when it holds any
   other artifact (the demos and stress tests set `skipPublishing`).
   Steps are in `CONTRIBUTING.md`.
+- `jbang-catalog.json` at the repository root defines the JBang aliases
+  `analyze` (the analyzer's `-executable` jar from the release assets)
+  and `demo` (`scope-tracer-demos/jbang/ScopeTracerDemo.java`, which
+  runs itself in a child JVM with the agent attached and `record`). Both
+  name the latest release with a literal version and change only in the
+  release commit; `check-release-docs.sh` reads the catalog and the demo
+  source and fails when either is missing, when a scope-tracer
+  coordinate in them has no literal version, on any `releases/latest`
+  URL, and when the catalog itself names no pinned scope-tracer artifact
+  (a coordinate, or a `https://github.com/ionut-banu/scope-tracer/releases/download/vX.Y.Z/`
+  URL: the same path on another host does not count). The demo passes
+  its command-line arguments on to its child JVM, and SIGTERM to the
+  demo stops the child too.
 - Released: 0.1.0 (2026-05-14), 0.2.0 (2026-05-24), 0.3.0
   (2026-11-14), 0.4.0 (2026-11-19). `main` is 0.5.0-SNAPSHOT.
 - GitHub Pages serves `docs/`: the landing page, the gallery at

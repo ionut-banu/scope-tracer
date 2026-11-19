@@ -1,0 +1,16 @@
+{
+  "aliases": {
+    "analyze": {
+      "script-ref": "https://github.com/ionut-banu/scope-tracer/releases/download/v0.4.0/scope-tracer-analyzer-0.4.0-executable.jar",
+      "main": "com.ionutbanu.scopetracer.analyzer.AnalyzerMain",
+      "java": "27+",
+      "description": "scope-tracer: turn a .jfr recording into an HTML report (usage: analyze <recording.jfr> [report.html])"
+    },
+    "demo": {
+      "script-ref": "scope-tracer-demos/jbang/ScopeTracerDemo.java",
+      "java": "27+",
+      "enable-preview": true,
+      "description": "scope-tracer: run a small structured-concurrency program with the agent attached and get an HTML report"
+    }
+  }
+}

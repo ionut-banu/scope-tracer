@@ -28,6 +28,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   trial command is the same block, and `check-release-docs.sh` now fails a release where either
   file lacks the `=record` command at the release version.
 
+### Added
+
+- **Run scope-tracer with JBang, without cloning or building.** `jbang-catalog.json` defines
+  two aliases for the latest release: `analyze` turns a `.jfr` recording into an HTML report, and
+  `demo` runs a small structured-concurrency program (a failing task, a cancelled sibling and a
+  nested scope) with the agent attached and leaves `scope-tracer-demo.jfr` and
+  `scope-tracer-demo.html` in the current directory. The demo source is
+  `scope-tracer-demos/jbang/ScopeTracerDemo.java`. The release check now requires the catalog and
+  the demo source and a literal version on every scope-tracer coordinate in them, rejects any
+  `releases/latest` URL, and requires the catalog itself to name a pinned scope-tracer artifact on
+  this repository's releases. The demo passes its arguments on to the traced program, and stopping
+  it with SIGTERM stops the traced program too.
+
 ## [0.4.0] - 2026-11-19
 
 ### Added

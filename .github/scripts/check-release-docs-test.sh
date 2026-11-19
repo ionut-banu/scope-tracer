@@ -41,6 +41,28 @@ EOT
   printf '# Central\n\nUse com.ionutbanu:scope-tracer-core:%s here.\n' "$V" > "$d/docs/maven-central-setup.md"
   printf '# Events\n\nNo version here.\n' > "$d/docs/jfr-events.md"
   printf '<html><body>https://example.com/releases/download/v%s/scope-tracer-agent-%s-agent.jar\njava -javaagent:scope-tracer-agent-%s-agent.jar=record=trial.jfr Trial.java</body></html>\n' "$V" "$V" "$V" > "$d/docs/index.html"
+  mkdir -p "$d/scope-tracer-demos/jbang"
+  cat > "$d/jbang-catalog.json" <<EOT
+{
+  "aliases": {
+    "analyze": {
+      "script-ref": "https://github.com/ionut-banu/scope-tracer/releases/download/v$V/scope-tracer-analyzer-$V-executable.jar",
+      "java": "27+"
+    },
+    "demo": {
+      "script-ref": "scope-tracer-demos/jbang/ScopeTracerDemo.java",
+      "java": "27+"
+    }
+  }
+}
+EOT
+  cat > "$d/scope-tracer-demos/jbang/ScopeTracerDemo.java" <<EOT
+///usr/bin/env jbang "\$0" "\$@" ; exit \$?
+//JAVA 27+
+//DEPS com.ionutbanu:scope-tracer-agent:$V:agent
+
+public class ScopeTracerDemo {}
+EOT
   cat > "$d/CHANGELOG.md" <<EOT
 # Changelog
 
@@ -111,8 +133,26 @@ m_docs_index_no_url() { printf '<html><body>scope-tracer-agent-${VERSION}-agent.
 m_readme_no_record() { grep -v -F -- '=record' "$1/README.md" > "$1/x" && mv "$1/x" "$1/README.md"; }
 m_index_no_record() { grep -v -F -- '=record' "$1/docs/index.html" > "$1/x" && mv "$1/x" "$1/docs/index.html"; }
 m_readme_record_stale() { sed "s|agent-$V-agent.jar=record|agent-$OLD-agent.jar=record|" "$1/README.md" > "$1/x" && mv "$1/x" "$1/README.md"; }
-m_jbang_stale() { echo "{\"scripts\":{\"x\":{\"script-ref\":\"com.ionutbanu:scope-tracer-analyzer:$OLD\"}}}" > "$1/jbang-catalog.json"; }
-m_jbang_good() { echo "{\"scripts\":{\"x\":{\"script-ref\":\"com.ionutbanu:scope-tracer-analyzer:$V\"}}}" > "$1/jbang-catalog.json"; }
+m_jbang_stale_url() { sed "s|v$V/scope-tracer-analyzer-$V|v$OLD/scope-tracer-analyzer-$OLD|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
+m_jbang_stale_gav() { sed "s|\"script-ref\": \"https[^\"]*\"|\"script-ref\": \"com.ionutbanu:scope-tracer-analyzer:$OLD:executable\"|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
+m_jbang_gav_classifier() { sed "s|\"script-ref\": \"https[^\"]*\"|\"script-ref\": \"com.ionutbanu:scope-tracer-analyzer:$V:executable\"|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
+m_jbang_gav_unversioned() { sed "s|\"script-ref\": \"https[^\"]*\"|\"script-ref\": \"com.ionutbanu:scope-tracer-analyzer\"|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
+m_jbang_gav_placeholder() { sed "s|\"script-ref\": \"https[^\"]*\"|\"script-ref\": \"com.ionutbanu:scope-tracer-analyzer:\${VERSION}:executable\"|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
+m_jbang_gav_release() { sed "s|\"script-ref\": \"https[^\"]*\"|\"script-ref\": \"com.ionutbanu:scope-tracer-analyzer:RELEASE\"|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
+m_jbang_no_artifact() {
+  printf '{"aliases":{"demo":{"script-ref":"scope-tracer-demos/jbang/ScopeTracerDemo.java"}}}\n' > "$1/jbang-catalog.json"
+  printf '//JAVA 27+\npublic class ScopeTracerDemo {}\n' > "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java"
+}
+m_jbang_latest_url() { sed "s|releases/download/v$V/|releases/latest/download/|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
+m_jbang_unrelated_jar() { sed "s|\"script-ref\": \"https[^\"]*\"|\"script-ref\": \"https://example.com/other-1.0.jar\"|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
+m_demo_latest_url() { echo "// see https://github.com/example/scope-tracer/releases/latest" >> "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java"; }
+m_jbang_other_host() { sed "s|\"script-ref\": \"https[^\"]*\"|\"script-ref\": \"https://example.com/releases/download/v$V/scope-tracer-analyzer-$V-executable.jar\"|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
+m_jbang_missing() { rm "$1/jbang-catalog.json"; }
+m_demo_stale() { sed "s|agent:$V:agent|agent:$OLD:agent|" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java" > "$1/x" && mv "$1/x" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java"; }
+m_demo_unversioned() { sed "s|agent:$V:agent|agent|" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java" > "$1/x" && mv "$1/x" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java"; }
+m_demo_placeholder() { sed "s|agent:$V:agent|agent:\${VERSION}:agent|" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java" > "$1/x" && mv "$1/x" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java"; }
+m_demo_no_deps() { grep -v '^//DEPS' "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java" > "$1/x" && mv "$1/x" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java"; }
+m_demo_missing() { rm "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java"; }
 m_changelog_heading() { grep -v "^## \[$V\]" "$1/CHANGELOG.md" > "$1/x" && mv "$1/x" "$1/CHANGELOG.md"; }
 m_changelog_link() { grep -v "^\[$V\]:" "$1/CHANGELOG.md" > "$1/x" && mv "$1/x" "$1/CHANGELOG.md"; }
 m_changelog_missing() { rm "$1/CHANGELOG.md"; }
@@ -146,7 +186,7 @@ m_crlf_stale() { m_crlf_all "$1"; m_readme_version "$1"; }
 m_readme_missing() { rm "$1/README.md"; }
 
 run_case "good tree passes"                          0 "release docs name $V"        m_none
-run_case "good tree with a current jbang catalog"    0 ""                            m_jbang_good
+run_case "catalog with a classifier coordinate"      0 ""                            m_jbang_gav_classifier
 run_case "README <version> wrong"                    1 "README.md::line 7"           m_readme_version
 run_case "README snippet deleted"                    1 "README.md::no scope-tracer"  m_readme_snippet_deleted
 run_case "README stale agent jar"                    1 "README.md::line"             m_readme_jar
@@ -161,7 +201,22 @@ run_case "docs/index.html names no download URL"     1 "docs/index.html::no rele
 run_case "README lost the record command"            1 "README.md::no '-javaagent:scope-tracer-agent-$V-agent.jar=record'" m_readme_no_record
 run_case "landing page lost the record command"      1 "docs/index.html::no '-javaagent:scope-tracer-agent-$V-agent.jar=record'" m_index_no_record
 run_case "README record command at the old version"  1 "README.md::no '-javaagent" m_readme_record_stale
-run_case "jbang-catalog.json stale"                  1 "jbang-catalog.json::line"    m_jbang_stale
+run_case "catalog stale release URL"                 1 "jbang-catalog.json::line"    m_jbang_stale_url
+run_case "catalog stale analyzer coordinate"         1 "jbang-catalog.json::line 4: 'com.ionutbanu:scope-tracer-analyzer:$OLD'" m_jbang_stale_gav
+run_case "catalog coordinate without a version"      1 "no literal X.Y.Z version"   m_jbang_gav_unversioned
+run_case "catalog coordinate with a placeholder"     1 "no literal X.Y.Z version"   m_jbang_gav_placeholder
+run_case "catalog coordinate with RELEASE"           1 "no literal X.Y.Z version"   m_jbang_gav_release
+run_case "catalog and demo name no artifact"         1 "no scope-tracer artifact"    m_jbang_no_artifact
+run_case "catalog script-ref is a releases/latest URL" 1 "releases/latest URL moves" m_jbang_latest_url
+run_case "catalog script-ref is an unrelated jar"    1 "jbang-catalog.json::no scope-tracer artifact" m_jbang_unrelated_jar
+run_case "demo source mentions releases/latest"      1 "ScopeTracerDemo.java::a releases/latest" m_demo_latest_url
+run_case "catalog URL on another host"               1 "jbang-catalog.json::no scope-tracer artifact" m_jbang_other_host
+run_case "jbang-catalog.json missing"                1 "jbang-catalog.json::file not found" m_jbang_missing
+run_case "demo source stale agent coordinate"        1 "ScopeTracerDemo.java::line 3" m_demo_stale
+run_case "demo source agent without a version"       1 "no literal X.Y.Z version"   m_demo_unversioned
+run_case "demo source agent with a placeholder"      1 "no literal X.Y.Z version"   m_demo_placeholder
+run_case "demo source has no //DEPS agent line"      1 "no '//DEPS"                  m_demo_no_deps
+run_case "demo source missing"                       1 "ScopeTracerDemo.java::file not found" m_demo_missing
 run_case "CHANGELOG heading removed"                 1 "CHANGELOG.md::no '## [$V]"   m_changelog_heading
 run_case "CHANGELOG link removed"                    1 "CHANGELOG.md::no '[$V]:"     m_changelog_link
 run_case "CHANGELOG missing"                         1 "CHANGELOG.md::file not found" m_changelog_missing

@@ -946,3 +946,35 @@ uploads in one `deploy`, so a check there would need a second build after the up
 pull request check: on `main` the version is a SNAPSHOT and the plugin stages nothing. Local runs
 of the release profile install into the local repository, so they use a scratch
 `-Dmaven.repo.local`.
+
+## 2026-11-19 - JBang catalog: pinned aliases, a demo that relaunches itself (#57)
+
+`jbang-catalog.json` at the repository root has two aliases, `analyze`
+and `demo`, so `jbang demo@ionut-banu/scope-tracer` runs without a
+clone or a build. Decided with the maintainer: the aliases name the
+latest release and move only in the release commit (a bare
+`group:artifact` would move under users, and `main` must never name an
+artifact that is not on Central); `check-release-docs.sh` requires the
+catalog and the demo source and a literal version on every scope-tracer
+coordinate in them. Both need JDK 27+, the demo with `--enable-preview`;
+JBang downloads JDK 27 itself when the machine has none (measured with
+JBang 0.143.0: 296 MB, 12 s, into JBang's own cache). The demo is one
+source file using only the JDK, so no change to `TracedScope` or the
+analyzer can break it.
+
+Measured with a real JBang 0.143.0 run, against what the issue assumed:
+the alias key `java-agents` is read from the catalog but ignored when
+the alias runs (no `-javaagent` reaches the JVM, with a GAV, a path or
+a URL), and `//JAVAAGENT` in a source does not attach an external agent
+(it marks the file itself as an agent and splits its value on `=`, so
+`record=<path>` cannot be written either). Only the CLI flag
+`--javaagent` works, and an alias cannot add CLI flags. So the demo has
+`//DEPS com.ionutbanu:scope-tracer-agent:X.Y.Z:agent`, which puts the
+agent jar on its class path, and starts itself a second time in a
+child JVM with `-javaagent:<that jar>=record=scope-tracer-demo.jfr`
+(scope-tracer's own jars left off the child's class path), which keeps
+the fixed file name. The `analyze` alias takes the release asset URL,
+not a Maven coordinate: JBang adds the pom's dependencies (`scope-tracer-core`
+and a second `slf4j-api`) after the already self-contained
+`-executable` jar. Cost: JBang asks the user once to trust the
+`github.com/.../releases/download/` URL for `analyze`.
