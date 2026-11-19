@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **README quick start from the released jars.** The README opens with a real report (the
+  gallery's fail-fast report, as `docs/img/readme-report.png`) and a one-command quick start:
+  `curl` the agent from the GitHub Release, run a small `Trial.java` under
+  `-javaagent:...=record`, and open `trial.html`. Nothing is cloned or built. The analyzer is run
+  from its released `-executable` jar without `--enable-preview`, and the agent, analyzer and
+  filter reference follows the `TracedScope` and plugin sections; the contributor material
+  (building, demos, modules, the plugin build) moved under "Contributing". The landing page's
+  trial command is the same block, and `check-release-docs.sh` now fails a release where either
+  file lacks the `=record` command at the release version.
+
 ## [0.4.0] - 2026-11-19
 
 ### Added

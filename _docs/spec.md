@@ -699,6 +699,14 @@ try (var file = new RecordingFile(tempPath)) {
   runs in CI after `verify` and fails a pull request whose renderer
   change was not followed by regenerating them. `docs/` is published;
   `_docs/` is not.
+- The README's quick start uses only released artifacts (the GitHub
+  Release jars, Maven Central), with literal versions that
+  `check-release-docs.sh` checks; its lead image is
+  `docs/img/readme-report.png`, a screenshot of the committed gallery
+  report `fail-fast.html`, and `.github/scripts/readme-image.sh --check`
+  (a CI step beside `GalleryMain --check`) fails when that report
+  changed and the image was not shot again. The landing page's trial
+  command is the README's quick start block.
 - Dependabot opens weekly PRs; they are merged by a human outside the
   issue loop.
 

@@ -889,3 +889,36 @@ fail the build. `OrderProcessingDemo` draws from generators seeded
 from order id and step, so ORD-002 is always the declined order and
 `#scope-2` on the landing page always opens on it. The joiner's name
 on `ScopeOpened` is out of scope (#156).
+
+## 2026-11-19 - README leads with a report and a one-command trial (#60)
+
+The README's first element is a screenshot of the gallery's fail-fast
+report, not a new illustration: it is the real renderer's output, the
+report already says what the tool is, and a gallery report cannot
+drift from the renderer silently. A PNG cannot be compared byte for
+byte (times and thread names change each run), so
+`readme-image.sh` writes the SHA-256 of the report it was shot from
+beside the PNG and `--check`, which needs no Chrome, runs in CI
+beside `GalleryMain --check`: regenerating the gallery without
+shooting the image again fails the pull request. The order-processing
+report was not used: shot at `#scope-2` it is blank in headless Chrome.
+
+The quick start is a self-contained trial (a `Trial.java` heredoc with
+a succeeding, a failing and a slow task, run under
+`-javaagent:...=record`), not `<your-classpath> com.example.MyApp`:
+it is the only form that runs as written and ends in a report in
+seconds, with nothing cloned and no Maven. The own-program form
+follows it. The landing page carries the same block, and
+`check-release-docs.sh` checks that both files hold the `=record`
+command at the release version. The quick start is for a POSIX shell;
+Windows is untested and says so. The README's license badge became
+plain text, so nothing in the first screen depends on shields.io
+reaching GitHub.
+
+The order is quick start, what the report shows, `TracedScope`, the
+plugin, reference, contributing: the agent leads because spec section 1
+makes the agent and the IDE the primary experience, `TracedScope`
+follows, and building from source is for contributors, so it comes
+last. The agent and analyzer reference stays in the README (under
+"Reference") rather than moving to `docs/*.md`; the "Demos" heading
+keeps its name because `AGENTS.md` and `CONTRIBUTING.md` cite it.
