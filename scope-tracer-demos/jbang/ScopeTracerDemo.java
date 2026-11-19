@@ -112,33 +112,46 @@ public class ScopeTracerDemo {
         classPath.add(entry);
       }
     }
-    List<String> command =
-        new ArrayList<>(
-            List.of(
-            System.getProperty("java.home") + File.separator + "bin" + File.separator + "java",
-            "-javaagent:" + agentJar + "=record=scope-tracer-demo.jfr",
-            "--enable-preview",
-            "-D" + CHILD + "=true",
-            "-classpath",
-            String.join(File.pathSeparator, classPath),
-            ScopeTracerDemo.class.getName()));
+    List<String> command = new ArrayList<>();
+    command.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java");
+    command.add("-javaagent:" + agentJar + "=record=scope-tracer-demo.jfr");
+    command.add("--enable-preview");
+    command.add("-D" + CHILD + "=true");
+    command.add("-classpath");
+    command.add(String.join(File.pathSeparator, classPath));
+    command.add(ScopeTracerDemo.class.getName());
     command.addAll(List.of(args));
-    Process child = new ProcessBuilder(command).inheritIO().start();
+
     // SIGTERM to this JVM must not orphan the child: stop it too, and give its own shutdown hooks
-    // (the agent writing the report) a few seconds. Ctrl-C reaches both JVMs already.
+    // (the agent writing the report) a few seconds. Ctrl-C reaches both JVMs already. The hook is
+    // registered before the child is started and takes the lock the start holds, so a signal that
+    // arrives while the child is being started waits for it, and one that arrives before it is
+    // started finds nothing to stop.
+    Object lock = new Object();
+    Process[] child = new Process[1];
     Runtime.getRuntime()
         .addShutdownHook(
             new Thread(
                 () -> {
-                  child.destroy();
+                  Process p;
+                  synchronized (lock) {
+                    p = child[0];
+                  }
+                  if (p == null) {
+                    return;
+                  }
+                  p.destroy();
                   try {
-                    if (!child.waitFor(10, TimeUnit.SECONDS)) {
-                      child.destroyForcibly();
+                    if (!p.waitFor(10, TimeUnit.SECONDS)) {
+                      p.destroyForcibly();
                     }
                   } catch (InterruptedException e) {
-                    child.destroyForcibly();
+                    p.destroyForcibly();
                   }
                 }));
-    return child.waitFor();
+    synchronized (lock) {
+      child[0] = new ProcessBuilder(command).inheritIO().start();
+    }
+    return child[0].waitFor();
   }
 }

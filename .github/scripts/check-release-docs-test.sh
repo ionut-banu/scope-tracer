@@ -46,7 +46,7 @@ EOT
 {
   "aliases": {
     "analyze": {
-      "script-ref": "https://github.com/example/scope-tracer/releases/download/v$V/scope-tracer-analyzer-$V-executable.jar",
+      "script-ref": "https://github.com/ionut-banu/scope-tracer/releases/download/v$V/scope-tracer-analyzer-$V-executable.jar",
       "java": "27+"
     },
     "demo": {
@@ -146,6 +146,7 @@ m_jbang_no_artifact() {
 m_jbang_latest_url() { sed "s|releases/download/v$V/|releases/latest/download/|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
 m_jbang_unrelated_jar() { sed "s|\"script-ref\": \"https[^\"]*\"|\"script-ref\": \"https://example.com/other-1.0.jar\"|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
 m_demo_latest_url() { echo "// see https://github.com/example/scope-tracer/releases/latest" >> "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java"; }
+m_jbang_other_host() { sed "s|\"script-ref\": \"https[^\"]*\"|\"script-ref\": \"https://example.com/releases/download/v$V/scope-tracer-analyzer-$V-executable.jar\"|" "$1/jbang-catalog.json" > "$1/x" && mv "$1/x" "$1/jbang-catalog.json"; }
 m_jbang_missing() { rm "$1/jbang-catalog.json"; }
 m_demo_stale() { sed "s|agent:$V:agent|agent:$OLD:agent|" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java" > "$1/x" && mv "$1/x" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java"; }
 m_demo_unversioned() { sed "s|agent:$V:agent|agent|" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java" > "$1/x" && mv "$1/x" "$1/scope-tracer-demos/jbang/ScopeTracerDemo.java"; }
@@ -209,6 +210,7 @@ run_case "catalog and demo name no artifact"         1 "no scope-tracer artifact
 run_case "catalog script-ref is a releases/latest URL" 1 "releases/latest URL moves" m_jbang_latest_url
 run_case "catalog script-ref is an unrelated jar"    1 "jbang-catalog.json::no scope-tracer artifact" m_jbang_unrelated_jar
 run_case "demo source mentions releases/latest"      1 "ScopeTracerDemo.java::a releases/latest" m_demo_latest_url
+run_case "catalog URL on another host"               1 "jbang-catalog.json::no scope-tracer artifact" m_jbang_other_host
 run_case "jbang-catalog.json missing"                1 "jbang-catalog.json::file not found" m_jbang_missing
 run_case "demo source stale agent coordinate"        1 "ScopeTracerDemo.java::line 3" m_demo_stale
 run_case "demo source agent without a version"       1 "no literal X.Y.Z version"   m_demo_unversioned

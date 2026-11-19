@@ -699,8 +699,13 @@ try (var file = new RecordingFile(tempPath)) {
   runs itself in a child JVM with the agent attached and `record`). Both
   name the latest release with a literal version and change only in the
   release commit; `check-release-docs.sh` reads the catalog and the demo
-  source and fails when either is missing or a scope-tracer coordinate
-  in them has no literal version.
+  source and fails when either is missing, when a scope-tracer
+  coordinate in them has no literal version, on any `releases/latest`
+  URL, and when the catalog itself names no pinned scope-tracer artifact
+  (a coordinate, or a `https://github.com/ionut-banu/scope-tracer/releases/download/vX.Y.Z/`
+  URL: the same path on another host does not count). The demo passes
+  its command-line arguments on to its child JVM, and SIGTERM to the
+  demo stops the child too.
 - Released: 0.1.0 (2026-05-14), 0.2.0 (2026-05-24), 0.3.0
   (2026-11-14), 0.4.0 (2026-11-19). `main` is 0.5.0-SNAPSHOT.
 - GitHub Pages serves `docs/`: the landing page, the gallery at

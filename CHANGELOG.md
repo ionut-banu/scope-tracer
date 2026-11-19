@@ -36,7 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nested scope) with the agent attached and leaves `scope-tracer-demo.jfr` and
   `scope-tracer-demo.html` in the current directory. The demo source is
   `scope-tracer-demos/jbang/ScopeTracerDemo.java`. The release check now requires the catalog and
-  the demo source and a literal version on every scope-tracer coordinate in them.
+  the demo source and a literal version on every scope-tracer coordinate in them, rejects any
+  `releases/latest` URL, and requires the catalog itself to name a pinned scope-tracer artifact on
+  this repository's releases. The demo passes its arguments on to the traced program, and stopping
+  it with SIGTERM stops the traced program too.
 
 ## [0.4.0] - 2026-11-19
 

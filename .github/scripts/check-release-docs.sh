@@ -110,12 +110,13 @@ for f in $JBANG_FILES; do
     echo "$tok" | grep -q -E "^com\.ionutbanu:scope-tracer-[a-z]+:[0-9]+\.[0-9]+\.[0-9]+(:[a-z]+)?$" \
       || err "$f" "line $line: coordinate '$tok' has no literal X.Y.Z version after the module name"
   done < <(tr -d '\r' < "$f" | grep -n -o -E "com\.ionutbanu:scope-tracer-[a-z]+[^[:space:]\"',)]*")
-  # A release asset URL names an artifact too (section 2 checks its version).
-  urls=$(tr -d '\r' < "$f" | grep -c -E "releases/download/v$VER_RE/scope-tracer-")
+  # A release asset URL on this repository names an artifact too (section 2 checks its version);
+  # the same path on another host is not scope-tracer's.
+  urls=$(tr -d '\r' < "$f" | grep -c -E "https://github\.com/ionut-banu/scope-tracer/releases/download/v$VER_RE/scope-tracer-")
   [ "$f" = "jbang-catalog.json" ] && jbang_named=$((jbang_named + urls))
 done
 if [ "$jbang_named" -lt 1 ]; then
-  err jbang-catalog.json "no scope-tracer artifact (com.ionutbanu:scope-tracer-<module>:X.Y.Z or a releases/download URL) found in jbang-catalog.json; an alias is gone, reshaped or points at an unrelated jar"
+  err jbang-catalog.json "no scope-tracer artifact (com.ionutbanu:scope-tracer-<module>:X.Y.Z or a https://github.com/ionut-banu/scope-tracer/releases/download/vX.Y.Z/ URL) found in jbang-catalog.json; an alias is gone, reshaped or points at an unrelated jar"
 fi
 if [ -f scope-tracer-demos/jbang/ScopeTracerDemo.java ] \
   && ! tr -d '\r' < scope-tracer-demos/jbang/ScopeTracerDemo.java | grep -q -E "^//DEPS com\.ionutbanu:scope-tracer-agent:$VER_RE:agent"; then
