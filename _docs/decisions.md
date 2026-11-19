@@ -922,3 +922,27 @@ follows, and building from source is for contributors, so it comes
 last. The agent and analyzer reference stays in the README (under
 "Reference") rather than moving to `docs/*.md`; the "Demos" heading
 keeps its name because `AGENTS.md` and `CONTRIBUTING.md` cite it.
+
+## 2026-11-19 - The Central bundle is checked, and demos opt out with skipPublishing (#162)
+
+`scope-tracer-demos` 0.3.0 and 0.4.0 reached Maven Central although its pom said it should not.
+The pom set `maven.deploy.skip`, which belongs to maven-deploy-plugin and is ignored because the
+central-publishing extension replaces that plugin, and `central.publishing.skip`, which is not a
+parameter of the plugin at all (absent from the 0.12.0 `plugin.xml`). The extension stages every
+reactor module's artifacts. The stress tests were safe only by accident: they are a `-Pstress`
+module, so `mvn -P release deploy` never had them in the reactor, and `-P release,stress` would
+have bundled them.
+
+The parameter the plugin reads is `skipPublishing`, so both poms set that property. Central never
+deletes a release, so the old demos artifacts stay; the README does not mention them (nobody
+links them), and the CHANGELOG says they were published by mistake and are unsupported.
+
+A property that nothing reads fails silently, so the release also checks the result.
+`.github/scripts/check-release-bundle.sh` fails when the bundle holds an artifactId other than
+the parent, core, analyzer and agent, or lacks one of them. It runs in the `check` job, on every
+tag push and on `check_only`, after a `mvn -P release deploy -DskipUpload=true` of the tag that
+needs no credentials and no signing key. It cannot run in `publish`: the extension builds and
+uploads in one `deploy`, so a check there would need a second build after the upload. It is not a
+pull request check: on `main` the version is a SNAPSHOT and the plugin stages nothing. Local runs
+of the release profile install into the local repository, so they use a scratch
+`-Dmaven.repo.local`.

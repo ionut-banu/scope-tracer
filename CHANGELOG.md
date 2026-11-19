@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`scope-tracer-demos` is no longer published to Maven Central.** The bundle held it although
+  its pom meant to skip it (the property it set is not read by the publishing plugin). 0.3.0 and
+  0.4.0 of `scope-tracer-demos` on Central were published by mistake and are not supported; run
+  the demos from a checkout. The release's `check` job now builds the bundle with
+  `-DskipUpload=true` and fails a release whose bundle holds anything but the parent POM, core,
+  analyzer and agent.
+
 ### Changed
 
 - **README quick start from the released jars.** The README opens with a real report (the

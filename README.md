@@ -557,7 +557,7 @@ cd scope-tracer-plugin && ./gradlew build  # bundles that jar and builds the plu
 | `scope-tracer-core` | `com.ionutbanu:scope-tracer-core` | `TracedScope` wrapper; emits JFR events |
 | `scope-tracer-analyzer` | `com.ionutbanu:scope-tracer-analyzer` | Parses `.jfr` files; renders HTML/SVG reports |
 | `scope-tracer-agent` | `com.ionutbanu:scope-tracer-agent` | Java agent; instruments `StructuredTaskScope` at bytecode level |
-| `scope-tracer-demos` | `com.ionutbanu:scope-tracer-demos` | Runnable example programs |
+| `scope-tracer-demos` | — | Runnable example programs; run from a checkout (see "Demos") |
 | `scope-tracer-stress-tests` | — | Concurrency stress tests; only built with `-Pstress` |
 | `scope-tracer-plugin` | — | IntelliJ plugin; separate Gradle build, not in the Maven reactor |
 
