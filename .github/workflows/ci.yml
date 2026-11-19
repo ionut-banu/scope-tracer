@@ -21,21 +21,24 @@ jobs:
           cache: maven
 
       - name: Self-test the release docs check
-        run: bash .github/scripts/check-release-docs-test.sh
+        run: |
+          bash .github/scripts/check-release-docs-test.sh
+          bash .github/scripts/readme-image-test.sh
 
       - name: Build, test, and style check
         run: mvn -q verify
 
       # The gallery under docs/ is generated. This fails the pull request when the renderer or a
       # scenario changed and the reports were not regenerated (run GalleryMain without --check
-      # and commit). Not part of `mvn verify`: it records real scopes, and a timing flake must
+      # and commit; then run .github/scripts/readme-image.sh). Not part of `mvn verify`: it records real scopes, and a timing flake must
       # not fail the build the way it would in a unit test.
-      - name: Check the gallery is up to date
+      - name: Check the gallery and the README image are up to date
         run: |
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           mvn -pl scope-tracer-demos -am -q -DskipTests package dependency:build-classpath -Dmdep.outputFile=/tmp/scope-tracer-cp.txt
           JARS="scope-tracer-core/target/scope-tracer-core-${VERSION}.jar:scope-tracer-analyzer/target/scope-tracer-analyzer-${VERSION}.jar:scope-tracer-demos/target/scope-tracer-demos-${VERSION}.jar:$(cat /tmp/scope-tracer-cp.txt)"
           java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.GalleryMain --check
+          .github/scripts/readme-image.sh --check
 
       - name: Upload Jacoco coverage reports
         if: always()
