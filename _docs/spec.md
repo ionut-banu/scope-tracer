@@ -687,8 +687,12 @@ try (var file = new RecordingFile(tempPath)) {
   release version) must pass before the `publish` job runs; a
   `check_only` dispatch input runs the check job alone. The script comes
   from the dispatched ref and reads the tag's docs, so a dry run from
-  `main` can check an old tag. Steps are in
-  `CONTRIBUTING.md`.
+  `main` can check an old tag. The release publishes the parent POM,
+  core, analyzer and agent only: the `check` job also builds the
+  bundle with `-DskipUpload=true`, and
+  `.github/scripts/check-release-bundle.sh` fails it when it holds any
+  other artifact (the demos and stress tests set `skipPublishing`).
+  Steps are in `CONTRIBUTING.md`.
 - Released: 0.1.0 (2026-05-14), 0.2.0 (2026-05-24), 0.3.0
   (2026-11-14), 0.4.0 (2026-11-19). `main` is 0.5.0-SNAPSHOT.
 - GitHub Pages serves `docs/`: the landing page, the gallery at

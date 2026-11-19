@@ -203,8 +203,13 @@ page's trial command are the same block). It prints every problem as a GitHub an
 script exits 2 on it and the release stops. There has never been one; supporting it is a later
 decision. `.github/scripts/check-release-docs-test.sh` is its self-test and runs in CI.
 
-The workflow's `check` job validates that the tag matches the pom version and runs
-`check-release-docs.sh` against the tag's docs. The `publish` job needs it, so nothing reaches
+The workflow's `check` job validates that the tag matches the pom version, runs
+`check-release-docs.sh` against the tag's docs, then builds the tag's Central bundle with
+`mvn -P release deploy -DskipUpload=true` (no credentials, no signing key) and runs
+`.github/scripts/check-release-bundle.sh` on it. That script fails when the bundle holds any
+artifact but the parent POM, core, analyzer and agent, or lacks one of them; the demos and the
+stress tests opt out with `skipPublishing`. `.github/scripts/check-release-bundle-test.sh` is its
+self-test and runs in CI. The `publish` job needs it, so nothing reaches
 Central when either fails. `publish` then runs the full `mvn -P release deploy`, waits for
 Central to confirm publication, then creates
 a GitHub Release using the matching CHANGELOG section as the body.
@@ -228,6 +233,17 @@ Before pushing the tag, dry-run the release profile end-to-end:
 export MAVEN_GPG_PASSPHRASE='...'
 mvn -P release verify
 # Expect: sources jar, javadoc jar, and .asc signatures under each module's target/
+```
+
+To see the Central bundle without a credential, do it on a throwaway copy of the tree with a
+non-SNAPSHOT version (a SNAPSHOT stages nothing), and a scratch local repository, because the
+release profile installs into it:
+
+```bash
+mvn versions:set -DnewVersion=X.Y.Z -DgenerateBackupPoms=false   # in the copy, never committed
+mvn -B -P release deploy -DskipTests -DskipITs -Dgpg.skip=true -DskipUpload=true \
+  -Dmaven.javadoc.skip=true -Dmaven.repo.local=/tmp/scratch-m2
+.github/scripts/check-release-bundle.sh target/central-publishing/central-bundle.zip
 ```
 
 To do a real staging publish without the auto-release flag, temporarily set

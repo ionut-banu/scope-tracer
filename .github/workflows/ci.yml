@@ -23,6 +23,7 @@ jobs:
       - name: Self-test the release docs check
         run: |
           bash .github/scripts/check-release-docs-test.sh
+          bash .github/scripts/check-release-bundle-test.sh
           bash .github/scripts/readme-image-test.sh
 
       - name: Build, test, and style check
