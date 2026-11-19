@@ -88,13 +88,13 @@
 
   <section>
     <h2>Zero-code-change tracing</h2>
-    <pre>curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.3.0/scope-tracer-agent-0.3.0-agent.jar
-curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.3.0/scope-tracer-analyzer-0.3.0-executable.jar
+    <pre>curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.4.0/scope-tracer-agent-0.4.0-agent.jar
+curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.4.0/scope-tracer-analyzer-0.4.0-executable.jar
 java --enable-preview \
-     -javaagent:scope-tracer-agent-0.3.0-agent.jar \
+     -javaagent:scope-tracer-agent-0.4.0-agent.jar \
      -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
      -cp &lt;your-classpath&gt; com.example.MyApp
-java -jar scope-tracer-analyzer-0.3.0-executable.jar myapp.jfr report.html</pre>
+java -jar scope-tracer-analyzer-0.4.0-executable.jar myapp.jfr report.html</pre>
     <p style="color:var(--muted);font-size:0.85rem;">
       Any JDK 27+ application using <code>StructuredTaskScope</code> gets traced —
       no source changes. See the

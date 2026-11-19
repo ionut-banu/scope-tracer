@@ -37,11 +37,11 @@ Targets JDK 27+ with `--enable-preview` (`StructuredTaskScope` is a preview API)
 <dependency>
   <groupId>com.ionutbanu</groupId>
   <artifactId>scope-tracer-core</artifactId>
-  <version>0.3.0</version>
+  <version>0.4.0</version>
 </dependency>
 ```
 
-0.3.0 requires JDK 27 (every jar is built with `--release 27`); on JDK 26, stay on 0.2.0.
+From 0.3.0 on, scope-tracer requires JDK 27 (every jar is built with `--release 27`); on JDK 26, stay on 0.2.0.
 
 `TracedScope` is a preview API on JDK 27, so your own build needs `--enable-preview` and
 `--release 27` to compile against it, and `--enable-preview` to run. Without them javac stops
@@ -60,7 +60,7 @@ with `... TracedScope.class uses preview features of Java SE 27`. In Maven:
 </plugin>
 ```
 
-With plain `javac`: `javac --enable-preview --release 27 -cp scope-tracer-core-0.3.0.jar ...`.
+With plain `javac`: `javac --enable-preview --release 27 -cp scope-tracer-core-0.4.0.jar ...`.
 
 ### 2. Open a `TracedScope` instead of a `StructuredTaskScope`
 
