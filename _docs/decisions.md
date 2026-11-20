@@ -978,3 +978,53 @@ not a Maven coordinate: JBang adds the pom's dependencies (`scope-tracer-core`
 and a second `slf4j-api`) after the already self-contained
 `-executable` jar. Cost: JBang asks the user once to trust the
 `github.com/.../releases/download/` URL for `analyze`.
+
+## 2026-11-20 - A signal during agent start-up can hang JDK 26+; documented, not fixed (#167)
+
+QA found that a JVM with the agent attached that gets SIGTERM in its first ~200 ms
+can hang until `kill -9`. Measured on macOS arm64 (Temurin 27.0.1, Temurin 26+35,
+Azul Zulu 21.0.11). It is a JDK bug: the thread that exits the JVM sits in
+`JVM_Halt` -> `before_exit` -> `JvmtiExport::post_vm_death` waiting for the JVMTI
+callback that is `premain`, and `premain`, defining a class, waits for a
+deoptimization handshake that needs the exiting thread. A standalone agent with no
+scope-tracer code that loads many `java.base` classes hangs the same way. JDK 26
+is affected; a JDK-only reproducer did not hang on Azul Zulu 21 (the agent itself
+needs JDK 27, so it was not run there). Only SIGTERM was measured.
+
+Not what the issue first assumed: the agent retransforms nothing at `premain`
+today (877 classes loaded, neither `StructuredTaskScope` nor its impl among them;
+`REDEFINE COMPLETE 0 batch(es)`), so narrowing the retransformation does nothing.
+What matters is how long `premain` keeps loading classes.
+
+Decision: document the limit (README agent reference, spec section 3, the
+`ScopeTracerAgent` Javadoc, CHANGELOG known issues), pin it with an IT, and do not
+change the agent. Wording says "JDK 26 and later", not "27.0.1 only". The bug id
+is a placeholder (`JDK-XXXXXXX`) until the maintainer gets one from OpenJDK.
+The occasional hangs a signal at 250-300 ms showed are not understood and are
+left out of the wording.
+
+Prototyped and rejected, all from `main`: (1) lazy install - `premain` only
+registers a transformer and ByteBuddy is built on the first `StructuredTaskScope`
+load: the hang moves to that load, `record` still hangs in `premain`, and an
+already-loaded `StructuredTaskScope` is missed; (2) installing on a background
+thread with the transformer waiting for it: still hangs; (3) swallowing SIGTERM,
+SIGINT and SIGHUP with `sun.misc.Signal` during `premain`, then re-raising: the
+re-raised exit races the launcher's main-class load and hangs. A
+`java.lang.classfile` rewrite without ByteBuddy was not tried; it is a redesign.
+Revisit if OpenJDK answers "won't fix".
+
+The IT is differential, because a signal sent after a delay is a race and
+`Thread.sleep` is not allowed. A test-only gate agent, first on the command line,
+blocks in a native `System.in.read()` at the first load of a class with the real
+agent's package prefix. That load happens while the agent's `Premain-Class` is
+loaded, just before `premain` is entered, not inside it. The test is still valid:
+the JVM is paused in the agent's start-up with the JVMTI start-up callbacks
+running, and the unmodified agent hung 22 of 22 gated runs. A gate in the gate
+agent's own `premain` does not work, since a second agent is never started once
+shutdown has begun. The test
+sends SIGTERM, waits for the gate's shutdown hook to print `GATE-HOOK`, and
+releases the gate. A control child (gate plus an agent that loads many
+`java.base` classes) says whether this JDK has the bug: if the control exits, the real agent
+must exit within 15 s; if the control hangs, the JDK is at fault and the test
+passes, printing `JDK shutdown hang present: <java.version>`. A red build that
+cannot be fixed would be `@Disabled` in another form.

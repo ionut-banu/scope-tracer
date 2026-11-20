@@ -556,6 +556,21 @@ recording; instrumentation is unaffected. The agent cannot tell at
 recording exists yet), so both together give two recordings, which
 share JFR's buffers: each file holds the other's events too.
 
+**Known JDK limitation (JDK-XXXXXXX).** On JDK 26 and later, a JVM
+that gets SIGTERM during the first ~200 ms of the
+agent's `premain` can hang until `kill -9`: the JVM's exit path waits
+in `JvmtiExport::post_vm_death` for a JVMTI callback (`premain`) that
+is itself waiting for a handshake the exiting thread must take part
+in. Any agent that loads many classes in `premain` triggers it. Measured
+on Temurin 27.0.1 and 26 (hangs) and Azul Zulu 21 (a JDK-only reproducer
+does not hang; the agent itself needs JDK 27). SIGINT and SIGHUP were
+not measured.
+`premain` does not defend against it, and the agent's instrumentation
+and timing are unchanged. A signal after `premain` has returned exits
+normally, with and without `record`. `AgentStartupSignalIT` pins this
+with a control child that has no scope-tracer code (see decisions,
+2026-11-20).
+
 ### Plugin
 
 The IDE runs on JBR (JDK 21) and cannot load classes compiled with
@@ -607,19 +622,19 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-18, #59, JDK 27) |
+| Suite | Runner | Count (2026-11-20, #167, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 169 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
 | agent unit | surefire | 182 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 282 |
-| demos unit | surefire | 61 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 284 |
+| demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first six: 828 tests (surefire plus
-failsafe, measured on 2026-11-18 on the branch of #59 on Temurin 27; the
+`mvn -q verify` runs the first six: 835 tests (surefire plus
+failsafe, measured on 2026-11-20 on the branch of #167 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

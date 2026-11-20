@@ -285,6 +285,8 @@ The agent:
 - Emits the same six JFR events as `TracedScope`, so the analyzer pipeline is identical.
 - **Do not** combine with `TracedScope` — each scope would emit duplicate events.
 
+**Known JDK limitation.** On JDK 26 and later (JDK-XXXXXXX), a JVM that receives SIGTERM while the agent is installing itself, roughly the first 200 ms of its life, may never exit and has to be stopped with `kill -9`. This is a JDK bug in the shutdown path, not something the agent does to your program: any agent that loads many classes in `premain` triggers it, and a reproducer with no scope-tracer code did not hang on JDK 21 (the agent itself needs JDK 27). A signal sent later exits normally. Start the JVM, wait until it has printed its first output, then stop it. SIGINT and SIGHUP were not measured.
+
 ### Capture filters & sampling
 
 For production deployments where you don't want to capture every scope, the agent accepts
