@@ -163,6 +163,16 @@ final class ChildJvm implements AutoCloseable {
     process.toHandle().destroyForcibly();
   }
 
+  /** Whether the process has ended within {@code limit}; does not kill it. */
+  boolean awaitExit(Duration limit) throws InterruptedException {
+    return process.waitFor(limit.toMillis(), TimeUnit.MILLISECONDS);
+  }
+
+  /** What the child has printed to stderr so far. */
+  String stderrSoFar() {
+    return err.text();
+  }
+
   /** Waits for the process to end, at most {@link #TIMEOUT}, and returns what it did. */
   Result finish() throws Exception {
     if (!process.waitFor(TIMEOUT.toSeconds(), TimeUnit.SECONDS)) {
