@@ -987,8 +987,9 @@ Azul Zulu 21.0.11). It is a JDK bug: the thread that exits the JVM sits in
 `JVM_Halt` -> `before_exit` -> `JvmtiExport::post_vm_death` waiting for the JVMTI
 callback that is `premain`, and `premain`, defining a class, waits for a
 deoptimization handshake that needs the exiting thread. A standalone agent with no
-scope-tracer code that only loads 1500 `java.base` classes hangs the same way.
-JDK 26 is affected; JDK 21 is not (so the regression is somewhere after 21).
+scope-tracer code that loads many `java.base` classes hangs the same way. JDK 26
+is affected; a JDK-only reproducer did not hang on Azul Zulu 21 (the agent itself
+needs JDK 27, so it was not run there). Only SIGTERM was measured.
 
 Not what the issue first assumed: the agent retransforms nothing at `premain`
 today (877 classes loaded, neither `StructuredTaskScope` nor its impl among them;
@@ -1015,11 +1016,15 @@ Revisit if OpenJDK answers "won't fix".
 The IT is differential, because a signal sent after a delay is a race and
 `Thread.sleep` is not allowed. A test-only gate agent, first on the command line,
 blocks in a native `System.in.read()` at the first load of a class with the real
-agent's package prefix (inside its `premain`; a gate in its own `premain` does not
-work, since a second agent is never started once shutdown has begun). The test
+agent's package prefix. That load happens while the agent's `Premain-Class` is
+loaded, just before `premain` is entered, not inside it. The test is still valid:
+the JVM is paused in the agent's start-up with the JVMTI start-up callbacks
+running, and the unmodified agent hung 22 of 22 gated runs. A gate in the gate
+agent's own `premain` does not work, since a second agent is never started once
+shutdown has begun. The test
 sends SIGTERM, waits for the gate's shutdown hook to print `GATE-HOOK`, and
-releases the gate. A control child (gate plus an agent that loads 1500 JDK
-classes) says whether this JDK has the bug: if the control exits, the real agent
+releases the gate. A control child (gate plus an agent that loads many
+`java.base` classes) says whether this JDK has the bug: if the control exits, the real agent
 must exit within 15 s; if the control hangs, the JDK is at fault and the test
 passes, printing `JDK shutdown hang present: <java.version>`. A red build that
 cannot be fixed would be `@Disabled` in another form.

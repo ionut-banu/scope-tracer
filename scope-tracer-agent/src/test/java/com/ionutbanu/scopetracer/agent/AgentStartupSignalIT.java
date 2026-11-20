@@ -22,16 +22,19 @@ import org.junit.jupiter.api.io.TempDir;
  * A SIGTERM that arrives while the agent is installing itself (issue #167). On JDK 26 and later a
  * JVM signalled while any agent's {@code premain} is loading classes can hang in its exit path
  * (JDK-XXXXXXX); the agent cannot avoid it. So the test is differential: a control child with the
- * same gate and an agent that only loads 1500 JDK classes says whether this JDK has the bug. If it
- * exits, the JDK is fine and the real agent must exit too. If it hangs, the JDK is at fault and the
- * test passes, saying so. The test fails only when the control exits and the agent's JVM does not.
+ * same gate and an agent whose {@code premain} loads many JDK classes says whether this JDK has the
+ * bug. If it exits, the JDK is fine and the real agent must exit too. If it hangs, the JDK is at
+ * fault and the test passes, saying so. The test fails only when the control exits and the agent's
+ * JVM does not.
  *
  * <p>A signal sent after a delay would be a race, so the child is paused instead: {@link
  * StartupGateAgent}, listed first, blocks in a native read at the first class load with the real
- * agent's package prefix, that is inside its {@code premain}. The test sends SIGTERM, waits for the
- * gate's shutdown hook to print {@code GATE-HOOK}, then writes one byte to release the read. It
- * waits on output lines only, never on time. Every child is closed in a {@code finally}, which
- * kills it if it is still alive.
+ * agent's package prefix. That is while the agent's {@code Premain-Class} loads, just before {@code
+ * premain} is entered, not inside it; the JVM is still paused in the agent's start-up, and the
+ * unmodified agent hung in every gated run. The test sends SIGTERM, waits for the gate's shutdown
+ * hook to print {@code GATE-HOOK}, then writes one byte to release the read. It waits on output
+ * lines only, never on time. Every child is closed in a {@code finally}, which kills it if it is
+ * still alive.
  */
 class AgentStartupSignalIT {
 
@@ -53,7 +56,7 @@ class AgentStartupSignalIT {
     Path gate = agentJar(dir, StartupGateAgent.class);
     Path control = agentJar(dir, ClassLoadingControlAgent.class);
 
-    // the control: the gate and an agent that loads 1500 classes, no scope-tracer code
+    // the control: the gate and an agent that loads many classes, no scope-tracer code
     var controlRun =
         signalledAtGate(
             dir,

@@ -10,9 +10,10 @@ import java.util.stream.Stream;
 
 /**
  * A test-only agent for {@link AgentStartupSignalIT} with no scope-tracer code in it: its {@code
- * premain} loads 1500 classes of {@code java.base}, without initializing them. It stands for "any
- * agent that loads many classes at start-up", so the test can tell whether the JDK itself hangs
- * when it is signalled in such a {@code premain}.
+ * premain} loads many classes of {@code java.base}, without initializing them (the {@code jrt:}
+ * walk alone loads plenty: with no extra classes it still hangs). It stands for "any agent that
+ * loads many classes at start-up", so the test can tell whether the JDK itself hangs when it is
+ * signalled in such a {@code premain}.
  */
 public final class ClassLoadingControlAgent {
 

@@ -6,11 +6,12 @@ import java.security.ProtectionDomain;
 
 /**
  * A test-only agent for {@link AgentStartupSignalIT}, listed first on the command line. It pauses
- * the JVM at a known point inside the agent listed after it: the first time a class whose internal
- * name starts with the prefix in its agent argument is loaded, it prints {@code GATE-READY} and
- * blocks in a native {@code System.in.read()} until the test writes a byte. The block is
- * safepoint-safe, so the JVM can begin shutting down while the other agent's {@code premain} is
- * paused. A shutdown hook prints {@code GATE-HOOK} once the JVM has started to exit.
+ * the JVM at a known point in the start-up of the agent listed after it (while its Premain-Class
+ * loads): the first time a class whose internal name starts with the prefix in its agent argument
+ * is loaded, it prints {@code GATE-READY} and blocks in a native {@code System.in.read()} until the
+ * test writes a byte. The block is safepoint-safe, so the JVM can begin shutting down while the
+ * other agent starts up and is paused. A shutdown hook prints {@code GATE-HOOK} once the JVM has
+ * started to exit.
  *
  * <p>The gate cannot sit in its own {@code premain}: an agent listed second is never started if
  * shutdown has already begun.

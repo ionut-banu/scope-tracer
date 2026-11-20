@@ -557,12 +557,14 @@ recording exists yet), so both together give two recordings, which
 share JFR's buffers: each file holds the other's events too.
 
 **Known JDK limitation (JDK-XXXXXXX).** On JDK 26 and later, a JVM
-that gets SIGTERM, SIGINT or SIGHUP during the first ~200 ms of the
+that gets SIGTERM during the first ~200 ms of the
 agent's `premain` can hang until `kill -9`: the JVM's exit path waits
 in `JvmtiExport::post_vm_death` for a JVMTI callback (`premain`) that
 is itself waiting for a handshake the exiting thread must take part
-in. Any agent that loads many classes in `premain` triggers it; JDK 21
-is not affected (measured on Temurin 27.0.1 and 26, Azul Zulu 21).
+in. Any agent that loads many classes in `premain` triggers it. Measured
+on Temurin 27.0.1 and 26 (hangs) and Azul Zulu 21 (a JDK-only reproducer
+does not hang; the agent itself needs JDK 27). SIGINT and SIGHUP were
+not measured.
 `premain` does not defend against it, and the agent's instrumentation
 and timing are unchanged. A signal after `premain` has returned exits
 normally, with and without `record`. `AgentStartupSignalIT` pins this
@@ -627,7 +629,7 @@ input. Both sides change in the same issue.
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
 | agent unit | surefire | 182 |
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 284 |
-| demos unit | surefire | 61 |
+| demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
