@@ -151,6 +151,11 @@ import net.bytebuddy.utility.OpenedClassReader;
  *   <li>{@code fork(Runnable)} tasks are traced transparently: the JDK delegates {@code
  *       fork(Runnable)} to {@code fork(Callable)} internally, so the existing {@code
  *       fork(Callable)} advice covers both overloads.
+ *   <li>JDK 26 and later (JDK-XXXXXXX): a JVM that gets SIGTERM, SIGINT or SIGHUP during the first
+ *       ~200 ms of {@code premain} can hang until {@code kill -9}. The JVM's exit path waits in
+ *       {@code JvmtiExport::post_vm_death} for a JVMTI callback that is itself waiting for a
+ *       handshake. {@code premain} does not defend against it; any agent that loads many classes
+ *       there triggers it, and JDK 21 is not affected. A signal sent later exits normally.
  * </ul>
  */
 public final class ScopeTracerAgent {

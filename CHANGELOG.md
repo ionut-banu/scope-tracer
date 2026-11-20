@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Known issues
+
+- **JDK 26 and later: a signal during agent start-up can hang the JVM** (JDK-XXXXXXX). A JVM that
+  gets SIGTERM, SIGINT or SIGHUP in the first ~200 ms of its life, while the agent installs
+  itself, may never exit and needs `kill -9`. It is a JDK bug in the shutdown path that any agent
+  loading many classes in `premain` triggers; JDK 21 is not affected. The agent cannot avoid it in
+  this release. `AgentStartupSignalIT` pins the behaviour against a control with no scope-tracer
+  code. See the README's agent reference (#167).
+
 ### Fixed
 
 - **`scope-tracer-demos` is no longer published to Maven Central.** The bundle held it although
