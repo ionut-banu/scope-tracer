@@ -54,10 +54,12 @@ java --enable-preview -cp "$JARS" com.ionutbanu.scopetracer.demos.GalleryMain
 
 After regenerating the gallery, run `.github/scripts/readme-image.sh` and commit the PNG and the
 sidecar it writes (`docs/img/readme-report.png` and `.source`): the README's lead image is a
-screenshot of `docs/gallery/reports/fail-fast.html`, and the sidecar holds the SHA-256 of the
-report it was shot from. The script needs headless Chrome (`$CHROME`, or a Chrome or Chromium it
+screenshot of `docs/gallery/reports/fail-fast.html`, and the sidecar holds two rows in
+`sha256sum`'s format, the SHA-256 of the report it was shot from and of the PNG itself (hex is
+compared in lower case). The script needs headless Chrome (`$CHROME`, or a Chrome or Chromium it
 finds); nothing else needs one. CI runs `.github/scripts/readme-image.sh --check`, which needs no
-Chrome and fails when the report changed and the image was not shot again.
+Chrome and fails when the report changed and the image was not shot again, or when the PNG is
+empty, truncated or edited.
 
 CI runs the same command with `--check` after `mvn -q verify`, and fails the pull request when a
 committed report no longer matches what the renderer and the JDK produce (it ignores times,
@@ -195,17 +197,20 @@ Step 2 is what keeps a release from shipping stale text. Before the release comm
 
 `.github/scripts/check-release-docs.sh` checks the first three and the CHANGELOG heading and
 link of the fourth. It reads `README.md`, `CONTRIBUTING.md`, `docs/*.md`, `docs/index.html`,
-`jbang-catalog.json` and `scope-tracer-demos/jbang/ScopeTracerDemo.java` (the last two are
-required) and fails on:
+`jbang-catalog.json` and `scope-tracer-demos/jbang/ScopeTracerDemo.java` (all but `docs/*.md`
+are required) and fails on:
 
 - any scope-tracer `<version>`, jar name, `group:artifact:version` coordinate or
   `releases/download/vX.Y.Z` URL that is not the release version;
 - in the two JBang files, a scope-tracer coordinate with no literal `X.Y.Z`, any
   `releases/latest` URL, a catalog that names no pinned scope-tracer artifact itself, and a demo
   source without its `//DEPS com.ionutbanu:scope-tracer-agent:X.Y.Z:agent` line;
-- a README with no dependency snippet, and a `README.md` or `docs/index.html` without the agent's
-  `-javaagent:scope-tracer-agent-X.Y.Z-agent.jar=record` command (the quick start and the
-  landing page's trial command are the same block);
+- a README with no dependency snippet, a landing page that names no `releases/download/vX.Y.Z`
+  URL (HTML comments are ignored for both: a snippet or URL a reader cannot see does not count;
+  a stale version inside a comment still fails), a README quick start block (the first bash
+  fence under `## Quick start`) or a landing page trial block (the first `<pre>`) without the
+  agent's `-javaagent:scope-tracer-agent-X.Y.Z-agent.jar=record` command, and two blocks that
+  are not equal once the page's entities are decoded;
 - a missing `## [X.Y.Z] - date` heading or `[X.Y.Z]:` link in `CHANGELOG.md`, and a spec §5
   `Released:` line that does not list `X.Y.Z (`.
 

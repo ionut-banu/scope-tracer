@@ -16,6 +16,17 @@ trap 'rm -rf "$TMP"' EXIT
 failures=0
 cases=0
 
+# The quick start block: README's first bash fence under "## Quick start" and the landing page's
+# <pre> hold this text, the page with entities. It has <<'EOF', -> and && so decoding is exercised.
+quick_block() {
+  cat <<EOT
+cat <<'EOF' > T.java
+class T {}
+EOF
+javac T.java && java -javaagent:scope-tracer-agent-$V-agent.jar=record=quick.jfr T -> done
+EOT
+}
+
 # A tree that the check accepts for $V.
 make_good() {
   local d="$1"
@@ -36,11 +47,20 @@ javac -cp scope-tracer-core-$V.jar Demo.java
 java -javaagent:scope-tracer-agent-\${VERSION}-agent.jar Demo
 curl -LO https://github.com/example/scope-tracer/releases/download/v$V/scope-tracer-agent-$V-agent.jar
 java -javaagent:scope-tracer-agent-$V-agent.jar=record=trial.jfr Trial.java
+
+## Quick start
+
+\`\`\`bash
+$(quick_block)
+\`\`\`
 EOT
   printf '# Contributing\n\nSee scope-tracer-core-%s.jar.\n' "$V" > "$d/CONTRIBUTING.md"
   printf '# Central\n\nUse com.ionutbanu:scope-tracer-core:%s here.\n' "$V" > "$d/docs/maven-central-setup.md"
   printf '# Events\n\nNo version here.\n' > "$d/docs/jfr-events.md"
-  printf '<html><body>https://example.com/releases/download/v%s/scope-tracer-agent-%s-agent.jar\njava -javaagent:scope-tracer-agent-%s-agent.jar=record=trial.jfr Trial.java</body></html>\n' "$V" "$V" "$V" > "$d/docs/index.html"
+  {
+    printf '<html><body>https://example.com/releases/download/v%s/scope-tracer-agent-%s-agent.jar\n' "$V" "$V"
+    printf '<pre>%s\n</pre>\n</body></html>\n' "$(quick_block | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
+  } > "$d/docs/index.html"
   mkdir -p "$d/scope-tracer-demos/jbang"
   cat > "$d/jbang-catalog.json" <<EOT
 {
@@ -106,7 +126,7 @@ run_case() {
     ok=0
     echo "FAIL $name: output lacks '$text'"
   fi
-  if printf '%s\n' "$out" | grep -q -E 'syntax error|command not found|unexpected|awk:|grep:'; then
+  if printf '%s\n' "$out" | grep -q -E 'syntax error|command not found|unexpected|awk:|grep:|No such file'; then
     ok=0
     echo "FAIL $name: output contains a shell or tool error"
   fi
@@ -183,6 +203,33 @@ m_crlf_all() {
   done
 }
 m_crlf_stale() { m_crlf_all "$1"; m_readme_version "$1"; }
+m_readme_block_no_record() { sed 's|=record=quick.jfr|=quick.jfr|' "$1/README.md" > "$1/x" && mv "$1/x" "$1/README.md"; }
+m_page_block_no_record() { sed 's|=record=quick.jfr|=quick.jfr|' "$1/docs/index.html" > "$1/x" && mv "$1/x" "$1/docs/index.html"; }
+m_page_record_in_comment() {
+  m_page_block_no_record "$1"
+  echo "<!-- java -javaagent:scope-tracer-agent-$V-agent.jar=record -->" >> "$1/docs/index.html"
+}
+m_readme_block_differs() { sed 's|class T {}|class U {}|' "$1/README.md" > "$1/x" && mv "$1/x" "$1/README.md"; }
+m_page_block_differs() { sed 's|class T {}|class U {}|' "$1/docs/index.html" > "$1/x" && mv "$1/x" "$1/docs/index.html"; }
+m_readme_no_quick_start() { sed 's|^## Quick start|## Getting started|' "$1/README.md" > "$1/x" && mv "$1/x" "$1/README.md"; }
+m_readme_fence_unclosed() { sed '$d' "$1/README.md" > "$1/x" && mv "$1/x" "$1/README.md"; }
+m_page_no_pre() { sed -e 's|<pre>||' -e 's|</pre>||' "$1/docs/index.html" > "$1/x" && mv "$1/x" "$1/docs/index.html"; }
+# page line 1 replaced by $2 (awk -v reads \n as a newline)
+page_head() { awk -v h="$2" 'NR == 1 { print h; next } { print }' "$1/docs/index.html" > "$1/x" && mv "$1/x" "$1/docs/index.html"; }
+URL="https://example.com/releases/download/v$V/scope-tracer-agent-$V-agent.jar"
+m_url_one_line_comment() { page_head "$1" "<html><body><!-- $URL -->"; }
+m_url_multi_line_comment() { page_head "$1" "<html><body><!--\n$URL\n-->"; }
+m_url_between_comments() { page_head "$1" "<html><body><!-- a --> $URL <!-- b -->"; }
+m_url_after_comment() { page_head "$1" "<html><body><!-- a --> $URL"; }
+m_url_after_unterminated() { page_head "$1" "<html><body><!-- a\n$URL"; }
+m_page_deleted() { rm "$1/docs/index.html"; }
+m_readme_snippet_in_comment() { awk 'NR == 3 { print "<!--"; next } NR == 9 { print "-->"; next } { print }' "$1/README.md" > "$1/x" && mv "$1/x" "$1/README.md"; }
+m_stale_in_comment() { awk -v o="$OLD" 'NR == 2 { print "<!-- scope-tracer-core-" o ".jar -->" } { print }' "$1/README.md" > "$1/x" && mv "$1/x" "$1/README.md"; }
+m_crlf_comments() {
+  awk 'NR == 2 { print "<!-- a" ; print "b -->" } { print }' "$1/README.md" > "$1/x" && mv "$1/x" "$1/README.md"
+  page_head "$1" "<html><body><!-- a --> $URL <!-- b -->"
+  m_crlf_all "$1"
+}
 m_readme_missing() { rm "$1/README.md"; }
 
 run_case "good tree passes"                          0 "release docs name $V"        m_none
@@ -198,9 +245,9 @@ run_case "CONTRIBUTING stale jar"                    1 "CONTRIBUTING.md::line"  
 run_case "docs/*.md stale coordinate"                1 "docs/jfr-events.md::line"    m_docs_md
 run_case "docs/index.html stale jar"                 1 "docs/index.html::line"       m_docs_index
 run_case "docs/index.html names no download URL"     1 "docs/index.html::no releases/download" m_docs_index_no_url
-run_case "README lost the record command"            1 "README.md::no '-javaagent:scope-tracer-agent-$V-agent.jar=record'" m_readme_no_record
-run_case "landing page lost the record command"      1 "docs/index.html::no '-javaagent:scope-tracer-agent-$V-agent.jar=record'" m_index_no_record
-run_case "README record command at the old version"  1 "README.md::no '-javaagent" m_readme_record_stale
+run_case "README lost the record command"            1 "README.md::the first bash block under '## Quick start' has no '-javaagent:scope-tracer-agent-$V-agent.jar=record'" m_readme_no_record
+run_case "landing page lost the record command"      1 "docs/index.html::the first <pre> (comments ignored) has no '-javaagent:scope-tracer-agent-$V-agent.jar=record'" m_index_no_record
+run_case "README record command at the old version"  1 "README.md::the first bash block under '## Quick start' has no" m_readme_record_stale
 run_case "catalog stale release URL"                 1 "jbang-catalog.json::line"    m_jbang_stale_url
 run_case "catalog stale analyzer coordinate"         1 "jbang-catalog.json::line 4: 'com.ionutbanu:scope-tracer-analyzer:$OLD'" m_jbang_stale_gav
 run_case "catalog coordinate without a version"      1 "no literal X.Y.Z version"   m_jbang_gav_unversioned
@@ -228,6 +275,23 @@ run_case "spec missing is one error line"            1 "_docs/spec.md::file not 
 run_case "README missing"                            1 "README.md::file not found"   m_readme_missing
 run_case "CRLF files pass"                           0 "release docs name $V"        m_crlf_all
 run_case "CRLF files, stale README still fails"      1 "README.md::line 7"           m_crlf_stale
+run_case "download URL only in a one-line comment"   1 "docs/index.html::no releases/download" m_url_one_line_comment
+run_case "download URL only in a multi-line comment" 1 "docs/index.html::no releases/download" m_url_multi_line_comment
+run_case "download URL between two comments"         0 "release docs name $V"        m_url_between_comments
+run_case "download URL after a closed comment"       0 "release docs name $V"        m_url_after_comment
+run_case "download URL after an unterminated comment" 1 "docs/index.html::no releases/download" m_url_after_unterminated
+run_case "docs/index.html deleted"                   1 "::error file=docs/index.html::file not found; the release docs check expects it" m_page_deleted
+run_case "README snippet only in a comment"          1 "README.md::no scope-tracer dependency" m_readme_snippet_in_comment
+run_case "README block lost record, own-program line has it" 1 "README.md::the first bash block under '## Quick start' has no" m_readme_block_no_record
+run_case "page block lost record"                    1 "docs/index.html::the first <pre> (comments ignored) has no" m_page_block_no_record
+run_case "page record only inside a comment"         1 "docs/index.html::the first <pre> (comments ignored) has no" m_page_record_in_comment
+run_case "README block differs by one character"     1 "docs/index.html::the trial block differs from the README's quick start block; edit both together" m_readme_block_differs
+run_case "page block differs by one character"       1 "docs/index.html::the trial block differs from the README's quick start block; edit both together" m_page_block_differs
+run_case "README has no ## Quick start"              1 "README.md::no closed bash block under '## Quick start'" m_readme_no_quick_start
+run_case "README quick start fence unclosed"        1 "README.md::no closed bash block under '## Quick start'" m_readme_fence_unclosed
+run_case "page without a <pre>"                      1 "docs/index.html::no <pre> block" m_page_no_pre
+run_case "stale version inside a comment still fails" 1 "README.md::line 2: 'scope-tracer-core-$OLD'" m_stale_in_comment
+run_case "CRLF files with comments pass"             0 "release docs name $V"        m_crlf_comments
 run_case "argument missing"                          2 "usage:"                      m_none ""
 run_case "argument -SNAPSHOT"                        2 "usage:"                      m_none "$V-SNAPSHOT"
 run_case "argument with v prefix"                    2 "usage:"                      m_none "v$V"

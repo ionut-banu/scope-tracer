@@ -1028,3 +1028,24 @@ releases the gate. A control child (gate plus an agent that loads many
 must exit within 15 s; if the control hangs, the JDK is at fault and the test
 passes, printing `JDK shutdown hang present: <java.version>`. A red build that
 cannot be fixed would be `@Disabled` in another form.
+
+## 2026-11-22 - Release docs guards ignore what a reader cannot see; the PNG is pinned (#157)
+
+Found by QA on #60 and measured on `main` at 9d588e1: six guards passed for the wrong reason.
+A download URL or a README snippet inside an HTML comment satisfied "is it present"; a deleted
+`docs/index.html` was skipped; the README half of the `=record` guard was satisfied by a
+different line ("Trace your own program"); an emptied PNG matched its sidecar, which hashed only
+the report; an upper-case hex sidecar failed with a misleading "report changed".
+
+Decided: "is it present" guards read the page with HTML comments stripped (a small awk state
+machine, one output line per input line); the stale-version scans keep the raw file, so a stale
+version in a comment still fails. `docs/index.html` is required. The quick start block (first
+bash fence under `## Quick start`) and the trial block (first `<pre>`, entities decoded) are
+found by position, not by a marker comment, must each carry the `=record` command, and must be
+equal; a renamed heading fails loudly with its own message. The sidecar
+`docs/img/readme-report.source` is two `sha256sum`-format rows (report, PNG), found by path and
+compared in lower case; an empty or malformed one says "no valid SHA-256 row", not "changed".
+Rejected: a PNG signature check (the hash covers empty, truncated and edited files), a marker
+comment, an `href` requirement (the real page names the URL in plain text in a `<pre>`), and
+making `docs/*.md` a fixed list (those files carry no version a reader copies). The committed
+sidecar was migrated without re-shooting the PNG.
