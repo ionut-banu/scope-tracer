@@ -738,7 +738,7 @@ try (var file = new RecordingFile(tempPath)) {
   report `fail-fast.html`, and `.github/scripts/readme-image.sh --check`
   (a CI step beside `GalleryMain --check`) fails when that report
   changed and the image was not shot again. The landing page's trial
-  command is the README's quick start block.
+  command is the README's quick start block, checked byte for byte.
 - Dependabot opens weekly PRs; they are merged by a human outside the
   issue loop.
 
