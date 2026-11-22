@@ -840,8 +840,8 @@ jar's manifest, or the last copy's. A second layout the rule does
 not read, found by QA: a `-cp` jar whose manifest `Class-Path` lists
 the `-javaagent` jar and then another scope-tracer jar. The last
 copy is that other jar, which is not a `java.class.path` entry, so
-the agent chooses it. Known and not handled here; #158 is the
-follow-up. A wrong guess would instrument with the wrong jar,
+the agent chooses it. Not handled here; #158 handled it (see the
+2026-11-22 entry). A wrong guess would instrument with the wrong jar,
 which is the bug; the maintainer chose to refuse. When the copies
 cannot be listed or read, the running copy's jar is used, as before.
 
@@ -1049,3 +1049,43 @@ Rejected: a PNG signature check (the hash covers empty, truncated and edited fil
 comment, an `href` requirement (the real page names the URL in plain text in a `<pre>`), and
 making `docs/*.md` a fixed list (those files carry no version a reader copies). The committed
 sidecar was migrated without re-shooting the PNG.
+
+## 2026-11-22 - A last copy reachable through a manifest Class-Path refuses (#158)
+
+The #128 rule, "the last copy of `ScopeTracerAgent.class` is the
+`-javaagent` jar unless it is a `java.class.path` entry", rested on
+the JVM appending the `-javaagent` jar. Measured on Temurin 27.0.1,
+it does not append a jar that is already reachable through a `-cp`
+jar's manifest `Class-Path` either. With `Class-Path: agent.jar
+thin.jar` the system loader lists exactly `[agent.jar, thin.jar]`:
+the last copy is the thin jar, which is not an entry, so the agent
+printed `ignoring agent.jar ... the -javaagent jar is thin.jar`,
+appended the thin jar and failed with `NoClassDefFoundError`; with
+another fat-jar in place of the thin one, it traced from that jar.
+
+Decided: only when the last copy is not the running copy, and is
+not a `-cp` entry, `BootstrapEntry.chooseJar` expands
+`java.class.path` through every jar's manifest `Class-Path`, breadth
+first, each file once by real path, with the JVM's resolution rules
+(space-separated URLs relative to the listing jar; `./`, `../`,
+absolute, `file:` and `%20` resolve; a raw space, a backslash, a
+directory, `*` and `http:` find nothing; a missing entry is
+skipped). A reachable last copy refuses with the existing `WARN not
+tracing` line plus `(listed by the Class-Path of <jar>)`; an
+unreachable one was appended by the JVM, so it is the `-javaagent`
+jar, as before. Comparing positions alone cannot work: `[agent,
+thin]` and `[thin, agent]` look the same whichever jar is the
+`-javaagent` one.
+
+The maintainer's three answers on the issue: `Class-Path: thin.jar
+agent.jar`, which traced by luck, refuses, as `-cp
+thin.jar:agent.jar` does since #128; the expansion has no size or
+depth cap, because each file is read once, errors are swallowed per
+entry, and it runs only in the layout that would otherwise be wrong;
+and the refusal names the listing jar, so the fix is findable in a
+chain. A failure of the walk as a whole keeps the pre-#158 answer
+(the last copy). The common case, a renamed jar with no other
+scope-tracer copy, reads no manifest, so #167's start-up window does
+not widen: with a `-cp` jar listing 400 real jars from `~/.m2`, 11
+runs each, the median was 379 ms under the original name, 374 ms
+renamed, and 422 ms in a layout that forced the expansion.

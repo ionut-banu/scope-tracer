@@ -341,7 +341,10 @@ Replace `<your-classpath>` and `com.acme.Main` with your own classpath and main 
 > (`scope-tracer-agent-<v>-agent.jar`), or adding `-Xbootclasspath/a:<path to the jar>`
 > beside `-javaagent`, avoids it. A scope-tracer jar also on `-cp` (the thin jar, say) does
 > not replace a renamed agent jar: the agent names the one it ignores in a second
-> `[scope-tracer]` line.
+> `[scope-tracer]` line. When the renamed jar is itself reachable from `-cp` together with
+> another scope-tracer jar, directly or through a jar's manifest `Class-Path`, the agent
+> cannot tell which is its own: it traces nothing and one `WARN not tracing` line names both
+> jars and the fix.
 
 ### The analyzer
 
