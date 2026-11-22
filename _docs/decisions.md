@@ -840,8 +840,8 @@ jar's manifest, or the last copy's. A second layout the rule does
 not read, found by QA: a `-cp` jar whose manifest `Class-Path` lists
 the `-javaagent` jar and then another scope-tracer jar. The last
 copy is that other jar, which is not a `java.class.path` entry, so
-the agent chooses it. Not handled here; #158 handled it (see the
-2026-11-22 entry). A wrong guess would instrument with the wrong jar,
+the agent chooses it. Known and not handled here; #158 is the
+follow-up. A wrong guess would instrument with the wrong jar,
 which is the bug; the maintainer chose to refuse. When the copies
 cannot be listed or read, the running copy's jar is used, as before.
 
@@ -1051,6 +1051,9 @@ making `docs/*.md` a fixed list (those files carry no version a reader copies). 
 sidecar was migrated without re-shooting the PNG.
 
 ## 2026-11-22 - A last copy reachable through a manifest Class-Path refuses (#158)
+
+This supersedes the 2026-11-18 entry's "Known and not handled here;
+#158 is the follow-up." The layout is now handled.
 
 The #128 rule, "the last copy of `ScopeTracerAgent.class` is the
 `-javaagent` jar unless it is a `java.class.path` entry", rested on
