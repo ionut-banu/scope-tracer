@@ -8,6 +8,7 @@ import java.io.StringWriter;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
@@ -331,21 +332,25 @@ class TracedScopeTypingTest {
         Path.of(TracedScope.class.getProtectionDomain().getCodeSource().getLocation().toURI());
     var javac = ToolProvider.findFirst("javac").orElseThrow();
     var output = new StringWriter();
+    var args = new ArrayList<String>();
+    args.add("--release");
+    args.add(Integer.toString(Runtime.version().feature()));
+    // The POM sets this; false under the jdk-ea profile, where the build has no preview flag.
+    if (Boolean.parseBoolean(System.getProperty("scopetracer.test.preview", "true"))) {
+      args.add("--enable-preview");
+      args.add("-Xlint:-preview");
+    }
+    args.addAll(
+        List.of(
+            "-XDrawDiagnostics",
+            "-proc:none",
+            "-cp",
+            classes.toString(),
+            "-d",
+            dir.toString(),
+            file.toString()));
     try (var writer = new PrintWriter(output)) {
-      javac.run(
-          writer,
-          writer,
-          "--release",
-          Integer.toString(Runtime.version().feature()),
-          "--enable-preview",
-          "-Xlint:-preview",
-          "-XDrawDiagnostics",
-          "-proc:none",
-          "-cp",
-          classes.toString(),
-          "-d",
-          dir.toString(),
-          file.toString());
+      javac.run(writer, writer, args.toArray(String[]::new));
     }
     return output.toString().lines().filter(line -> line.contains(": compiler.err.")).toList();
   }

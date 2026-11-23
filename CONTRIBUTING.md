@@ -66,6 +66,27 @@ committed report no longer matches what the renderer and the JDK produce (it ign
 durations, thread names and JDK frames, which differ on every run). `mvn -q verify` itself runs
 `GalleryTest`, which times nothing and checks the committed page, the snippets and the file sizes.
 
+### JDK early-access build
+
+`.github/workflows/jdk-ea.yml` runs the full build once a week on the newest Temurin JDK 28
+early-access build, so a JDK change that breaks the agent's matchers shows up long before
+JDK 28 is released. It uses the `jdk-ea` profile, which builds for the running JDK without
+`--enable-preview` (on 28 `StructuredTaskScope` is final). To run it locally, point
+`JAVA_HOME` at an EA build from [jdk.java.net/28](https://jdk.java.net/28/) or Adoptium's
+`temurin28-binaries`:
+
+```bash
+JAVA_HOME=/path/to/jdk-28 mvn -B -Pjdk-ea verify
+```
+
+The profile refuses any JDK older than 28. On JDK 27 build without it.
+
+The EA job is not a required check and never blocks a pull request. A red EA run is the
+maintainer's to triage: GitHub mails the failure of a scheduled run to whoever last edited its
+`cron` line, and the run's summary names the EA build. GitHub also disables scheduled workflows
+in a public repository after 60 days without activity; re-enable it from the Actions tab if
+that happens.
+
 ### Formatting
 
 The project uses Spotless with google-java-format 1.36.1 and sortPom. CI

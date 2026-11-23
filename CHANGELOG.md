@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A weekly build on JDK 28 early access** (`.github/workflows/jdk-ea.yml`, #55). Every
+  Saturday the full `mvn verify` runs on the newest Temurin `28-ea` build under a new,
+  explicit `-Pjdk-ea` Maven profile, which builds for the running JDK without
+  `--enable-preview`. A JDK change that stops the agent's matchers from matching shows up as
+  a red run within a week, not on the day of the JDK 28 release. It is not a required check.
+  The default build and the release are unchanged: Java 27 with `--enable-preview`.
+
 ## [0.5.0] - 2026-11-23
 
 ### Known issues

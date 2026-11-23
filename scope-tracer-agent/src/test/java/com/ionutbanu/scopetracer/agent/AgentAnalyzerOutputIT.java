@@ -122,12 +122,12 @@ class AgentAnalyzerOutputIT {
     Path err = dir.resolve(jfr.getFileName() + ".err");
     var process =
         new ProcessBuilder(
-                ChildJvm.javaHome().resolve("bin").resolve("java").toString(),
-                "--enable-preview",
-                "-jar",
-                analyzer.toString(),
-                jfr.toString(),
-                dir.resolve(jfr.getFileName() + ".html").toString())
+                ChildJvm.javaCommand(
+                    ChildJvm.javaHome().resolve("bin").resolve("java").toString(),
+                    "-jar",
+                    analyzer.toString(),
+                    jfr.toString(),
+                    dir.resolve(jfr.getFileName() + ".html").toString()))
             .directory(dir.toFile())
             .redirectOutput(out.toFile())
             .redirectError(err.toFile())

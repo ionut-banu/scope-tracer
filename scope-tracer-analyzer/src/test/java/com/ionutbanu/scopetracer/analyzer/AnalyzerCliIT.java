@@ -374,7 +374,7 @@ class AnalyzerCliIT {
       throws Exception {
     var command = new ArrayList<String>();
     command.add(java());
-    command.add("--enable-preview");
+    command.addAll(previewFlags());
     command.addAll(jvmArgs);
     command.add("-jar");
     command.add(executableJar().toString());
@@ -406,6 +406,26 @@ class AnalyzerCliIT {
 
   static String java() {
     return Path.of(System.getProperty("java.home"), "bin", "java").toString();
+  }
+
+  /**
+   * {@code --enable-preview} when the build compiled the tests with it, nothing under the {@code
+   * jdk-ea} profile. Read from {@code scopetracer.test.preview}, which the POM sets; {@code true}
+   * when it is missing, as in a plain IDE run on JDK 27.
+   */
+  static List<String> previewFlags() {
+    return Boolean.parseBoolean(System.getProperty("scopetracer.test.preview", "true"))
+        ? List.of("--enable-preview")
+        : List.of();
+  }
+
+  /** {@code java}, then {@link #previewFlags()}, then {@code args}. */
+  static List<String> javaCommand(String java, String... args) {
+    var command = new ArrayList<String>();
+    command.add(java);
+    command.addAll(previewFlags());
+    command.addAll(List.of(args));
+    return List.copyOf(command);
   }
 
   static String classPath(Path... entries) {

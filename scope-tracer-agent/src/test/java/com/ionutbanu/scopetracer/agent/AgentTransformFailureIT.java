@@ -306,9 +306,8 @@ class AgentTransformFailureIT {
     String analyzerJar = System.getProperty("analyzerExecutableJar", "");
     assertThat(Path.of(analyzerJar)).as("the analyzer's -executable jar").exists();
     var command =
-        List.of(
+        ChildJvm.javaCommand(
             ChildJvm.javaHome().resolve("bin").resolve("java").toString(),
-            "--enable-preview",
             "-Xlog:jfr+startup=off",
             javaagent(fatJar, ""),
             "-jar",

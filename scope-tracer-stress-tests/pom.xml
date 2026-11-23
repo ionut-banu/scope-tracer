@@ -59,7 +59,7 @@
           <!-- JFR thread/global buffer sizes raised so high-burst event emission does not overflow
                per-thread buffers and drop events on the way to disk. globalbuffersize must equal
                globalbuffercount * threadbuffersize -->
-          <argLine>--enable-preview -XX:FlightRecorderOptions=stackdepth=64,threadbuffersize=1M,memorysize=64M,maxchunksize=128M</argLine>
+          <argLine>${scopetracer.preview.flag} -XX:FlightRecorderOptions=stackdepth=64,threadbuffersize=1M,memorysize=64M,maxchunksize=128M</argLine>
           <systemPropertyVariables>
             <agentJar>${project.basedir}/../scope-tracer-agent/target/scope-tracer-agent-${project.version}-agent.jar</agentJar>
             <testClassesDir>${project.build.testOutputDirectory}</testClassesDir>

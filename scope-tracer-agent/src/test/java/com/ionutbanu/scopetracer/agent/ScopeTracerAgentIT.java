@@ -443,13 +443,13 @@ class ScopeTracerAgentIT {
     String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
     int exit =
         new ProcessBuilder(
-                java,
-                "--enable-preview",
-                "-javaagent:" + agentJar,
-                "-cp",
-                testClassesDir,
-                "com.ionutbanu.scopetracer.agent.AutoHtmlTestSubject",
-                jfr.toString())
+                ChildJvm.javaCommand(
+                    java,
+                    "-javaagent:" + agentJar,
+                    "-cp",
+                    testClassesDir,
+                    "com.ionutbanu.scopetracer.agent.AutoHtmlTestSubject",
+                    jfr.toString()))
             .redirectErrorStream(true)
             .start()
             .waitFor();
@@ -482,13 +482,13 @@ class ScopeTracerAgentIT {
     String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
     int exit =
         new ProcessBuilder(
-                java,
-                "--enable-preview",
-                "-javaagent:" + agentJar + "=output.dir=" + htmlDir,
-                "-cp",
-                testClassesDir,
-                "com.ionutbanu.scopetracer.agent.AutoHtmlTestSubject",
-                jfr.toString())
+                ChildJvm.javaCommand(
+                    java,
+                    "-javaagent:" + agentJar + "=output.dir=" + htmlDir,
+                    "-cp",
+                    testClassesDir,
+                    "com.ionutbanu.scopetracer.agent.AutoHtmlTestSubject",
+                    jfr.toString()))
             .redirectErrorStream(true)
             .start()
             .waitFor();
@@ -521,13 +521,13 @@ class ScopeTracerAgentIT {
     String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
     int exit =
         new ProcessBuilder(
-                java,
-                "--enable-preview",
-                "-javaagent:" + agentJar + "=min.scopes=999",
-                "-cp",
-                testClassesDir,
-                "com.ionutbanu.scopetracer.agent.AutoHtmlTestSubject",
-                jfr.toString())
+                ChildJvm.javaCommand(
+                    java,
+                    "-javaagent:" + agentJar + "=min.scopes=999",
+                    "-cp",
+                    testClassesDir,
+                    "com.ionutbanu.scopetracer.agent.AutoHtmlTestSubject",
+                    jfr.toString()))
             .redirectErrorStream(true)
             .start()
             .waitFor();
@@ -560,13 +560,13 @@ class ScopeTracerAgentIT {
 
     var proc =
         new ProcessBuilder(
-                java,
-                "--enable-preview",
-                "-javaagent:" + agentJar,
-                "-cp",
-                testClassesDir,
-                subject.getName(),
-                jfrOut.toString())
+                ChildJvm.javaCommand(
+                    java,
+                    "-javaagent:" + agentJar,
+                    "-cp",
+                    testClassesDir,
+                    subject.getName(),
+                    jfrOut.toString()))
             .redirectErrorStream(true)
             .start();
 

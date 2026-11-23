@@ -185,21 +185,35 @@ class AgentParallelStressIT {
     return out;
   }
 
+  /**
+   * {@code java}, then {@code --enable-preview} unless the build runs under the {@code jdk-ea}
+   * profile ({@code scopetracer.test.preview}, set by the POM), then {@code args}.
+   */
+  private static List<String> javaCommand(String java, String... args) {
+    var command = new ArrayList<String>();
+    command.add(java);
+    if (Boolean.parseBoolean(System.getProperty("scopetracer.test.preview", "true"))) {
+      command.add("--enable-preview");
+    }
+    command.addAll(List.of(args));
+    return command;
+  }
+
   private static void runSubject(String agentJar, String testClassesDir, Path jfrOut)
       throws Exception {
     String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
     var proc =
         new ProcessBuilder(
-                java,
-                "--enable-preview",
-                "-XX:FlightRecorderOptions=stackdepth=64,threadbuffersize=1M,memorysize=64M,maxchunksize=128M",
-                "-javaagent:" + agentJar,
-                "-cp",
-                testClassesDir,
-                AgentParallelStressSubject.class.getName(),
-                jfrOut.toString(),
-                Integer.toString(SCOPES),
-                Integer.toString(TASKS_PER_SCOPE))
+                javaCommand(
+                    java,
+                    "-XX:FlightRecorderOptions=stackdepth=64,threadbuffersize=1M,memorysize=64M,maxchunksize=128M",
+                    "-javaagent:" + agentJar,
+                    "-cp",
+                    testClassesDir,
+                    AgentParallelStressSubject.class.getName(),
+                    jfrOut.toString(),
+                    Integer.toString(SCOPES),
+                    Integer.toString(TASKS_PER_SCOPE)))
             .redirectErrorStream(true)
             .start();
     // The output is drained on this thread, so the child cannot block on a full pipe; a hung child

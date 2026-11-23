@@ -91,7 +91,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
         <configuration>
-          <argLine>--enable-preview</argLine>
+          <argLine>${scopetracer.preview.flag}</argLine>
           <systemPropertyVariables>
             <analyzerExecutableJar>${project.build.directory}/${project.build.finalName}-executable.jar</analyzerExecutableJar>
             <analyzerPlainJar>${project.build.directory}/${project.build.finalName}.jar</analyzerPlainJar>

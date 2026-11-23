@@ -67,9 +67,8 @@ class AnalyzerJarsIT {
   void libraryUserWithoutABindingGetsNoAnalyzerOutputOnStdout() throws Exception {
     var jfr = TestRecordings.leftOpen(dir.resolve("open.jfr"), "lib-open", 1, 1);
     var command =
-        List.of(
+        AnalyzerCliIT.javaCommand(
             AnalyzerCliIT.java(),
-            "--enable-preview",
             "-cp",
             AnalyzerCliIT.classPath(
                 plainJar(), jarOf(TracedScope.class), jarOf(org.slf4j.Logger.class), testClasses()),

@@ -371,7 +371,7 @@ class AgentRenamedJarIT {
 
     var command = new ArrayList<String>();
     command.add(ChildJvm.javaHome().resolve("bin").resolve("java").toString());
-    command.add("--enable-preview");
+    command.addAll(ChildJvm.previewFlags());
     command.add("-javaagent:" + agentJar);
     if (provider.equals("logback")) {
       command.add("-Dslf4j.provider=ch.qos.logback.classic.spi.LogbackServiceProvider");

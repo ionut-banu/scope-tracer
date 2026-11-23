@@ -674,7 +674,10 @@ failsafe, measured on 2026-11-23 on the branch of #158 on Temurin 27; the
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
 count the same or higher than `main` had before it. CI runs `verify`
-on every push and PR; the stress profile runs on PRs to `main`.
+on every push and PR; the stress profile runs on PRs to `main`. A
+weekly job (`jdk-ea.yml`, §5) runs the same `verify`, with the same
+suites and count, on the newest JDK 28 early-access build under
+`-Pjdk-ea`; it is not a required check.
 
 ### The oracle
 
@@ -726,6 +729,25 @@ try (var file = new RecordingFile(tempPath)) {
   (`stress.yml`) use Temurin 27, one JDK and no matrix; the plugin
   job adds JDK 21 for Gradle. The Maven enforcer refuses a JDK older
   than 27 before anything is compiled.
+- The JDK early-access run (`jdk-ea.yml`, "JDK 28 early access")
+  runs `mvn -B -Pjdk-ea verify` on Temurin `28-ea`
+  (`actions/setup-java@v5`) every Saturday at 06:17 UTC, on
+  `workflow_dispatch`, and on pull requests to `main` that change the
+  workflow file; never on push, and it is not a required check. It
+  exists to catch a JDK change that stops the agent's matchers from
+  matching (§3 "Agent"): the agent ITs assert the events, so a break
+  is a red run. The `jdk-ea` profile, explicit only, builds for the
+  running JDK (`maven.compiler.release` is
+  `${java.specification.version}`) with no `--enable-preview` in
+  javac, the surefire and failsafe `argLine`s, or the child JVMs and
+  javac runs the tests start (they read `scopetracer.test.preview`,
+  which the POM sets to `false` under the profile); its own enforcer
+  rule refuses a JDK older than 28. The job writes `java -version` to
+  the step summary, uploads the surefire and failsafe reports on
+  failure, and times out after 30 minutes. A red run is reported by
+  GitHub's mail to whoever last edited the `cron` line, and is the
+  maintainer's to triage. When `28-ea` can no longer be resolved
+  (after GA) the setup step is red; moving to the next EA is #70.
 - maven-shade-plugin runs with the ASM named by `shade.asm.version`
   (9.11.1) in place of its own 9.9.1, which cannot read class-file
   major 71.

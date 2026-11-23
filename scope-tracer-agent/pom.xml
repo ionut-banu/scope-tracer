@@ -171,7 +171,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
         <configuration>
-          <argLine>--enable-preview</argLine>
+          <argLine>${scopetracer.preview.flag}</argLine>
           <systemPropertyVariables>
             <agentJar>${project.build.directory}/scope-tracer-agent-${project.version}-agent.jar</agentJar>
             <testClassesDir>${project.build.testOutputDirectory}</testClassesDir>
