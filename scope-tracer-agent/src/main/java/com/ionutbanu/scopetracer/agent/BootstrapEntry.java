@@ -6,12 +6,18 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.CodeSource;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.jar.Attributes;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 /**
  * Gets the agent onto the bootstrap class path when its manifest's {@code Boot-Class-Path} did not.
@@ -36,13 +42,20 @@ import java.util.jar.JarFile;
  * every {@code -cp} entry and the jars their {@code Class-Path} attributes list. A scope-tracer jar
  * on {@code -cp} (the thin jar, or another copy of the fat-jar) therefore wins, and its code source
  * is the wrong jar (#128). {@link #chooseJar} takes instead the last copy of {@code
- * ScopeTracerAgent.class} the system class loader lists, unless that copy is itself an entry of
- * {@code java.class.path}: the JVM does not append a jar already on the path, so then the last copy
- * may be any {@code -cp} jar, and the agent refuses rather than guess. Only this version's code
- * makes that choice: an earlier release's jar on {@code -cp} runs its own {@code premain}. A {@code
- * -cp} jar whose manifest {@code Class-Path} lists the {@code -javaagent} jar and then another
- * scope-tracer jar is known and not handled: the last copy is then that other jar, which is not an
- * entry of {@code java.class.path}, so it is chosen (#158).
+ * ScopeTracerAgent.class} the system class loader lists, unless that copy is reachable from {@code
+ * java.class.path}: an entry of it, or a jar its entries' manifest {@code Class-Path} attributes
+ * list, directly or through a chain. The JVM does not append a jar that is already reachable, so
+ * then the last copy may be any of those jars, and the agent refuses rather than guess (#158): with
+ * {@code -cp app.jar}, {@code Class-Path: agent.jar thin.jar} and {@code Class-Path: thin.jar
+ * agent.jar} list the same copies in the same order. Entries are resolved as the JVM resolves them,
+ * with {@code new URL(base, entry)} and the path decoded, so {@code file:thin.jar} and a name
+ * {@code java.net.URI} rejects ({@code ^ [ ] { }}) are followed; an entry that cannot be resolved
+ * at all counts as reachable. Copies are compared by real path and the JVM drops a duplicate by URL
+ * string, so the same jar reached through a symbolic link ({@code /tmp} against {@code
+ * /private/tmp}) refuses although the JVM appended it: conservative, and accepted. The manifests
+ * are read only when the last copy is not the running copy and not a {@code -cp} entry, so the
+ * common case reads none. Only this version's code makes that choice: an earlier release's jar on
+ * {@code -cp} runs its own {@code premain}.
  *
  * <p>It never throws. When the jar cannot be found, opened or appended, or cannot be told apart
  * from the class path, it prints one {@code WARN not tracing} line naming the reason and the two
@@ -128,8 +141,13 @@ final class BootstrapEntry {
     Path jar = null;
     String expectedName = GENERIC_NAME;
     try {
-      // Path.of(URI), not URL.getPath(): a space or a non-ASCII character in the path survives.
-      jar = Path.of(url.toURI()).toAbsolutePath();
+      // Decoded as the JVM decodes it: a %20, a non-ASCII character, or a ^ or [ that URI rejects
+      // in a Class-Path-made code source all survive.
+      jar = fileOf(url);
+      if (jar == null) {
+        throw new java.io.FileNotFoundException(url + " names no local file");
+      }
+      jar = jar.toAbsolutePath();
       jar = chooseJar(jar, copies, classPath);
       if (jar == null) {
         return null;
@@ -157,19 +175,41 @@ final class BootstrapEntry {
     return jar;
   }
 
+  /** Reads the {@code Class-Path} attribute of a jar's manifest; a test supplies its own. */
+  @FunctionalInterface
+  interface ClassPathAttribute {
+    /**
+     * The value of {@code jar}'s manifest {@code Class-Path}, or {@code null}; may throw.
+     *
+     * @param jar a regular file, by real path.
+     */
+    String of(Path jar) throws Exception;
+  }
+
   /**
    * The jar to append: {@code running}, the jar this class was loaded from, unless the system class
    * loader lists a later copy of {@code ScopeTracerAgent.class}. That copy is the {@code
-   * -javaagent} jar, which the JVM appends after every {@code -cp} entry; it is chosen, with one
-   * info line naming both jars, when it is not itself an entry of {@code classPath}. When it is,
-   * the {@code -javaagent} jar cannot be told apart from the class path: this prints the {@code
-   * WARN not tracing} line and returns {@code null}. When the copies cannot be listed or read, the
-   * answer is {@code running}, as it was before #128. Paths are compared by real path. Never
-   * throws.
+   * -javaagent} jar when the JVM appended it, after every {@code -cp} entry and the jars their
+   * manifest {@code Class-Path} attributes list, which it does only when the jar is not reachable
+   * from the class path already. So the last copy is chosen, with one info line naming both jars,
+   * only when it is not reachable from {@code classPath}: not an entry, and not listed, directly or
+   * through a chain, by an entry's manifest {@code Class-Path}. When it is reachable, the {@code
+   * -javaagent} jar cannot be told apart from the class path: this prints the {@code WARN not
+   * tracing} line, naming the jar whose {@code Class-Path} listed the last copy when one did, and
+   * returns {@code null}. When the copies cannot be listed or read, the answer is {@code running},
+   * as it was before #128; when the manifests cannot be read, the last copy is taken as not
+   * reachable, as it was before #158. Paths are compared by real path. No manifest is read when the
+   * running copy is the last copy or the last copy is an entry of {@code classPath}. Never throws.
    */
   static Path chooseJar(Path running, Callable<List<URL>> copies, String classPath) {
+    return chooseJar(running, copies, classPath, BootstrapEntry::classPathAttribute);
+  }
+
+  /** {@link #chooseJar(Path, Callable, String)} with the manifest reader passed in, for a test. */
+  static Path chooseJar(
+      Path running, Callable<List<URL>> copies, String classPath, ClassPathAttribute manifests) {
     Path last;
-    boolean lastOnClassPath;
+    Reach reach;
     try {
       last = jarOf(lastOf(copies.call()));
       if (last == null) {
@@ -179,16 +219,17 @@ final class BootstrapEntry {
       if (last.equals(realPath(running))) {
         return running;
       }
-      lastOnClassPath = isEntryOf(last, classPath);
+      reach = reachedFrom(last, classPath, manifests);
     } catch (Throwable t) {
       return running;
     }
-    if (lastOnClassPath) {
+    if (reach != null) {
       notTracing(
           "the -javaagent jar cannot be told apart from the class path, which holds the agent at "
               + AgentLog.path(running)
               + " and at "
-              + AgentLog.path(last),
+              + AgentLog.path(last)
+              + reach.describe(),
           expectedName(running, last),
           null);
       return null;
@@ -199,6 +240,187 @@ final class BootstrapEntry {
             + " on the class path: the -javaagent jar is "
             + AgentLog.path(last));
     return last;
+  }
+
+  /**
+   * How the last copy is reachable from the class path: {@code via} is the jar itself for a {@code
+   * -cp} entry, else the jar whose manifest {@code Class-Path} lists it or, when {@code
+   * unresolved}, has an entry that could not be resolved and might name it.
+   */
+  private record Reach(Path jar, Path via, boolean unresolved) {
+    String describe() {
+      if (via.equals(jar)) {
+        return "";
+      }
+      return unresolved
+          ? " (the Class-Path of " + AgentLog.path(via) + " has an entry that cannot be resolved)"
+          : " (listed by the Class-Path of " + AgentLog.path(via) + ")";
+    }
+  }
+
+  /**
+   * How {@code jar} is reachable from {@code classPath}, or {@code null} when it is not. Entries
+   * are checked first, so a direct entry reads no manifest; then every jar's {@code Class-Path} is
+   * followed breadth first, each file once, so a cycle ends. A {@code Class-Path} entry that cannot
+   * be resolved counts as reachable, so the agent refuses rather than guesses, unless another jar
+   * lists {@code jar} for certain. A {@code -cp} entry or a manifest that cannot be read is
+   * skipped, as the JVM skips it. If the walk itself fails, the answer is {@code null}: the last
+   * copy is taken as appended by the JVM, as before #158.
+   */
+  private static Reach reachedFrom(Path jar, String classPath, ClassPathAttribute manifests) {
+    if (classPath == null) {
+      return null;
+    }
+    var seen = new HashSet<Path>();
+    var queue = new ArrayDeque<Path>();
+    for (String entry : classPath.split(File.pathSeparator, -1)) {
+      try {
+        Path path = realPath(Path.of(entry.isEmpty() ? "." : entry));
+        if (path.equals(jar)) {
+          return new Reach(jar, jar, false);
+        }
+        if (seen.add(path)) {
+          queue.add(path);
+        }
+      } catch (Throwable t) {
+        // an entry that is not a path cannot be the jar, and lists nothing
+      }
+    }
+    Path unresolvedIn = null;
+    try {
+      while (!queue.isEmpty()) {
+        Path listing = queue.remove();
+        Listed listed = listedBy(listing, manifests);
+        if (listed.unresolved() && unresolvedIn == null) {
+          unresolvedIn = listing;
+        }
+        for (Path path : listed.jars()) {
+          if (path.equals(jar)) {
+            return new Reach(jar, listing, false);
+          }
+          if (seen.add(path)) {
+            queue.add(path);
+          }
+        }
+      }
+    } catch (Throwable t) {
+      // the walk failed as a whole: keep the answer from before #158
+      return null;
+    }
+    return unresolvedIn == null ? null : new Reach(jar, unresolvedIn, true);
+  }
+
+  /** The jars a manifest {@code Class-Path} names, and whether an entry could not be resolved. */
+  private record Listed(List<Path> jars, boolean unresolved) {
+    static final Listed NONE = new Listed(List.of(), false);
+  }
+
+  /**
+   * The local files {@code listing}'s manifest {@code Class-Path} names, by real path, resolved as
+   * the JVM resolves them: whitespace-separated, each {@code new URL(<listing's URL>, entry)}, a
+   * {@code file:} URL decoded to a path ({@code file:x.jar} is relative, {@code %20} is a space, a
+   * {@code ^} or {@code [} is taken as it is, a query is part of the file name, a fragment is
+   * dropped). A missing file, a directory, a URL of another scheme and a {@code file:} URL on
+   * another host are left out, as the JVM finds nothing there; so is everything when {@code
+   * listing} is not a regular file or its manifest cannot be read. An entry that throws anywhere in
+   * between is flagged as unresolved.
+   */
+  @SuppressWarnings("deprecation") // new URL(URL, String) is how the JVM resolves Class-Path
+  private static Listed listedBy(Path listing, ClassPathAttribute manifests) {
+    String value;
+    URL base;
+    try {
+      if (!Files.isRegularFile(listing)) {
+        return Listed.NONE;
+      }
+      value = manifests.of(listing);
+      base = listing.toUri().toURL();
+    } catch (Throwable t) {
+      return Listed.NONE;
+    }
+    if (value == null || value.isBlank()) {
+      return Listed.NONE;
+    }
+    var jars = new ArrayList<Path>();
+    boolean unresolved = false;
+    for (String entry : value.strip().split("\\s+")) {
+      try {
+        Path path = fileOf(new URL(base, entry));
+        if (path == null) {
+          continue;
+        }
+        path = realPath(path);
+        if (Files.isRegularFile(path)) {
+          jars.add(path);
+        }
+      } catch (Throwable t) {
+        unresolved = true;
+      }
+    }
+    return new Listed(jars, unresolved);
+  }
+
+  /**
+   * The local file a {@code file:} URL names, decoded as the JVM decodes it ({@code %XX} as UTF-8,
+   * every other character as it is, the query part of the name, the fragment dropped), or {@code
+   * null} for a URL of another scheme, or on another host where that names no local file. Throws
+   * when the URL cannot be decoded to a path.
+   */
+  static Path fileOf(URL url) throws Exception {
+    if (url == null || !"file".equalsIgnoreCase(url.getProtocol())) {
+      return null;
+    }
+    String path = decode(url.getFile());
+    String host = url.getHost();
+    boolean local = host == null || host.isEmpty() || "localhost".equalsIgnoreCase(host);
+    if (File.separatorChar == '/') {
+      return local ? Path.of(path) : null;
+    }
+    // Windows: a drive letter (/C:/...) or a UNC host, which Path.of(URI) knows how to read.
+    return Path.of(new URI("file", local ? null : host, path, null));
+  }
+
+  /** {@code s} with each run of {@code %XX} decoded as UTF-8; a malformed escape throws. */
+  private static String decode(String s) {
+    if (s.indexOf('%') < 0) {
+      return s;
+    }
+    var out = new StringBuilder(s.length());
+    var bytes = new java.io.ByteArrayOutputStream();
+    int i = 0;
+    while (i < s.length()) {
+      char c = s.charAt(i);
+      if (c != '%') {
+        out.append(c);
+        i++;
+        continue;
+      }
+      bytes.reset();
+      while (i < s.length() && s.charAt(i) == '%') {
+        if (i + 2 >= s.length()) {
+          throw new IllegalArgumentException("truncated escape in " + s);
+        }
+        int hi = Character.digit(s.charAt(i + 1), 16);
+        int lo = Character.digit(s.charAt(i + 2), 16);
+        if (hi < 0 || lo < 0) {
+          throw new IllegalArgumentException("malformed escape in " + s);
+        }
+        bytes.write(hi * 16 + lo);
+        i += 3;
+      }
+      out.append(bytes.toString(java.nio.charset.StandardCharsets.UTF_8));
+    }
+    return out.toString();
+  }
+
+  /** The {@code Class-Path} value of {@code jar}'s manifest, or {@code null}. */
+  private static String classPathAttribute(Path jar) throws Exception {
+    try (var file = new JarFile(jar.toFile(), false)) {
+      Manifest manifest = file.getManifest();
+      return manifest == null
+          ? null
+          : manifest.getMainAttributes().getValue(Attributes.Name.CLASS_PATH);
+    }
   }
 
   /** Every copy of {@code ScopeTracerAgent.class} on the system class loader, in search order. */
@@ -225,28 +447,10 @@ final class BootstrapEntry {
     if (separator < 0) {
       return null;
     }
-    URI inner = new URI(spec.substring(0, separator));
-    if (!"file".equalsIgnoreCase(inner.getScheme())) {
-      return null;
-    }
-    return Path.of(inner);
-  }
-
-  /** Whether {@code jar} is one of the entries of {@code classPath}, compared by real path. */
-  private static boolean isEntryOf(Path jar, String classPath) {
-    if (classPath == null) {
-      return false;
-    }
-    for (String entry : classPath.split(File.pathSeparator, -1)) {
-      try {
-        if (realPath(Path.of(entry.isEmpty() ? "." : entry)).equals(jar)) {
-          return true;
-        }
-      } catch (Throwable t) {
-        // an entry that is not a path cannot be the jar
-      }
-    }
-    return false;
+    // new URL, not new URI: the JVM leaves a ^, [ or { in a Class-Path-made URL as it is.
+    @SuppressWarnings("deprecation")
+    URL inner = new URL(spec.substring(0, separator));
+    return fileOf(inner);
   }
 
   /** {@code path} with symbolic links resolved, or absolute and normalized if it does not exist. */

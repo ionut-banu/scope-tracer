@@ -672,6 +672,234 @@ class AgentRenamedJarIT {
     assertThat(jfr).doesNotExist();
   }
 
+  // --- issue #158: a scope-tracer jar reached through a manifest Class-Path ---
+
+  /** Writes an empty jar at {@code dir/relative} whose manifest has {@code Class-Path: value}. */
+  private static Path classPathJar(Path dir, String relative, String value) throws Exception {
+    Path jar = dir.resolve(relative).toAbsolutePath();
+    Files.createDirectories(jar.getParent());
+    var manifest = new java.util.jar.Manifest();
+    manifest.getMainAttributes().put(java.util.jar.Attributes.Name.MANIFEST_VERSION, "1.0");
+    manifest.getMainAttributes().put(java.util.jar.Attributes.Name.CLASS_PATH, value);
+    try (var out = new java.util.jar.JarOutputStream(Files.newOutputStream(jar), manifest)) {
+      out.flush();
+    }
+    return jar;
+  }
+
+  /** Copies the thin jar beside the fat-jar to {@code dir/relative}. */
+  private static Path thinAs(Path dir, String relative) throws Exception {
+    Path thin = fatJar.resolveSibling(originalName.replace("-agent.jar", ".jar"));
+    assertThat(thin).as("the thin jar beside the fat-jar").exists();
+    Path target = dir.resolve(relative).toAbsolutePath();
+    Files.createDirectories(target.getParent());
+    return Files.copy(thin, target);
+  }
+
+  /** The refusal for a last copy that {@code listedBy}'s manifest {@code Class-Path} lists. */
+  private static String listedRefusal(Path running, Path last, Path listedBy) throws Exception {
+    return ChildJvm.AGENT_PREFIX
+        + " WARN not tracing: the agent jar is not on the bootstrap class path, and the"
+        + " -javaagent jar cannot be told apart from the class path, which holds the agent at "
+        + running.toRealPath()
+        + " and at "
+        + last.toRealPath()
+        + " (listed by the Class-Path of "
+        + listedBy.toRealPath()
+        + "); rename the jar to "
+        + originalName
+        + ", or add -Xbootclasspath/a:<path to the jar>";
+  }
+
+  /**
+   * A refusal: exit 0, the program's own output, exactly {@code warning} as the only agent line,
+   * nothing recorded, and no {@code ignoring}, {@code added} or {@code NoClassDefFoundError}.
+   */
+  private static void assertRefused(ChildJvm.Result run, String warning, Path jfr) {
+    assertThat(run.exitCode()).as(run.stderr()).isZero();
+    assertThat(run.stdout()).as(run.stderr()).isEqualTo(ExitSubject.DONE + System.lineSeparator());
+    assertThat(run.agentLines()).as(run.stderr()).containsExactly(warning);
+    assertThat(run.stderr())
+        .doesNotContain(" ignoring ")
+        .doesNotContain(APPENDED)
+        .doesNotContain("NoClassDefFoundError")
+        .doesNotContain(CDS_WARNING);
+    assertThat(jfr).doesNotExist();
+  }
+
+  /** {@code -cp app.jar} with {@code Class-Path: thin.jar}: traces with agent.jar. Unchanged. */
+  @Test
+  void manifestListingOnlyTheThinJarTracesWithTheJavaagentJar(@TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path thin = thinAs(dir, "cp/thin.jar");
+    Path app = classPathJar(dir, "cp/app.jar", "thin.jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(app)), "mixed");
+
+    assertTracedByTheJavaagentJar(run, thin, agent, jfr, dir);
+    assertThat(run.warnings()).isEmpty();
+  }
+
+  /** {@code Class-Path: agent.jar thin.jar}, or {@code agent.jar fat2.jar}: refuses. */
+  @ParameterizedTest(name = "{0}")
+  @ValueSource(strings = {"thin", "fat2"})
+  void manifestListingTheJavaagentJarThenAnotherScopeTracerJarRefuses(
+      String other, @TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path second = other.equals("thin") ? thinAs(dir, "thin.jar") : copyAs(dir, "fat2.jar");
+    Path app = classPathJar(dir, "app.jar", "agent.jar " + second.getFileName());
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(app)), "mixed");
+
+    assertRefused(run, listedRefusal(agent, second, app), jfr);
+  }
+
+  /** {@code -cp l.jar}, {@code l} lists {@code m}, {@code m} lists both: names {@code m.jar}. */
+  @Test
+  void chainOfTwoManifestsListingBothRefuses(@TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path thin = thinAs(dir, "thin.jar");
+    Path l = classPathJar(dir, "l.jar", "m.jar");
+    Path m = classPathJar(dir, "m.jar", "agent.jar thin.jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(l)), "mixed");
+
+    assertRefused(run, listedRefusal(agent, thin, m), jfr);
+  }
+
+  /** {@code Class-Path: agent.jar} alone: traces, no {@code ignoring} line. Unchanged. */
+  @Test
+  void manifestListingOnlyTheJavaagentJarTraces(@TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path app = classPathJar(dir, "app.jar", "agent.jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(app)), "mixed");
+
+    assertThat(run.exitCode()).as(run.stderr()).isZero();
+    assertMixedScopeFullyTraced(jfr);
+    assertThat(run.agentLines())
+        .as(run.stderr())
+        .containsExactly(
+            appendedLine(agent), RECORDING_TO + jfr, ChildJvm.WRITTEN + dir.resolve("t.html"));
+  }
+
+  /**
+   * {@code Class-Path: thin.jar agent.jar}: refuses, as {@code -cp thin.jar:agent.jar} does. It
+   * traced by luck before #158, and cannot be told apart from {@code agent.jar thin.jar}.
+   */
+  @Test
+  void manifestListingTheThinJarThenTheJavaagentJarRefuses(@TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path thin = thinAs(dir, "thin.jar");
+    Path app = classPathJar(dir, "app.jar", "thin.jar agent.jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(app)), "mixed");
+
+    assertRefused(run, listedRefusal(thin, agent, app), jfr);
+  }
+
+  /**
+   * {@code -cp "lib/*"} and {@code -javaagent:x/agent.jar}, relative to the working directory: the
+   * one jar in {@code lib/} lists {@code ../x/agent.jar ../x/thin.jar} and the agent refuses; with
+   * only {@code ../x/thin.jar} listed it traces with the {@code -javaagent} jar.
+   */
+  @ParameterizedTest(name = "javaagent jar listed: {0}")
+  @ValueSource(booleans = {true, false})
+  void wildcardJarListingScopeTracerJars(boolean agentListed, @TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "x/agent.jar");
+    Path thin = thinAs(dir, "x/thin.jar");
+    Path lib =
+        classPathJar(
+            dir, "lib/a.jar", agentListed ? "../x/agent.jar ../x/thin.jar" : "../x/thin.jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of("-javaagent:x/agent.jar=record=" + jfr), List.of("lib/*"), "mixed");
+
+    if (agentListed) {
+      assertRefused(run, listedRefusal(agent, thin, lib), jfr);
+    } else {
+      assertTracedByTheJavaagentJar(run, thin, agent, jfr, dir);
+    }
+  }
+
+  // --- issue #158, QA: entries java.net.URI rejects or reads differently ---
+
+  /**
+   * {@code Class-Path: agent.jar file:thin.jar}, or {@code file:fat2.jar}: the JVM follows both.
+   */
+  @ParameterizedTest(name = "{0}")
+  @ValueSource(strings = {"thin", "fat2"})
+  void fileSchemeRelativeEntryAfterTheJavaagentJarRefuses(String other, @TempDir Path dir)
+      throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path second = other.equals("thin") ? thinAs(dir, "thin.jar") : copyAs(dir, "fat2.jar");
+    Path app = classPathJar(dir, "app.jar", "agent.jar file:" + second.getFileName());
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(app)), "mixed");
+
+    assertRefused(run, listedRefusal(agent, second, app), jfr);
+  }
+
+  /** {@code -cp l.jar}, {@code l} lists {@code odd/k[1].jar}, which lists both copies. */
+  @Test
+  void chainThroughAJarNameUriRejectsRefuses(@TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path fat2 = copyAs(dir, "fat2.jar");
+    Path l = classPathJar(dir, "l.jar", "odd/k[1].jar");
+    Path k = classPathJar(dir, "odd/k[1].jar", "../agent.jar ../fat2.jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(l)), "mixed");
+
+    assertRefused(run, listedRefusal(agent, fat2, k), jfr);
+  }
+
+  /**
+   * #128, found by QA on #158: {@code Class-Path: odd/a^b.jar agent.jar}, {@code a^b.jar} the thin
+   * jar. The running copy's code source holds a {@code ^}; the refusal names it and the fat-jar's
+   * exact file name, with no {@code URISyntaxException}.
+   */
+  @Test
+  void runningCopyWithACharacterUriRejectsRefusesNamingTheFileName(@TempDir Path dir)
+      throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path thin = thinAs(dir, "odd/a^b.jar");
+    Path app = classPathJar(dir, "app.jar", "odd/a^b.jar agent.jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(app)), "mixed");
+
+    assertRefused(run, listedRefusal(thin, agent, app), jfr);
+    assertThat(run.stderr()).doesNotContain("URISyntaxException");
+  }
+
+  /** {@code Class-Path: odd/k[1].jar}, the thin jar there, only: traces with the agent jar. */
+  @Test
+  void thinJarUnderANameUriRejectsTracesWithTheJavaagentJar(@TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path thin = thinAs(dir, "odd/k[1].jar");
+    Path app = classPathJar(dir, "app.jar", "odd/k[1].jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(app)), "mixed");
+
+    assertTracedByTheJavaagentJar(run, thin, agent, jfr, dir);
+  }
+
   // --- helpers ---
 
   /**

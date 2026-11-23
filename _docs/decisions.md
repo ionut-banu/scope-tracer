@@ -1049,3 +1049,79 @@ Rejected: a PNG signature check (the hash covers empty, truncated and edited fil
 comment, an `href` requirement (the real page names the URL in plain text in a `<pre>`), and
 making `docs/*.md` a fixed list (those files carry no version a reader copies). The committed
 sidecar was migrated without re-shooting the PNG.
+
+## 2026-11-22 - A last copy reachable through a manifest Class-Path refuses (#158)
+
+This supersedes the 2026-11-18 entry's "Known and not handled here;
+#158 is the follow-up." The layout is now handled.
+
+The #128 rule, "the last copy of `ScopeTracerAgent.class` is the
+`-javaagent` jar unless it is a `java.class.path` entry", rested on
+the JVM appending the `-javaagent` jar. Measured on Temurin 27.0.1,
+it does not append a jar that is already reachable through a `-cp`
+jar's manifest `Class-Path` either. With `Class-Path: agent.jar
+thin.jar` the system loader lists exactly `[agent.jar, thin.jar]`:
+the last copy is the thin jar, which is not an entry, so the agent
+printed `ignoring agent.jar ... the -javaagent jar is thin.jar`,
+appended the thin jar and failed with `NoClassDefFoundError`; with
+another fat-jar in place of the thin one, it traced from that jar.
+
+Decided: only when the last copy is not the running copy, and is
+not a `-cp` entry, `BootstrapEntry.chooseJar` expands
+`java.class.path` through every jar's manifest `Class-Path`, breadth
+first, each file once by real path, with the JVM's resolution rules
+(space-separated URLs relative to the listing jar; `./`, `../`,
+absolute, `file:` and `%20` resolve; a raw space, a backslash, a
+directory, `*` and `http:` find nothing; a missing entry is
+skipped). A reachable last copy refuses with the existing `WARN not
+tracing` line plus `(listed by the Class-Path of <jar>)`; an
+unreachable one was appended by the JVM, so it is the `-javaagent`
+jar, as before. Comparing positions alone cannot work: `[agent,
+thin]` and `[thin, agent]` look the same whichever jar is the
+`-javaagent` one.
+
+The maintainer's three answers on the issue: `Class-Path: thin.jar
+agent.jar`, which traced by luck, refuses, as `-cp
+thin.jar:agent.jar` does since #128; the expansion has no size or
+depth cap, because each file is read once, errors are swallowed per
+entry, and it runs only in the layout that would otherwise be wrong;
+and the refusal names the listing jar, so the fix is findable in a
+chain. A failure of the walk as a whole keeps the pre-#158 answer
+(the last copy). The common case, a renamed jar with no other
+scope-tracer copy, reads no manifest, so #167's start-up window does
+not widen: with a `-cp` jar listing 400 real jars from `~/.m2`, 11
+runs each, the median was 379 ms under the original name, 374 ms
+renamed, and 422 ms in a layout that forced the expansion.
+
+## 2026-11-23 - Class-Path entries are resolved with java.net.URL, as the JVM does (#158)
+
+QA on #158 found that the 2026-11-22 resolver, built on
+`new URI(entry)` and `Path.of(uri)`, dropped entries the JVM follows.
+Measured on Temurin 27.0.1 with a probe that prints
+`getSystemResources`: `file:thin.jar` and `FILE:thin.jar` (relative
+to the listing jar), names with `^ [ ] { }`, `t.jar#frag` (the
+fragment is dropped) and `t.jar?q` (a file of that name). In those
+layouts the agent still printed the swapped `ignoring` line, or
+traced from another fat-jar. `jarOf` and the running jar's code
+source had the same hole. A running jar at `odd/a^b.jar` refused
+with `URISyntaxException` and the generic file name, a #128 bug.
+
+Decided by the maintainer: each entry is `new URL(<listing jar's
+URL>, entry)`, as `URLClassPath` does, and a `file:` URL is decoded
+to a path the way `ParseUtil.decode` does (`%XX` as UTF-8, the
+query kept, the fragment dropped, a `file:` URL on another host
+naming nothing on Unix). The copies' `jar:file:` URLs and the code
+source go through the same decoding. An entry that still cannot be
+resolved, such as `%00` (rejected by `Path.of`) or a malformed
+escape, counts as reachable, so the agent refuses rather than
+guesses. The JVM skips those entries, so this is a deliberate
+over-refusal for a manifest nobody writes on purpose. A jar that
+lists the copy for certain is named in the refusal ahead of one with
+an unresolvable entry.
+
+Accepted over-refusal: copies are compared by real path, but the JVM
+drops a duplicate only when its URL string is the same. With
+`Class-Path: thin.jar /tmp/.../agent.jar` and the same jar as
+`-javaagent` through `/private/tmp`, the JVM appends it again and
+main traced. The agent now refuses. That is conservative and
+consistent with refusing `thin.jar agent.jar`, and the spec says so.
