@@ -671,19 +671,19 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-23, #130, JDK 27) |
+| Suite | Runner | Count (2026-11-23, #179, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 169 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
-| agent unit | surefire | 238 |
+| agent unit | surefire | 240 |
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first six: 924 tests (surefire plus
-failsafe, measured on 2026-11-23 on the branch of #130 on Temurin 27; the
+`mvn -q verify` runs the first six: 926 tests (surefire plus
+failsafe, measured on 2026-11-23 on the branch of #179 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
