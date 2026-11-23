@@ -591,7 +591,7 @@ recording; instrumentation is unaffected. The agent cannot tell at
 recording exists yet), so both together give two recordings, which
 share JFR's buffers: each file holds the other's events too.
 
-**Known JDK limitation (JDK-XXXXXXX).** On JDK 26 and later, a JVM
+**Known JDK limitation (reported to OpenJDK; no bug ID yet).** On JDK 26 and later, a JVM
 that gets SIGTERM during the first ~200 ms of the
 agent's `premain` can hang until `kill -9`: the JVM's exit path waits
 in `JvmtiExport::post_vm_death` for a JVMTI callback (`premain`) that

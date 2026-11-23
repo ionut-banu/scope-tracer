@@ -1125,3 +1125,10 @@ drops a duplicate only when its URL string is the same. With
 `-javaagent` through `/private/tmp`, the JVM appends it again and
 main traced. The agent now refuses. That is conservative and
 consistent with refusing `thin.jar agent.jar`, and the spec says so.
+
+## 2026-11-23: neutral wording for the unfiled JDK bug ID (#173)
+
+The `JDK-XXXXXXX` placeholder is replaced with "reported to OpenJDK; no
+bug ID yet" in the README, CHANGELOG, spec, `ScopeTracerAgent` Javadoc and
+`AgentStartupSignalIT`, for the 0.5.0 release. The real ID will be added
+once OpenJDK assigns one.

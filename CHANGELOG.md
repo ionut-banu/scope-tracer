@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known issues
 
-- **JDK 26 and later: a signal during agent start-up can hang the JVM** (JDK-XXXXXXX). A JVM that
+- **JDK 26 and later: a signal during agent start-up can hang the JVM** (reported to OpenJDK; no bug ID yet). A JVM that
   gets SIGTERM in the first ~200 ms of its life, while the agent installs itself, may never
   exit and needs `kill -9` (SIGINT and SIGHUP were not measured). It is a JDK bug in the shutdown
   path that any agent loading many classes in `premain` triggers; a reproducer with no
