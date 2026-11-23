@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a red run within a week, not on the day of the JDK 28 release. It is not a required check.
   The default build and the release are unchanged: Java 27 with `--enable-preview`.
 
+- **The agent says when a JDK's scope classes no longer match what it instruments.** When
+  `StructuredTaskScope` or `StructuredTaskScopeImpl` loads but an instrumented method is not
+  found in it (say a changed constructor signature), or `StructuredTaskScope.open` returns a
+  class other than `StructuredTaskScopeImpl`, the agent prints one `[scope-tracer] WARN cannot
+  instrument <class>, the trace will be incomplete: <reason>` line per class, as for a failed
+  transformation (#121). Before, the trace was silently partial or empty. Nothing is added to
+  `premain` (#130).
+
 ## [0.5.0] - 2026-11-23
 
 ### Known issues

@@ -451,9 +451,23 @@ or SLF4J version, is the same with the agent as without.
   cannot instrument <class>, the trace will be incomplete: <reason>`
   line per class, at most once per JVM, also without `verbose`
   (`TransformFailureListener`, added beside the `verbose` listeners).
-  It only prints. A class in which no advised method matches gives
-  ByteBuddy no error and no line (#130), nor does a transformed class
-  the JVM rejects (#131).
+  It only prints. A scope class in which an advice matched no method
+  with code (`no method matched <advice>`, several on one line), or a
+  scope returned by `open` whose class is not
+  `java.util.concurrent.StructuredTaskScopeImpl` (`StructuredTaskScope.open
+  returned it, and the agent instruments only
+  java.util.concurrent.StructuredTaskScopeImpl`), gives one `cannot
+  instrument` line for that class, with the same prefix and the same
+  once-per-class rule as the line above, also without `verbose`
+  (#130). The first is checked when ByteBuddy reports the
+  transformation (`MatcherMissListener`), the second on the first
+  `open` in the JVM (`FirstOpenCheck`); `premain` does no work for
+  either, and one class never gets two `cannot instrument` lines.
+  Not covered: a JDK change that every matcher still matches but that
+  changes what the advice sees (`fork(Runnable)` no longer delegating
+  to `fork(Callable)`, the constructor's third `String` no longer
+  being the configured name), which only the agent ITs on that JDK
+  catch (#55), and a transformed class the JVM rejects (#131).
 - Every `[scope-tracer] WARN` line that names an exception ends in
   the same `<reason>`, built by one formatter in `AgentLog`: `Type:
   message`, then `; caused by Type: message` for each cause, at most
@@ -657,19 +671,19 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-23, #158, JDK 27) |
+| Suite | Runner | Count (2026-11-23, #130, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 169 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
-| agent unit | surefire | 212 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 297 |
+| agent unit | surefire | 238 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first six: 878 tests (surefire plus
-failsafe, measured on 2026-11-23 on the branch of #158 on Temurin 27; the
+`mvn -q verify` runs the first six: 924 tests (surefire plus
+failsafe, measured on 2026-11-23 on the branch of #130 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

@@ -2,6 +2,7 @@ package com.ionutbanu.scopetracer.agent.advice;
 
 import com.ionutbanu.scopetracer.agent.AgentState;
 import com.ionutbanu.scopetracer.agent.CaptureFilter;
+import com.ionutbanu.scopetracer.agent.FirstOpenCheck;
 import com.ionutbanu.scopetracer.agent.ScopeState;
 import com.ionutbanu.scopetracer.agent.util.ScopeNameDeriver;
 import com.ionutbanu.scopetracer.core.events.ScopeOpenedEvent;
@@ -13,6 +14,9 @@ import net.bytebuddy.asm.Advice;
  * method. Runs after {@code open} returns and:
  *
  * <ol>
+ *   <li>On the first {@code open} in the JVM, checks that the scope's class is the one the agent
+ *       instruments ({@link FirstOpenCheck}, #130). Before the claim and the filter, so a filtered
+ *       first scope is checked too; afterwards it costs one volatile read.
  *   <li>Claims the returned scope in {@link AgentState#OPENED_SCOPES}, and returns at once if it is
  *       already there. The JDK's {@code open()} and {@code open(Joiner)} call {@code open(Joiner,
  *       UnaryOperator)}, so the same instance leaves two advised frames; the innermost exits first
@@ -42,6 +46,7 @@ public final class ScopeOpenAdvice {
   @Advice.OnMethodExit(suppress = Throwable.class)
   public static void onOpen(@Advice.Return Object scope) {
     if (scope == null) return;
+    FirstOpenCheck.onOpen(scope);
     // An outer, delegating open frame returning a scope an inner frame already decided on.
     if (!AgentState.OPENED_SCOPES.add(scope)) return;
 

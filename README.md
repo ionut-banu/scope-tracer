@@ -264,8 +264,12 @@ clamped as before, and an `html` or `verbose` value that is not a boolean keeps 
 If the agent cannot instrument `StructuredTaskScope` or `StructuredTaskScopeImpl` (ByteBuddy
 reports an error transforming it, as a JDK that changed these classes could cause), it prints
 one `[scope-tracer] WARN cannot instrument <class>, the trace will be incomplete: <reason>`
-line per class, with or without `verbose`, and the program runs unchanged. A class that loads
-but in which none of the instrumented methods is found gives no such line. The `<reason>` of
+line per class, with or without `verbose`, and the program runs unchanged. The same line, at
+most once per class, is printed when one of these classes loads but an instrumented method is
+no longer found in it (`no method matched the constructor (Joiner, ThreadFactory, String)`), or
+when `StructuredTaskScope.open` returns a class other than `StructuredTaskScopeImpl` (a JDK that
+renamed it). A JDK change that keeps every instrumented method but changes what it does can
+still give an incomplete trace with no line. The `<reason>` of
 this line and of every other `WARN` that names an exception includes the exception's causes
 (`IllegalStateException: Could not install class file transformer; caused by
 UnsupportedOperationException: ...`), at most four entries, each cut at 300 characters.

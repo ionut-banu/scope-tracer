@@ -153,6 +153,11 @@ import net.bytebuddy.utility.OpenedClassReader;
  *   <li>{@code fork(Runnable)} tasks are traced transparently: the JDK delegates {@code
  *       fork(Runnable)} to {@code fork(Callable)} internally, so the existing {@code
  *       fork(Callable)} advice covers both overloads.
+ *   <li>A JDK whose scope classes changed: a transformation ByteBuddy cannot apply, an advice that
+ *       matches no method, and an {@code open} that returns a class other than {@code
+ *       StructuredTaskScopeImpl} each print one {@code [scope-tracer] WARN cannot instrument
+ *       <class>, the trace will be incomplete: <reason>} line per class. A change that every
+ *       matcher still matches but that changes what the advice sees prints nothing.
  *   <li>JDK 26 and later (reported to OpenJDK; no bug ID yet): a JVM that gets SIGTERM during the
  *       first ~200 ms of {@code premain} can hang until {@code kill -9}. The JVM's exit path waits
  *       in {@code JvmtiExport::post_vm_death} for a JVMTI callback that is itself waiting for a
@@ -350,9 +355,11 @@ public final class ScopeTracerAgent {
         agentBuilder = redefinable;
       }
       // Always, beside the verbose listeners: one WARN line per scope class ByteBuddy cannot
-      // transform, which is otherwise silent without verbose (#121).
+      // transform, which is otherwise silent without verbose (#121), or in which an advice matched
+      // no method, which ByteBuddy reports as a success (#130). They share one line per class.
       agentBuilder
           .with(TransformFailureListener.INSTANCE)
+          .with(MatcherMissListener.INSTANCE)
           .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE)
           .with(AgentBuilder.TypeStrategy.Default.REDEFINE)
           .ignore(ElementMatchers.none()) // instrument JDK classes too
@@ -360,46 +367,24 @@ public final class ScopeTracerAgent {
           // open() and open(Joiner) delegate to open(Joiner, UnaryOperator), so one call leaves
           // several advised frames with the same scope. ScopeOpenAdvice acts on the first exit for
           // an instance only (AgentState.OPENED_SCOPES), so the overload list and which overload
-          // the JDK delegates to do not matter.
+          // the JDK delegates to do not matter. The matchers live in MatcherMissListener, which
+          // checks each transformed class against these same ones (#130).
           .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScope"))
           .transform(
               (b, typeDescription, classLoader, module, protectionDomain) ->
-                  b.visit(
-                      openAdvice.on(
-                          ElementMatchers.named("open")
-                              .and(ElementMatchers.isStatic())
-                              .and(ElementMatchers.isPublic()))))
+                  b.visit(openAdvice.on(MatcherMissListener.OPEN)))
           // --- constructor advice: captures the configured name into a ThreadLocal ---
           .type(ElementMatchers.named("java.util.concurrent.StructuredTaskScopeImpl"))
           .transform(
               (b, typeDescription, classLoader, module, protectionDomain) ->
-                  b.visit(
-                      constructorAdvice.on(
-                          ElementMatchers.isConstructor()
-                              .and(ElementMatchers.takesArguments(3))
-                              .and(
-                                  ElementMatchers.takesArgument(
-                                      2, ElementMatchers.named("java.lang.String"))))))
+                  b.visit(constructorAdvice.on(MatcherMissListener.CONSTRUCTOR)))
           // --- fork() and close() on both the API class and its concrete impl ---
+          // Only fork(Callable): fork(Runnable) delegates to it internally, so it is covered.
           .type(forkAndCloseMatcher)
           .transform(
               (b, typeDescription, classLoader, module, protectionDomain) ->
-                  b.visit(
-                          forkAdvice.on(
-                              ElementMatchers.named("fork")
-                                  .and(ElementMatchers.not(ElementMatchers.isStatic()))
-                                  .and(ElementMatchers.isPublic())
-                                  // Match only fork(Callable); fork(Runnable) delegates to it
-                                  // internally so it is covered automatically.
-                                  .and(
-                                      ElementMatchers.takesArgument(
-                                          0,
-                                          ElementMatchers.named("java.util.concurrent.Callable")))))
-                      .visit(
-                          closeAdvice.on(
-                              ElementMatchers.named("close")
-                                  .and(ElementMatchers.not(ElementMatchers.isStatic()))
-                                  .and(ElementMatchers.isPublic()))))
+                  b.visit(forkAdvice.on(MatcherMissListener.FORK))
+                      .visit(closeAdvice.on(MatcherMissListener.CLOSE)))
           .installOn(inst);
     }
 
