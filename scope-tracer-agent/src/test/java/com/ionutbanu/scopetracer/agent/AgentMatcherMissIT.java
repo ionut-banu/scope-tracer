@@ -366,10 +366,11 @@ class AgentMatcherMissIT {
     // the analyzer's executable jar: thousands of classes, no scope class
     String analyzerJar = System.getProperty("analyzerExecutableJar", "");
     assertThat(Path.of(analyzerJar)).as("the analyzer's -executable jar").exists();
-    var command = new ArrayList<String>();
-    command.add(ChildJvm.javaHome().resolve("bin").resolve("java").toString());
-    command.add("--enable-preview");
-    command.add("-Xlog:jfr+startup=off");
+    var command =
+        new ArrayList<>(
+            ChildJvm.javaCommand(
+                ChildJvm.javaHome().resolve("bin").resolve("java").toString(),
+                "-Xlog:jfr+startup=off"));
     command.addAll(patch);
     command.addAll(
         List.of(
