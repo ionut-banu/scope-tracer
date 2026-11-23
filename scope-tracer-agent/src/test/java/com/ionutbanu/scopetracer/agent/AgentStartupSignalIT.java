@@ -21,11 +21,11 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * A SIGTERM that arrives while the agent is installing itself (issue #167). On JDK 26 and later a
  * JVM signalled while any agent's {@code premain} is loading classes can hang in its exit path
- * (JDK-XXXXXXX); the agent cannot avoid it. So the test is differential: a control child with the
- * same gate and an agent whose {@code premain} loads many JDK classes says whether this JDK has the
- * bug. If it exits, the JDK is fine and the real agent must exit too. If it hangs, the JDK is at
- * fault and the test passes, saying so. The test fails only when the control exits and the agent's
- * JVM does not.
+ * (reported to OpenJDK; no bug ID yet); the agent cannot avoid it. So the test is differential: a
+ * control child with the same gate and an agent whose {@code premain} loads many JDK classes says
+ * whether this JDK has the bug. If it exits, the JDK is fine and the real agent must exit too. If
+ * it hangs, the JDK is at fault and the test passes, saying so. The test fails only when the
+ * control exits and the agent's JVM does not.
  *
  * <p>A signal sent after a delay would be a race, so the child is paused instead: {@link
  * StartupGateAgent}, listed first, blocks in a native read at the first class load with the real
