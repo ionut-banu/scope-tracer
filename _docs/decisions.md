@@ -1092,3 +1092,36 @@ scope-tracer copy, reads no manifest, so #167's start-up window does
 not widen: with a `-cp` jar listing 400 real jars from `~/.m2`, 11
 runs each, the median was 379 ms under the original name, 374 ms
 renamed, and 422 ms in a layout that forced the expansion.
+
+## 2026-11-23 - Class-Path entries are resolved with java.net.URL, as the JVM does (#158)
+
+QA on #158 found that the 2026-11-22 resolver, built on
+`new URI(entry)` and `Path.of(uri)`, dropped entries the JVM follows.
+Measured on Temurin 27.0.1 with a probe that prints
+`getSystemResources`: `file:thin.jar` and `FILE:thin.jar` (relative
+to the listing jar), names with `^ [ ] { }`, `t.jar#frag` (the
+fragment is dropped) and `t.jar?q` (a file of that name). In those
+layouts the agent still printed the swapped `ignoring` line, or
+traced from another fat-jar. `jarOf` and the running jar's code
+source had the same hole. A running jar at `odd/a^b.jar` refused
+with `URISyntaxException` and the generic file name, a #128 bug.
+
+Decided by the maintainer: each entry is `new URL(<listing jar's
+URL>, entry)`, as `URLClassPath` does, and a `file:` URL is decoded
+to a path the way `ParseUtil.decode` does (`%XX` as UTF-8, the
+query kept, the fragment dropped, a `file:` URL on another host
+naming nothing on Unix). The copies' `jar:file:` URLs and the code
+source go through the same decoding. An entry that still cannot be
+resolved, such as `%00` (rejected by `Path.of`) or a malformed
+escape, counts as reachable, so the agent refuses rather than
+guesses. The JVM skips those entries, so this is a deliberate
+over-refusal for a manifest nobody writes on purpose. A jar that
+lists the copy for certain is named in the refusal ahead of one with
+an unresolvable entry.
+
+Accepted over-refusal: copies are compared by real path, but the JVM
+drops a duplicate only when its URL string is the same. With
+`Class-Path: thin.jar /tmp/.../agent.jar` and the same jar as
+`-javaagent` through `/private/tmp`, the JVM appends it again and
+main traced. The agent now refuses. That is conservative and
+consistent with refusing `thin.jar agent.jar`, and the spec says so.

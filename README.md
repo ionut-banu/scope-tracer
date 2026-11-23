@@ -344,7 +344,9 @@ Replace `<your-classpath>` and `com.acme.Main` with your own classpath and main 
 > `[scope-tracer]` line. When the renamed jar is itself reachable from `-cp` together with
 > another scope-tracer jar, directly or through a jar's manifest `Class-Path`, the agent
 > cannot tell which is its own: it traces nothing and one `WARN not tracing` line names both
-> jars and the fix.
+> jars and the fix. It compares jars by real path, so the agent jar listed under another path
+> to the same file (`/tmp` against `/private/tmp`) also refuses, although the JVM would have
+> added it.
 
 ### The analyzer
 

@@ -364,28 +364,47 @@ cannot tell which jar is its own. Reachable means an entry of
 `java.class.path` (which already holds a `-cp` wildcard's jars), or
 a jar listed by an entry's manifest `Class-Path`, directly or
 through a chain. `BootstrapEntry` follows `Class-Path` as the JVM
-does: space-separated URLs relative to the listing jar (`sub/x.jar`,
-`./x`, `../x`, an absolute path, `file:/abs`, `%20` for a space),
-breadth first, each file once, so a cycle ends; a raw space, a
-backslash, a directory, `*`, an `http:` URL, a missing file, a jar
+does, breadth first, each file once, so a cycle ends. Entries are
+whitespace-separated, and each is `new URL(<listing jar's URL>,
+entry)` with its path decoded, never `java.net.URI`. So `sub/x.jar`,
+`./x`, `../x`, an absolute path, `file:/abs`, `file:x.jar` and
+`FILE:x.jar` (relative to the listing jar), `file://localhost/abs`,
+`%20` for a space and `%5E` for `^` all resolve. So do names that
+`URI` rejects (`^ [ ] { }`), a fragment (dropped) and a query (part
+of the file name). The same decoding reads the copies' `jar:file:`
+URLs and the running jar's code source, whose path may hold the same
+characters. A raw space, a backslash, a directory, `*`, an `http:`
+or `jar:` URL, a `file:` URL on another host, a missing file, a jar
 that is not a zip and a manifest that cannot be read are skipped
-without a word. It reads no manifest when the running copy is the
+without a word. An entry that cannot be resolved at all (`%00`,
+which `Path.of` rejects, or a malformed escape such as `%zz`) counts
+as reachable, so the agent refuses rather than guesses, unless
+another jar lists the last copy for certain. The JVM skips such
+entries. It reads no manifest when the running copy is the
 last copy, nor when the last copy is a `-cp` entry. That is the case
 whenever the `-javaagent` jar is reachable from `-cp` together with
 any other scope-tracer jar, in either order: `-cp
 agent.jar:thin.jar`, `-cp thin.jar:agent.jar`, `-cp
 a.jar:agent.jar:b.jar`, or `-cp app.jar` whose manifest has
-`Class-Path: agent.jar thin.jar` or `Class-Path: thin.jar
-agent.jar`, with `-javaagent:agent.jar`. It prints one `WARN not
-tracing` line naming both copies and both fixes, the rename one
-with the file name read from the running jar's manifest (or the
-last copy's when the running jar lists none), adds `(listed by the
-Class-Path of <jar>)` when a manifest listed the last copy, and
-traces nothing. The `ignoring` line is therefore only printed when
-the last copy was appended by the JVM. A `Class-Path` that lists
-only the thin jar, or only the `-javaagent` jar, still traces with
-the `-javaagent` jar. If the copies cannot be listed or read, it
-appends the jar it was loaded from; if the manifests cannot be
+`Class-Path: agent.jar thin.jar`, `Class-Path: agent.jar
+file:thin.jar` or `Class-Path: thin.jar agent.jar`, with
+`-javaagent:agent.jar`. It prints one `WARN not tracing` line naming
+both copies and both fixes, the rename one with the file name read
+from the running jar's manifest (or the last copy's when the running
+jar lists none). It adds `(listed by the Class-Path of <jar>)` when
+a manifest listed the last copy, or `(the Class-Path of <jar> has an
+entry that cannot be resolved)`, and traces nothing. The `ignoring`
+line is therefore only printed when the last copy was appended by
+the JVM. A `Class-Path` that lists only the thin jar, or only the
+`-javaagent` jar, still traces with the `-javaagent` jar. Copies are
+compared by real path, while the JVM drops a duplicate only when its
+URL string is the same. So the agent over-refuses in one accepted
+case: `Class-Path: thin.jar /tmp/.../agent.jar`, with
+`-javaagent:/private/tmp/.../agent.jar` reached through the `/tmp`
+symbolic link. Main traced it, because the JVM did append the
+`-javaagent` jar; the agent now refuses, which is conservative. If
+the copies cannot be listed or read, it appends the jar it was
+loaded from; if the manifests cannot be
 read, the last copy is taken as appended by the JVM. No method `ScopeTracerAgent` declares names a
 ByteBuddy type: the JVM resolves every one of their signatures when
 it looks `premain` up, and a copy from the thin jar would abort the
@@ -638,19 +657,19 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-22, #158, JDK 27) |
+| Suite | Runner | Count (2026-11-23, #158, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 169 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
-| agent unit | surefire | 203 |
-| agent integration (`*IT`) | failsafe, needs the fat-jar | 292 |
+| agent unit | surefire | 212 |
+| agent integration (`*IT`) | failsafe, needs the fat-jar | 297 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first six: 864 tests (surefire plus
-failsafe, measured on 2026-11-22 on the branch of #158 on Temurin 27; the
+`mvn -q verify` runs the first six: 878 tests (surefire plus
+failsafe, measured on 2026-11-23 on the branch of #158 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

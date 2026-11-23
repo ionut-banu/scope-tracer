@@ -29,8 +29,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tracing` line names both jars, the jar whose `Class-Path` listed the other copy, and the two
   fixes, and nothing is traced. `Class-Path: thin.jar agent.jar` now refuses too: it traced only
   by luck, and cannot be told apart from the reverse order. A `Class-Path` that lists only the
-  thin jar, or only the `-javaagent` jar, traces as before. Manifests are read only in that rare
-  layout; a renamed jar with no other scope-tracer copy reads none (#158).
+  thin jar, or only the `-javaagent` jar, traces as before. Entries are resolved as the JVM
+  resolves them, so `file:thin.jar` and jar names with `^`, `[`, `]`, `{` or `}` count, and an
+  entry the agent cannot resolve at all (such as `%00`) makes it refuse rather than guess. One
+  accepted over-refusal: the `-javaagent` jar listed by a `Class-Path` under another path to the
+  same file (`/tmp/.../agent.jar` against `/private/tmp/.../agent.jar`) now refuses, where the
+  JVM had appended it and the agent traced. Manifests are read only in that rare layout; a
+  renamed jar with no other scope-tracer copy reads none (#158).
+- **A renamed agent jar whose path holds `^`, `[`, `]`, `{` or `}` is read correctly.** When
+  such a jar was reached through a manifest `Class-Path`, the agent failed with
+  `URISyntaxException` and suggested the generic file name; it now reads the jar's path and its
+  exact file name (#158).
 - **`scope-tracer-demos` is no longer published to Maven Central.** The bundle held it although
   its pom meant to skip it (the property it set is not read by the publishing plugin). 0.3.0 and
   0.4.0 of `scope-tracer-demos` on Central were published by mistake and are not supported; run
