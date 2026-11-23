@@ -65,7 +65,11 @@ class MatcherMissListenerTest {
     /** {@code private <init>(Joiner, ThreadFactory, String, int)}: the patched JDK's. */
     CONSTRUCTOR_4,
     /** {@code public fork(Runnable)}. */
-    FORK_RUNNABLE
+    FORK_RUNNABLE,
+    /** {@code private <init>(Joiner, ThreadFactory, Object)}: a supertype of the name's type. */
+    CONSTRUCTOR_OBJECT,
+    /** {@code private <init>(Joiner, ThreadFactory, CharSequence)}: the nearer supertype. */
+    CONSTRUCTOR_CHAR_SEQUENCE
   }
 
   /** The four advices, each with the member it needs and its reason. */
@@ -120,6 +124,16 @@ class MatcherMissListenerTest {
                         ThreadFactory.class,
                         String.class,
                         int.class)
+                    .intercept(objectConstructor());
+            case CONSTRUCTOR_OBJECT ->
+                b.defineConstructor(Visibility.PRIVATE)
+                    .withParameters(
+                        StructuredTaskScope.Joiner.class, ThreadFactory.class, Object.class)
+                    .intercept(objectConstructor());
+            case CONSTRUCTOR_CHAR_SEQUENCE ->
+                b.defineConstructor(Visibility.PRIVATE)
+                    .withParameters(
+                        StructuredTaskScope.Joiner.class, ThreadFactory.class, CharSequence.class)
                     .intercept(objectConstructor());
             case FORK ->
                 b.defineMethod("fork", Object.class, Visibility.PUBLIC)
@@ -201,6 +215,25 @@ class MatcherMissListenerTest {
     Set<Member> members = fullFor(SCOPE_IMPL);
     members.remove(Member.CONSTRUCTOR);
     members.add(Member.CONSTRUCTOR_4);
+
+    assertThat(linesFor(type(SCOPE_IMPL, members)))
+        .containsExactly(
+            LINE
+                + SCOPE_IMPL
+                + INCOMPLETE
+                + NO_MATCH
+                + "the constructor (Joiner, ThreadFactory, String)");
+  }
+
+  /** The matcher names {@code java.lang.String} exactly; a supertype is not the name. */
+  @ParameterizedTest
+  @EnumSource(
+      value = Member.class,
+      names = {"CONSTRUCTOR_OBJECT", "CONSTRUCTOR_CHAR_SEQUENCE"})
+  void aConstructorWhoseThirdParameterIsASupertypeOfStringIsAMiss(Member constructor) {
+    Set<Member> members = fullFor(SCOPE_IMPL);
+    members.remove(Member.CONSTRUCTOR);
+    members.add(constructor);
 
     assertThat(linesFor(type(SCOPE_IMPL, members)))
         .containsExactly(
