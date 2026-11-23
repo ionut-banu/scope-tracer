@@ -1,7 +1,7 @@
 ///usr/bin/env jbang "$0" "$@" ; exit $?
 //JAVA 27+
 //PREVIEW
-//DEPS com.ionutbanu:scope-tracer-agent:0.4.0:agent
+//DEPS com.ionutbanu:scope-tracer-agent:0.5.0:agent
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
