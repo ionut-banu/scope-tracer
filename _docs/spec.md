@@ -492,6 +492,21 @@ or SLF4J version, is the same with the agent as without.
   the property is relocated with ByteBuddy
   (`com.ionutbanu.scopetracer.shaded.net.bytebuddy.experimental`), so
   the application's own `net.bytebuddy.experimental` is untouched.
+- The agent's type pool (`PreviewClassFileReader.POOL`, ByteBuddy's
+  `PoolStrategy.Default.FAST` with its own class reader) reads a class
+  file whose minor version is `0xFFFF` as minor 0, on a copy of the
+  bytes, to describe it; every other version reaches ByteBuddy's ASM
+  reader unchanged. It is never used for the class being transformed,
+  which the `ByteBuddy` instance reads and writes with its own
+  version, so the JVM never receives a class file whose version the
+  agent changed. Why: on JDK 28 with `--enable-preview` the JVM serves
+  the `java.base/META-INF/preview` variants of JDK classes, such as
+  `java.time.Duration` (a parameter of
+  `StructuredTaskScopeImpl.scheduleTimeout`), as 72.65535, and ASM
+  rejects that on purpose until it supports value classes (ASM !473).
+  The experimental property above does not help, because ByteBuddy
+  compares the minor version as a signed `short`, so 72.65535 reads as
+  older than its latest version and is never patched (#176).
 - Three matcher chains: every public static
   `StructuredTaskScope.open` overload (`ScopeOpenAdvice`); the private
   3-arg constructor of `StructuredTaskScopeImpl`
@@ -671,19 +686,19 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-23, #179, JDK 27) |
+| Suite | Runner | Count (2026-11-24, #176, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 169 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
-| agent unit | surefire | 240 |
+| agent unit | surefire | 248 |
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 61 |
 
-`mvn -q verify` runs the first six: 926 tests (surefire plus
-failsafe, measured on 2026-11-23 on the branch of #179 on Temurin 27; the
+`mvn -q verify` runs the first six: 934 tests (surefire plus
+failsafe, measured on 2026-11-24 on the branch of #176 on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
@@ -762,6 +777,12 @@ try (var file = new RecordingFile(tempPath)) {
   GitHub's mail to whoever last edited the `cron` line, and is the
   maintainer's to triage. When `28-ea` can no longer be resolved
   (after GA) the setup step is red; moving to the next EA is #70.
+  A second job in the same workflow, "agent with `--enable-preview`",
+  with the same triggers, setup, summary, report upload and limit,
+  runs `mvn -B -Pjdk-ea -Dscopetracer.test.preview=true -pl
+  scope-tracer-agent -am verify`: the build stays without the flag,
+  and every child JVM the agent ITs start gets `--enable-preview`, as
+  a user on 28 who keeps the flag runs (#176).
 - maven-shade-plugin runs with the ASM named by `shade.asm.version`
   (9.11.1) in place of its own 9.9.1, which cannot read class-file
   major 71.
