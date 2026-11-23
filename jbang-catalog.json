@@ -1,7 +1,7 @@
 {
   "aliases": {
     "analyze": {
-      "script-ref": "https://github.com/ionut-banu/scope-tracer/releases/download/v0.4.0/scope-tracer-analyzer-0.4.0-executable.jar",
+      "script-ref": "https://github.com/ionut-banu/scope-tracer/releases/download/v0.5.0/scope-tracer-analyzer-0.5.0-executable.jar",
       "main": "com.ionutbanu.scopetracer.analyzer.AnalyzerMain",
       "java": "27+",
       "description": "scope-tracer: turn a .jfr recording into an HTML report (usage: analyze <recording.jfr> [report.html])"
