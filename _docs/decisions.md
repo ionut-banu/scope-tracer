@@ -1166,3 +1166,59 @@ change the workflow file. A red run is reported by GitHub's cron
 mail and the step summary; nothing opens an issue. The agent on 28
 with `--enable-preview` (class file 72.65535 in the instrumented
 `StructuredTaskScopeImpl`) is a separate defect, #176.
+
+
+## 2026-11-23 - A scope class that no advice matches is named at transformation time (#130)
+
+On a JDK whose `StructuredTaskScope` classes still load but changed,
+ByteBuddy reports a transformation in which a method matcher missed
+as a success, exactly like a good one, and a renamed
+`StructuredTaskScopeImpl` is never transformed at all. Measured on
+Temurin 27.0.1 with the class bytes rewritten through
+`--patch-module java.base`: a 4th constructor parameter lost the
+configured name, and a renamed impl left only `ScopeOpened`, both with
+no line. #121's `onError` never fired.
+
+Decided by the maintainer, following the PM's recommendations:
+
+- **When.** At transformation time, in an `AgentBuilder.Listener`
+  (`MatcherMissListener.onTransformation`) installed beside #121's,
+  with or without `verbose`. `premain` does nothing new. The PM's
+  prototypes, median wall time of 25 interleaved runs: a plain `main`
+  took 191.2 ms with no check, 190.5 ms with this approach (A), 194.8
+  ms with a `TypePool` check in `premain` (B) and 220.4 ms with
+  `Class.forName` in `premain` (C). B also described the unpatched class
+  file in `jrt:/` and missed the rename; C loads both classes inside
+  `premain`, which widens #167's SIGTERM window.
+- **How it counts.** The four advice matchers are the same objects the
+  agent weaves with (`MatcherMissListener.OPEN`, `CONSTRUCTOR`, `FORK`,
+  `CLOSE`), and the listener applies them, with `not(isAbstract())`,
+  to the declared methods of the type ByteBuddy just transformed. The
+  issue suggested wrapping the matchers to count as ByteBuddy calls
+  them; the engineer applied them again in the listener instead,
+  because then nothing in the weaving path changes, no per-thread
+  state has to carry counts from the matcher to the listener, and the
+  decision is a function of a `TypeDescription` that a unit test can
+  build. For `REDEFINE`, the methods ByteBuddy's `Advice` matches are
+  that type's declared methods, so the answer is the same. On
+  `StructuredTaskScope` only `open` is checked: `fork` and `close` are
+  abstract there on JDK 27, and the advice weaves nothing into them.
+- **A renamed impl.** Checked on the first `open` in the JVM
+  (`FirstOpenCheck`, called from `ScopeOpenAdvice` before the filter),
+  by comparing the returned scope's class name with
+  `java.util.concurrent.StructuredTaskScopeImpl`. Rejected: checking
+  `StructuredTaskScope`'s permitted subtypes when it is transformed,
+  which depends on the interface staying sealed. The check costs one
+  volatile read per `open` after the first.
+- **The line.** #121's prefix, `WARN cannot instrument <class>, the
+  trace will be incomplete: `, so one grep finds every kind of failure,
+  with `no method matched <advice>` (several joined with `, `) or
+  `StructuredTaskScope.open returned it, and the agent instruments only
+  java.util.concurrent.StructuredTaskScopeImpl`. All three reporters
+  share one set of class names (`CannotInstrument`), so a class gets at
+  most one `cannot instrument` line whichever fires first. No JDK
+  version in the line.
+- **Not done.** An advice that matches more methods than on JDK 27 is
+  not reported, and a change that every matcher still matches (V2,
+  `fork(Runnable)` no longer delegating) is left to the agent ITs on
+  the new JDK (#55).

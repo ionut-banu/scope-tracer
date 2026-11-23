@@ -31,6 +31,10 @@ import java.util.concurrent.StructuredTaskScope.Joiner;
  *   <li>{@code mixed-tree} - {@code mixed}, then {@code tree}.
  *   <li>{@code properties} - {@code mixed}, then the key of every system property {@code main}
  *       sees, sorted, one per line as {@code property <key>}.
+ *   <li>{@code lab} - {@value #LAB_SCOPE} ({@code allUntil(s -> false)}) with a task that returns,
+ *       one that throws, a {@code Runnable}, and one that opens an unnamed scope with one task;
+ *       then {@value #LAB_THREADS} platform threads that each open {@value #LAB_PARALLEL} at once,
+ *       one task each. 10 scopes and 13 tasks in all (#130).
  *   <li>{@code many <n>} - {@code n} closed scopes of one task each.
  *   <li>{@code stdin} - one closed scope, prints {@value #READY}, returns after a line on stdin.
  *   <li>Exit paths, each after one closed scope {@value #EXIT_SCOPE}: {@code return}; {@code exit}
@@ -60,6 +64,9 @@ public final class ExitSubject {
   static final String MIXED_SCOPE = "mixed";
   static final String FAILURE = "task failed on purpose";
   static final String MAIN_FAILURE = "main failed on purpose";
+  static final String LAB_SCOPE = "lab";
+  static final String LAB_PARALLEL = "lab-parallel";
+  static final int LAB_THREADS = 8;
   static final String MARKER_PROPERTY = "exitsubject.marker";
 
   private ExitSubject() {}
@@ -116,6 +123,10 @@ public final class ExitSubject {
         tree();
         System.out.println(DONE);
       }
+      case "lab" -> {
+        lab();
+        System.out.println(DONE);
+      }
       case "many" -> {
         int n = Integer.parseInt(args[1]);
         for (int i = 0; i < n; i++) {
@@ -157,6 +168,44 @@ public final class ExitSubject {
       }
       default -> throw new IllegalArgumentException("unknown mode " + args[0]);
     }
+  }
+
+  private static void lab() throws Exception {
+    try (var scope =
+        StructuredTaskScope.open(Joiner.<Object>allUntil(s -> false), c -> c.withName(LAB_SCOPE))) {
+      scope.fork(() -> "returned");
+      scope.fork(
+          () -> {
+            throw new IllegalStateException(FAILURE);
+          });
+      scope.fork(() -> {});
+      scope.fork(
+          () -> {
+            try (var inner = StructuredTaskScope.open()) {
+              inner.fork(() -> 1);
+              inner.join();
+            }
+            return "nested";
+          });
+      scope.join();
+    }
+    var start = new CountDownLatch(1);
+    var threads = new java.util.ArrayList<Thread>();
+    for (int i = 0; i < LAB_THREADS; i++) {
+      threads.add(
+          Thread.ofPlatform()
+              .start(
+                  () -> {
+                    try {
+                      start.await();
+                      closedScope(LAB_PARALLEL);
+                    } catch (Exception e) {
+                      throw new IllegalStateException(e);
+                    }
+                  }));
+    }
+    start.countDown();
+    for (Thread t : threads) t.join();
   }
 
   private static void closedScope(String name) throws Exception {

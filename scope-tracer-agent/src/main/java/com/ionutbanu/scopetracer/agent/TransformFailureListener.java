@@ -1,6 +1,5 @@
 package com.ionutbanu.scopetracer.agent;
 
-import java.util.concurrent.atomic.AtomicBoolean;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.utility.JavaModule;
 
@@ -19,8 +18,10 @@ import net.bytebuddy.utility.JavaModule;
  * }</pre>
  *
  * <p>It only prints. It never retries, retransforms or disables anything, keeps no {@code Class} or
- * {@code ClassLoader} reference, and never throws. A class that loads but in which no advised
- * method matches gives ByteBuddy no error, so it is not reported here (#130).
+ * {@code ClassLoader} reference, and never throws. A class that loads but in which an advice
+ * matches no method gives ByteBuddy no error; {@link MatcherMissListener} reports that (#130). Both
+ * share one {@link CannotInstrument}, so a class gets at most one {@code cannot instrument} line,
+ * whichever reports it first.
  */
 final class TransformFailureListener extends AgentBuilder.Listener.Adapter {
 
@@ -28,12 +29,19 @@ final class TransformFailureListener extends AgentBuilder.Listener.Adapter {
   static final String SCOPE_IMPL = "java.util.concurrent.StructuredTaskScopeImpl";
 
   /** The one the agent installs, so a second {@code premain} in the same JVM shares its state. */
-  static final TransformFailureListener INSTANCE = new TransformFailureListener();
+  static final TransformFailureListener INSTANCE =
+      new TransformFailureListener(CannotInstrument.SHARED);
 
-  private final AtomicBoolean scopeReported = new AtomicBoolean();
-  private final AtomicBoolean scopeImplReported = new AtomicBoolean();
+  private final CannotInstrument lines;
 
-  TransformFailureListener() {}
+  /** A listener with a state of its own, for a test. */
+  TransformFailureListener() {
+    this(new CannotInstrument());
+  }
+
+  TransformFailureListener(CannotInstrument lines) {
+    this.lines = lines;
+  }
 
   @Override
   public void onError(
@@ -43,20 +51,9 @@ final class TransformFailureListener extends AgentBuilder.Listener.Adapter {
       boolean loaded,
       Throwable throwable) {
     try {
-      AtomicBoolean reported;
-      if (SCOPE.equals(typeName)) {
-        reported = scopeReported;
-      } else if (SCOPE_IMPL.equals(typeName)) {
-        reported = scopeImplReported;
-      } else {
-        return;
-      }
-      if (!reported.compareAndSet(false, true)) return;
-      AgentLog.warn(
-          "cannot instrument "
-              + typeName
-              + ", the trace will be incomplete: "
-              + AgentLog.describe(throwable));
+      if (!SCOPE.equals(typeName) && !SCOPE_IMPL.equals(typeName)) return;
+      if (lines.isReported(typeName)) return;
+      lines.warn(typeName, AgentLog.describe(throwable));
     } catch (Throwable ignored) {
       // a listener that throws would end up in ByteBuddy's own error handling; lose the line
     }
