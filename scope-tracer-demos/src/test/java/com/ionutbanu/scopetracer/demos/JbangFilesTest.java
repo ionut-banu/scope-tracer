@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
@@ -28,18 +29,20 @@ class JbangFilesTest {
     JavaCompiler javac = ToolProvider.getSystemJavaCompiler();
 
     // No class path: the file must compile with the JDK alone. Its //DEPS line is a comment to
-    // javac, and the agent jar it names is only used at run time.
-    int result =
-        javac.run(
-            null,
-            null,
-            null,
-            "--enable-preview",
+    // javac, and the agent jar it names is only used at run time. It is compiled for the running
+    // JDK, with --enable-preview unless the POM says the build has none (the jdk-ea profile).
+    var args = new ArrayList<String>();
+    if (Boolean.parseBoolean(System.getProperty("scopetracer.test.preview", "true"))) {
+      args.add("--enable-preview");
+    }
+    args.addAll(
+        List.of(
             "--release",
-            "27",
+            Integer.toString(Runtime.version().feature()),
             "-d",
             out.toString(),
-            DEMO.toString());
+            DEMO.toString()));
+    int result = javac.run(null, null, null, args.toArray(String[]::new));
 
     assertThat(result).as("javac exit code").isZero();
     assertThat(out.resolve("ScopeTracerDemo.class")).exists();

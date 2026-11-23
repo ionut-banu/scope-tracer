@@ -281,7 +281,7 @@ class ProducerCallSiteIT {
       throws IOException, InterruptedException {
     var command = new ArrayList<String>();
     command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
-    command.add("--enable-preview");
+    command.addAll(ChildJvm.previewFlags());
     command.addAll(jvmArgs);
     command.add(SUBJECT);
     command.add(jfrOut.toString());

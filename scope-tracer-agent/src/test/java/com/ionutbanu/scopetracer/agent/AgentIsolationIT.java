@@ -330,7 +330,7 @@ class AgentIsolationIT {
 
     var command = new ArrayList<String>();
     command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
-    command.add("--enable-preview");
+    command.addAll(ChildJvm.previewFlags());
     if (withAgent) {
       command.add("-javaagent:" + agentJar);
     }

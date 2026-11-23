@@ -14,6 +14,8 @@ Commands
 - `mvn spotless:apply` - fix formatting (google-java-format, sortPom)
 - `mvn -q -DskipTests install && mvn -q -Pstress verify` - stress
   tests
+- `mvn -B -Pjdk-ea verify` on a JDK 28 early-access build - what the
+  weekly EA job runs; refuses any JDK older than 28
 - `cd scope-tracer-plugin && ./gradlew build` - plugin and its
   `:model` tests. Needs the analyzer's `-executable` jar in
   `scope-tracer-analyzer/target/` first (`mvn -q -DskipTests package`).
@@ -39,7 +41,10 @@ Layout
 Rules
 
 - Java 27 with `--enable-preview` project-wide, deliberately. Do not
-  disable it.
+  disable it. One exception: the explicit `-Pjdk-ea` profile, used
+  only by the JDK 28 early-access job (`jdk-ea.yml`), builds for the
+  running JDK without `--enable-preview` (#55). Every build without
+  it, the release included, stays Java 27 with the flag.
 - Dependencies go in the parent `<dependencyManagement>`; modules
   omit `<version>`. Do not add one without asking - in a comment on
   the issue, before adding it.

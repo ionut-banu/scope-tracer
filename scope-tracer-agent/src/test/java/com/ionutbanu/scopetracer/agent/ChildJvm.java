@@ -54,9 +54,29 @@ final class ChildJvm implements AutoCloseable {
   }
 
   /**
-   * Starts {@code java --enable-preview <jvmArgs> -cp <test classes> ExitSubject <subjectArgs>} in
-   * {@code workDir}. JFR's own startup lines are turned off: they go to stdout with a timestamp and
-   * a pid, so two runs of one program would never have the same stdout.
+   * {@code --enable-preview} when the build compiled the tests with it, nothing under the {@code
+   * jdk-ea} profile. Read from {@code scopetracer.test.preview}, which the POM sets; {@code true}
+   * when it is missing, as in a plain IDE run on JDK 27.
+   */
+  static List<String> previewFlags() {
+    return Boolean.parseBoolean(System.getProperty("scopetracer.test.preview", "true"))
+        ? List.of("--enable-preview")
+        : List.of();
+  }
+
+  /** {@code java}, then {@link #previewFlags()}, then {@code args}. */
+  static List<String> javaCommand(String java, String... args) {
+    var command = new ArrayList<String>();
+    command.add(java);
+    command.addAll(previewFlags());
+    command.addAll(List.of(args));
+    return List.copyOf(command);
+  }
+
+  /**
+   * Starts {@code java [--enable-preview] <jvmArgs> -cp <test classes> ExitSubject <subjectArgs>}
+   * in {@code workDir}. JFR's own startup lines are turned off: they go to stdout with a timestamp
+   * and a pid, so two runs of one program would never have the same stdout.
    */
   static ChildJvm start(Path workDir, List<String> jvmArgs, String... subjectArgs)
       throws IOException {
@@ -86,7 +106,7 @@ final class ChildJvm implements AutoCloseable {
       throws IOException {
     var command = new ArrayList<String>();
     command.add(javaHome().resolve("bin").resolve("java").toString());
-    command.add("--enable-preview");
+    command.addAll(previewFlags());
     command.add("-Xlog:jfr+startup=off");
     command.addAll(jvmArgs);
     command.add("-cp");

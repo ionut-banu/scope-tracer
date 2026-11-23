@@ -194,13 +194,8 @@ class ScopeTracerAgentFilterIT {
 
     var proc =
         new ProcessBuilder(
-                java,
-                "--enable-preview",
-                agentSpec,
-                "-cp",
-                testClassesDir,
-                subject.getName(),
-                jfrOut.toString())
+                ChildJvm.javaCommand(
+                    java, agentSpec, "-cp", testClassesDir, subject.getName(), jfrOut.toString()))
             .redirectErrorStream(true)
             .start();
 

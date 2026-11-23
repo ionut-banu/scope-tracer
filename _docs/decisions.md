@@ -1132,3 +1132,37 @@ The `JDK-XXXXXXX` placeholder is replaced with "reported to OpenJDK; no
 bug ID yet" in the README, CHANGELOG, spec, `ScopeTracerAgent` Javadoc and
 `AgentStartupSignalIT`, for the 0.5.0 release. The real ID will be added
 once OpenJDK assigns one.
+
+## 2026-11-23 - The JDK 28 early-access build runs without --enable-preview (#55)
+
+A weekly job builds and tests scope-tracer on the newest JDK 28 EA
+build, to catch a JDK change that stops the agent's matchers from
+matching months before 28 GA. It runs under an explicit `-Pjdk-ea`
+profile that targets the running JDK (`--release 28`) and passes
+`--enable-preview` nowhere: not to javac, not in the surefire and
+failsafe `argLine`s, not to the child JVMs and javac runs the tests
+start (they read `scopetracer.test.preview`, set by the POM).
+
+Why not keep the flag, measured on OpenJDK 28-ea+25 while grooming:
+javac 28 cannot target 27 with `--enable-preview`, and classes built
+as 71.65535 do not load on 28. With `--release 28 --enable-preview`,
+value classes are in preview, so javac stamps every class that
+touches `Record`, `Optional` or a box type 72.65535 (on 27 only the
+classes that use `StructuredTaskScope` are stamped). ASM 9.11.1, the
+newest, rejects 72.65535, so Shade and SpotBugs fail and no agent IT
+runs. On 28 `StructuredTaskScope` is final (JEP 543) and needs no
+flag. Without the flag everywhere, `verify` passes with the same 878
+tests as on 27.
+
+Decided by the maintainer: the AGENTS.md rule that `--enable-preview`
+is never disabled gains this one exception. The profile is explicit
+only, never activated by the JDK version, so a release cannot be cut
+by accident without the flag; automatic activation belongs with #70,
+when 28 becomes the default. The profile's own enforcer rule refuses
+a JDK older than 28, so it never runs tests against 27 without the
+preview flag. Temurin `28-ea` through `setup-java@v5`, weekly on
+Saturday 06:17 UTC plus `workflow_dispatch` and pull requests that
+change the workflow file. A red run is reported by GitHub's cron
+mail and the step summary; nothing opens an issue. The agent on 28
+with `--enable-preview` (class file 72.65535 in the instrumented
+`StructuredTaskScopeImpl`) is a separate defect, #176.

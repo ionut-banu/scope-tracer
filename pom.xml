@@ -63,6 +63,11 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
     <maven.compiler.release>27</maven.compiler.release>
+    <!-- The JVM flag the surefire and failsafe argLines pass, and what tests that start a child
+         JVM or javac read (scopetracer.test.preview) to decide whether to pass it on. Both are
+         switched off together by the jdk-ea profile only. -->
+    <scopetracer.preview.flag>--enable-preview</scopetracer.preview.flag>
+    <scopetracer.test.preview>true</scopetracer.test.preview>
 
     <slf4j.version>2.0.20</slf4j.version>
     <logback.version>1.6.6</logback.version>
@@ -146,7 +151,10 @@
             <useModulePath>false</useModulePath>
             <!-- @{argLine} is set by jacoco-maven-plugin's prepare-agent goal; resolves to
                  empty if jacoco is skipped (e.g. modules without tests). -->
-            <argLine>@{argLine} --enable-preview</argLine>
+            <argLine>@{argLine} ${scopetracer.preview.flag}</argLine>
+            <systemPropertyVariables>
+              <scopetracer.test.preview>${scopetracer.test.preview}</scopetracer.test.preview>
+            </systemPropertyVariables>
           </configuration>
         </plugin>
         <plugin>
@@ -210,6 +218,11 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
           <version>3.6.1</version>
+          <configuration>
+            <systemPropertyVariables>
+              <scopetracer.test.preview>${scopetracer.test.preview}</scopetracer.test.preview>
+            </systemPropertyVariables>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.jacoco</groupId>
@@ -311,6 +324,60 @@
   </build>
 
   <profiles>
+    <!--
+      JDK early-access build (#55), used by .github/workflows/jdk-ea.yml. Builds for the JDK that
+      runs Maven, without enable-preview anywhere: on JDK 28 value classes are in preview, and with
+      the flag javac stamps nearly every class 72.65535, which ASM (Shade, SpotBugs) rejects. On 28
+      StructuredTaskScope is final and needs no flag. Explicit only, never activated by the JDK
+      version, so a release cannot be cut by accident without the flag. The default build and the
+      release stay Java 27 with enable-preview.
+    -->
+    <profile>
+      <id>jdk-ea</id>
+      <properties>
+        <maven.compiler.release>${java.specification.version}</maven.compiler.release>
+        <scopetracer.preview.flag/>
+        <scopetracer.test.preview>false</scopetracer.test.preview>
+      </properties>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-compiler-plugin</artifactId>
+              <configuration>
+                <compilerArgs combine.self="override"/>
+              </configuration>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+        <plugins>
+          <!-- On 27 the profile would compile StructuredTaskScope without the preview flag and
+               fail halfway, or run tests against 27 without it. Stop before the first compile. -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>enforce-jdk-ea</id>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <requireJavaVersion>
+                      <version>[28,)</version>
+                      <message>The jdk-ea profile builds without --enable-preview and needs JDK 28 or newer, where StructuredTaskScope is final. On JDK 27 build without -Pjdk-ea.</message>
+                    </requireJavaVersion>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
     <profile>
       <id>stress</id>
       <modules>
