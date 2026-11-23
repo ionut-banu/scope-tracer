@@ -674,9 +674,12 @@ class BootstrapEntryTest {
         .isTrue();
   }
 
+  /**
+   * Entries the JVM resolves to no jar (measured on Temurin 27.0.1 with a probe listing {@code
+   * getSystemResources}): skipped, nothing printed.
+   */
   @Test
-  void classPathEntriesTheJvmIgnoresAreNotFollowedAndPrintNothing(@TempDir Path dir)
-      throws Exception {
+  void classPathEntriesThatNameNoJarAreSkippedSilently(@TempDir Path dir) throws Exception {
     assertThat(
             reachable(
                 dir.resolve("1"),
@@ -698,9 +701,223 @@ class BootstrapEntryTest {
                 dir.resolve("5"), "http://localhost:1/t.jar", fat(dir.resolve("5/app/t.jar"))))
         .as("http:")
         .isFalse();
-    assertThat(reachable(dir.resolve("6"), "a^b.jar [x].jar", fat(dir.resolve("6/app/t.jar"))))
-        .as("not a valid URI")
+    Path other = fat(dir.resolve("6/app/t.jar"));
+    assertThat(reachable(dir.resolve("6"), "file://otherhost" + real(other), other))
+        .as("file: on another host")
         .isFalse();
+    Path inJar = fat(dir.resolve("7/app/t.jar"));
+    assertThat(reachable(dir.resolve("7"), "jar:" + real(inJar).toUri() + "!/", inJar))
+        .as("jar:")
+        .isFalse();
+  }
+
+  /**
+   * Entries {@code java.net.URI} rejects or reads differently, which the JVM follows (measured the
+   * same way): {@code ^ [ ] { }}, {@code file:} relative to the listing jar in any case, a
+   * fragment, {@code %5E}, and {@code file://localhost}.
+   */
+  @Test
+  void classPathEntriesTheJvmFollowsThoughUriRejectsThem(@TempDir Path dir) throws Exception {
+    assertThat(reachable(dir.resolve("1"), "odd/a^b.jar", fat(dir.resolve("1/app/odd/a^b.jar"))))
+        .as("^")
+        .isTrue();
+    assertThat(reachable(dir.resolve("2"), "odd/k[1].jar", fat(dir.resolve("2/app/odd/k[1].jar"))))
+        .as("[ ]")
+        .isTrue();
+    assertThat(reachable(dir.resolve("3"), "odd/c{d}.jar", fat(dir.resolve("3/app/odd/c{d}.jar"))))
+        .as("{ }")
+        .isTrue();
+    assertThat(reachable(dir.resolve("4"), "file:t.jar", fat(dir.resolve("4/app/t.jar"))))
+        .as("file:relative")
+        .isTrue();
+    assertThat(reachable(dir.resolve("5"), "FILE:t.jar", fat(dir.resolve("5/app/t.jar"))))
+        .as("FILE:relative")
+        .isTrue();
+    assertThat(reachable(dir.resolve("6"), "file:./sub/t.jar", fat(dir.resolve("6/app/sub/t.jar"))))
+        .as("file:./")
+        .isTrue();
+    assertThat(reachable(dir.resolve("7"), "t.jar#frag", fat(dir.resolve("7/app/t.jar"))))
+        .as("fragment")
+        .isTrue();
+    assertThat(reachable(dir.resolve("8"), "odd/a%5Eb.jar", fat(dir.resolve("8/app/odd/a^b.jar"))))
+        .as("%5E")
+        .isTrue();
+    Path local = fat(dir.resolve("9/abs/t.jar"));
+    assertThat(reachable(dir.resolve("9"), "file://localhost" + real(local), local))
+        .as("file://localhost")
+        .isTrue();
+  }
+
+  /** {@code Class-Path: agent.jar file:thin.jar}, or {@code file:fat2.jar}: both refuse. */
+  @Test
+  void fileSchemeRelativeEntryAfterTheJavaagentJarRefuses(@TempDir Path dir) throws Exception {
+    Path agent = fat(dir.resolve("agent.jar"));
+    Path thin = jarWithoutBootClassPath(dir.resolve("thin.jar"));
+    Path fat2 = fat(dir.resolve("fat2.jar"));
+    for (Path other : List.of(thin, fat2)) {
+      Path app =
+          jarClassPath(
+              dir.resolve("app-" + other.getFileName()), "agent.jar file:" + other.getFileName());
+      var choice = choose(agent, () -> List.of(copyIn(agent), copyIn(other)), classPath(app));
+      assertThat(choice.jar()).as(other.toString()).isNull();
+      assertThat(choice.lines()).containsExactly(listedRefusal(agent, other, app));
+    }
+  }
+
+  /**
+   * The URL the system class loader gives for a copy whose jar was reached through a {@code
+   * Class-Path} entry: the path as written, a {@code ^} or {@code [} left raw.
+   */
+  @SuppressWarnings("deprecation")
+  private static URL rawCopyIn(Path jar) throws Exception {
+    return new URL("jar:file:" + real(jar) + CLASS_ENTRY);
+  }
+
+  /** {@code -cp l.jar}, {@code l} lists {@code odd/k[1].jar}, which lists both copies. */
+  @Test
+  void chainThroughAJarNameUriRejectsRefuses(@TempDir Path dir) throws Exception {
+    Path agent = fat(dir.resolve("agent.jar"));
+    Path fat2 = fat(dir.resolve("fat2.jar"));
+    Path l = jarClassPath(dir.resolve("l.jar"), "odd/k[1].jar");
+    Path k = jarClassPath(dir.resolve("odd/k[1].jar"), "../agent.jar ../fat2.jar");
+    var choice = choose(agent, () -> List.of(copyIn(agent), rawCopyIn(fat2)), classPath(l));
+
+    assertThat(choice.jar()).isNull();
+    assertThat(choice.lines()).containsExactly(listedRefusal(agent, fat2, k));
+  }
+
+  /** A last copy whose URL holds a {@code ^} is read, not taken as "no copy" (#158, QA). */
+  @Test
+  void lastCopyWithACharacterUriRejectsIsRead(@TempDir Path dir) throws Exception {
+    Path agent = fat(dir.resolve("agent.jar"));
+    Path odd = fat(dir.resolve("odd/f^at.jar"));
+    Path app = jarClassPath(dir.resolve("app.jar"), "agent.jar odd/f^at.jar");
+    var choice = choose(agent, () -> List.of(copyIn(agent), rawCopyIn(odd)), classPath(app));
+
+    assertThat(choice.jar()).isNull();
+    assertThat(choice.lines()).containsExactly(listedRefusal(agent, odd, app));
+  }
+
+  /**
+   * An entry that cannot be resolved, here because {@code Path.of} rejects it ({@code %00}) or the
+   * escape is malformed ({@code %zz}), counts as reachable: the agent refuses, naming the jar whose
+   * {@code Class-Path} holds it.
+   */
+  @Test
+  void entryThatCannotBeResolvedRefuses(@TempDir Path dir) throws Exception {
+    for (String entry : List.of("a%00b.jar", "a%zz.jar", "a%4.jar")) {
+      Path sub = dir.resolve(entry.replace('%', '_'));
+      Path running = fat(sub.resolve("running.jar"));
+      Path target = fat(sub.resolve("t.jar"));
+      Path app = jarClassPath(sub.resolve("app.jar"), entry + " missing.jar");
+      var choice = choose(running, () -> List.of(copyIn(running), copyIn(target)), classPath(app));
+
+      assertThat(choice.jar()).as(entry).isNull();
+      assertThat(choice.lines())
+          .as(entry)
+          .containsExactly(
+              WARN_NOT_TRACING
+                  + CANNOT_TELL
+                  + running
+                  + " and at "
+                  + real(target)
+                  + " (the Class-Path of "
+                  + real(app)
+                  + " has an entry that cannot be resolved); rename the jar to"
+                  + " scope-tracer-agent-9.9.9-agent.jar, "
+                  + FIX_FLAG
+                  + "<path to the jar>");
+    }
+  }
+
+  /** A jar that lists the copy for certain is named over one with an unresolvable entry. */
+  @Test
+  void jarThatListsTheCopyIsNamedOverOneWithAnUnresolvableEntry(@TempDir Path dir)
+      throws Exception {
+    Path running = fat(dir.resolve("running.jar"));
+    Path target = fat(dir.resolve("t.jar"));
+    Path bad = jarClassPath(dir.resolve("bad.jar"), "a%00b.jar");
+    Path good = jarClassPath(dir.resolve("good.jar"), "t.jar");
+    var choice =
+        choose(running, () -> List.of(copyIn(running), copyIn(target)), classPath(bad, good));
+
+    assertThat(choice.lines()).containsExactly(listedRefusal(running, target, good));
+  }
+
+  /**
+   * #128, found by QA on #158: a running jar whose path holds a {@code ^}, as a {@code
+   * Class-Path}-made code source gives it, is appended and named, not refused with a {@code
+   * URISyntaxException} and the generic file name.
+   */
+  @Test
+  @SuppressWarnings("deprecation")
+  void runningJarWithACharacterUriRejectsIsAppended(@TempDir Path dir) throws Exception {
+    Path jar = jarListing(dir.resolve("odd/a^b[1].jar"), "expected-name.jar");
+    var inst = new FakeInstrumentation();
+    var source = new CodeSource(new URL("file:" + real(jar)), (Certificate[]) null);
+    List<String> lines = enter(source, inst);
+
+    assertThat(inst.appended).containsExactly(real(jar).toString());
+    assertThat(lines.get(0))
+        .isEqualTo(
+            "[scope-tracer] added "
+                + real(jar)
+                + " to the bootstrap class path, because the jar is not named expected-name.jar");
+    assertThat(String.join("\n", lines)).doesNotContain("URISyntaxException");
+  }
+
+  /** The same running jar in a refusal: the rename hint is read from it, not the generic one. */
+  @Test
+  @SuppressWarnings("deprecation")
+  void refusalFromARunningJarWithACharacterUriRejectsNamesItsFileName(@TempDir Path dir)
+      throws Exception {
+    Path odd = fat(dir.resolve("odd/a^b.jar"));
+    Path thin = jarWithoutBootClassPath(dir.resolve("thin.jar"));
+    var inst = new FakeInstrumentation();
+    var bytes = new ByteArrayOutputStream();
+    PrintStream original = System.err;
+    System.setErr(new PrintStream((OutputStream) bytes, true, StandardCharsets.UTF_8));
+    try {
+      BootstrapEntry.enter(
+          "record",
+          inst.proxy(),
+          new CodeSource(new URL("file:" + real(odd)), (Certificate[]) null),
+          () -> List.of(rawCopyIn(odd), copyIn(thin)),
+          classPath(odd, thin));
+    } finally {
+      System.setErr(original);
+    }
+
+    assertThat(inst.appended).isEmpty();
+    assertThat(bytes.toString(StandardCharsets.UTF_8).lines())
+        .singleElement()
+        .asString()
+        .contains(" at " + real(odd) + " and at " + real(thin) + ";")
+        .contains(FIX_RENAME + "scope-tracer-agent-9.9.9-agent.jar, " + FIX_FLAG)
+        .doesNotContain("URISyntaxException");
+  }
+
+  /** {@code fileOf} decodes as the JVM does. */
+  @Test
+  @SuppressWarnings("deprecation")
+  void fileOfDecodesAsTheJvmDoes() throws Exception {
+    assertThat(BootstrapEntry.fileOf(new URL("file:/a/b%20c/d%C3%BC.jar")))
+        .isEqualTo(Path.of("/a/b c/dü.jar"));
+    assertThat(BootstrapEntry.fileOf(new URL("file:/a/b^c[1]{2}.jar")))
+        .isEqualTo(Path.of("/a/b^c[1]{2}.jar"));
+    assertThat(BootstrapEntry.fileOf(new URL("file:/a/t.jar?q#frag")))
+        .isEqualTo(Path.of("/a/t.jar?q"));
+    assertThat(BootstrapEntry.fileOf(new URL("file://localhost/a/t.jar")))
+        .isEqualTo(Path.of("/a/t.jar"));
+    assertThat(BootstrapEntry.fileOf(new URL("file://otherhost/a/t.jar"))).isNull();
+    assertThat(BootstrapEntry.fileOf(new URL("http://example.invalid/t.jar"))).isNull();
+    assertThat(BootstrapEntry.fileOf(null)).isNull();
+    assertThatThrownBy(() -> BootstrapEntry.fileOf(new URL("file:/a/b%zz.jar")))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> BootstrapEntry.fileOf(new URL("file:/a/b%4")))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> BootstrapEntry.fileOf(new URL("file:/a/b%00.jar")))
+        .isInstanceOf(java.nio.file.InvalidPathException.class);
   }
 
   /** A missing entry is skipped and the entries after it are still read. */

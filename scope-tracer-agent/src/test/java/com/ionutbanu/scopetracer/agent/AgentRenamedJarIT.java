@@ -832,6 +832,74 @@ class AgentRenamedJarIT {
     }
   }
 
+  // --- issue #158, QA: entries java.net.URI rejects or reads differently ---
+
+  /**
+   * {@code Class-Path: agent.jar file:thin.jar}, or {@code file:fat2.jar}: the JVM follows both.
+   */
+  @ParameterizedTest(name = "{0}")
+  @ValueSource(strings = {"thin", "fat2"})
+  void fileSchemeRelativeEntryAfterTheJavaagentJarRefuses(String other, @TempDir Path dir)
+      throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path second = other.equals("thin") ? thinAs(dir, "thin.jar") : copyAs(dir, "fat2.jar");
+    Path app = classPathJar(dir, "app.jar", "agent.jar file:" + second.getFileName());
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(app)), "mixed");
+
+    assertRefused(run, listedRefusal(agent, second, app), jfr);
+  }
+
+  /** {@code -cp l.jar}, {@code l} lists {@code odd/k[1].jar}, which lists both copies. */
+  @Test
+  void chainThroughAJarNameUriRejectsRefuses(@TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path fat2 = copyAs(dir, "fat2.jar");
+    Path l = classPathJar(dir, "l.jar", "odd/k[1].jar");
+    Path k = classPathJar(dir, "odd/k[1].jar", "../agent.jar ../fat2.jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(l)), "mixed");
+
+    assertRefused(run, listedRefusal(agent, fat2, k), jfr);
+  }
+
+  /**
+   * #128, found by QA on #158: {@code Class-Path: odd/a^b.jar agent.jar}, {@code a^b.jar} the thin
+   * jar. The running copy's code source holds a {@code ^}; the refusal names it and the fat-jar's
+   * exact file name, with no {@code URISyntaxException}.
+   */
+  @Test
+  void runningCopyWithACharacterUriRejectsRefusesNamingTheFileName(@TempDir Path dir)
+      throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path thin = thinAs(dir, "odd/a^b.jar");
+    Path app = classPathJar(dir, "app.jar", "odd/a^b.jar agent.jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(app)), "mixed");
+
+    assertRefused(run, listedRefusal(thin, agent, app), jfr);
+    assertThat(run.stderr()).doesNotContain("URISyntaxException");
+  }
+
+  /** {@code Class-Path: odd/k[1].jar}, the thin jar there, only: traces with the agent jar. */
+  @Test
+  void thinJarUnderANameUriRejectsTracesWithTheJavaagentJar(@TempDir Path dir) throws Exception {
+    Path agent = copyAs(dir, "agent.jar");
+    Path thin = thinAs(dir, "odd/k[1].jar");
+    Path app = classPathJar(dir, "app.jar", "odd/k[1].jar");
+    Path jfr = dir.resolve("t.jfr");
+    var run =
+        ChildJvm.run(
+            dir, List.of(javaagent(agent, "record=" + jfr)), strings(List.of(app)), "mixed");
+
+    assertTracedByTheJavaagentJar(run, thin, agent, jfr, dir);
+  }
+
   // --- helpers ---
 
   /**

@@ -47,10 +47,15 @@ import java.util.jar.Manifest;
  * list, directly or through a chain. The JVM does not append a jar that is already reachable, so
  * then the last copy may be any of those jars, and the agent refuses rather than guess (#158): with
  * {@code -cp app.jar}, {@code Class-Path: agent.jar thin.jar} and {@code Class-Path: thin.jar
- * agent.jar} list the same copies in the same order. The manifests are read only when the last copy
- * is not the running copy and not a {@code -cp} entry, so the common case reads none. Only this
- * version's code makes that choice: an earlier release's jar on {@code -cp} runs its own {@code
- * premain}.
+ * agent.jar} list the same copies in the same order. Entries are resolved as the JVM resolves them,
+ * with {@code new URL(base, entry)} and the path decoded, so {@code file:thin.jar} and a name
+ * {@code java.net.URI} rejects ({@code ^ [ ] { }}) are followed; an entry that cannot be resolved
+ * at all counts as reachable. Copies are compared by real path and the JVM drops a duplicate by URL
+ * string, so the same jar reached through a symbolic link ({@code /tmp} against {@code
+ * /private/tmp}) refuses although the JVM appended it: conservative, and accepted. The manifests
+ * are read only when the last copy is not the running copy and not a {@code -cp} entry, so the
+ * common case reads none. Only this version's code makes that choice: an earlier release's jar on
+ * {@code -cp} runs its own {@code premain}.
  *
  * <p>It never throws. When the jar cannot be found, opened or appended, or cannot be told apart
  * from the class path, it prints one {@code WARN not tracing} line naming the reason and the two
@@ -136,8 +141,13 @@ final class BootstrapEntry {
     Path jar = null;
     String expectedName = GENERIC_NAME;
     try {
-      // Path.of(URI), not URL.getPath(): a space or a non-ASCII character in the path survives.
-      jar = Path.of(url.toURI()).toAbsolutePath();
+      // Decoded as the JVM decodes it: a %20, a non-ASCII character, or a ^ or [ that URI rejects
+      // in a Class-Path-made code source all survive.
+      jar = fileOf(url);
+      if (jar == null) {
+        throw new java.io.FileNotFoundException(url + " names no local file");
+      }
+      jar = jar.toAbsolutePath();
       jar = chooseJar(jar, copies, classPath);
       if (jar == null) {
         return null;
@@ -199,7 +209,7 @@ final class BootstrapEntry {
   static Path chooseJar(
       Path running, Callable<List<URL>> copies, String classPath, ClassPathAttribute manifests) {
     Path last;
-    Path reachedFrom;
+    Reach reach;
     try {
       last = jarOf(lastOf(copies.call()));
       if (last == null) {
@@ -209,19 +219,17 @@ final class BootstrapEntry {
       if (last.equals(realPath(running))) {
         return running;
       }
-      reachedFrom = reachedFrom(last, classPath, manifests);
+      reach = reachedFrom(last, classPath, manifests);
     } catch (Throwable t) {
       return running;
     }
-    if (reachedFrom != null) {
+    if (reach != null) {
       notTracing(
           "the -javaagent jar cannot be told apart from the class path, which holds the agent at "
               + AgentLog.path(running)
               + " and at "
               + AgentLog.path(last)
-              + (reachedFrom.equals(last)
-                  ? ""
-                  : " (listed by the Class-Path of " + AgentLog.path(reachedFrom) + ")"),
+              + reach.describe(),
           expectedName(running, last),
           null);
       return null;
@@ -235,14 +243,31 @@ final class BootstrapEntry {
   }
 
   /**
-   * Where {@code jar} is reachable from {@code classPath}: {@code jar} itself when it is an entry,
-   * the jar whose manifest {@code Class-Path} lists it when it is reached through one, or {@code
-   * null} when it is not reachable. Entries are checked first, so a direct entry reads no manifest;
-   * then every jar's {@code Class-Path} is followed breadth first, each file once, so a cycle ends.
-   * An entry or a manifest that cannot be read is skipped. If the walk itself fails, the answer is
-   * {@code null}: the last copy is taken as appended by the JVM, as before #158.
+   * How the last copy is reachable from the class path: {@code via} is the jar itself for a {@code
+   * -cp} entry, else the jar whose manifest {@code Class-Path} lists it or, when {@code
+   * unresolved}, has an entry that could not be resolved and might name it.
    */
-  private static Path reachedFrom(Path jar, String classPath, ClassPathAttribute manifests) {
+  private record Reach(Path jar, Path via, boolean unresolved) {
+    String describe() {
+      if (via.equals(jar)) {
+        return "";
+      }
+      return unresolved
+          ? " (the Class-Path of " + AgentLog.path(via) + " has an entry that cannot be resolved)"
+          : " (listed by the Class-Path of " + AgentLog.path(via) + ")";
+    }
+  }
+
+  /**
+   * How {@code jar} is reachable from {@code classPath}, or {@code null} when it is not. Entries
+   * are checked first, so a direct entry reads no manifest; then every jar's {@code Class-Path} is
+   * followed breadth first, each file once, so a cycle ends. A {@code Class-Path} entry that cannot
+   * be resolved counts as reachable, so the agent refuses rather than guesses, unless another jar
+   * lists {@code jar} for certain. A {@code -cp} entry or a manifest that cannot be read is
+   * skipped, as the JVM skips it. If the walk itself fails, the answer is {@code null}: the last
+   * copy is taken as appended by the JVM, as before #158.
+   */
+  private static Reach reachedFrom(Path jar, String classPath, ClassPathAttribute manifests) {
     if (classPath == null) {
       return null;
     }
@@ -252,7 +277,7 @@ final class BootstrapEntry {
       try {
         Path path = realPath(Path.of(entry.isEmpty() ? "." : entry));
         if (path.equals(jar)) {
-          return jar;
+          return new Reach(jar, jar, false);
         }
         if (seen.add(path)) {
           queue.add(path);
@@ -261,61 +286,131 @@ final class BootstrapEntry {
         // an entry that is not a path cannot be the jar, and lists nothing
       }
     }
+    Path unresolvedIn = null;
     try {
       while (!queue.isEmpty()) {
         Path listing = queue.remove();
-        for (Path listed : listedBy(listing, manifests)) {
-          if (listed.equals(jar)) {
-            return listing;
+        Listed listed = listedBy(listing, manifests);
+        if (listed.unresolved() && unresolvedIn == null) {
+          unresolvedIn = listing;
+        }
+        for (Path path : listed.jars()) {
+          if (path.equals(jar)) {
+            return new Reach(jar, listing, false);
           }
-          if (seen.add(listed)) {
-            queue.add(listed);
+          if (seen.add(path)) {
+            queue.add(path);
           }
         }
       }
     } catch (Throwable t) {
       // the walk failed as a whole: keep the answer from before #158
+      return null;
     }
-    return null;
+    return unresolvedIn == null ? null : new Reach(jar, unresolvedIn, true);
+  }
+
+  /** The jars a manifest {@code Class-Path} names, and whether an entry could not be resolved. */
+  private record Listed(List<Path> jars, boolean unresolved) {
+    static final Listed NONE = new Listed(List.of(), false);
   }
 
   /**
    * The local files {@code listing}'s manifest {@code Class-Path} names, by real path, resolved as
-   * the JVM resolves them: space-separated URLs relative to {@code listing}, {@code %20} for a
-   * space. A directory, a missing file, an entry that is not a valid URI and one that is not a
-   * {@code file:} URL are left out, as is everything when {@code listing} is not a regular file or
-   * its manifest cannot be read.
+   * the JVM resolves them: whitespace-separated, each {@code new URL(<listing's URL>, entry)}, a
+   * {@code file:} URL decoded to a path ({@code file:x.jar} is relative, {@code %20} is a space, a
+   * {@code ^} or {@code [} is taken as it is, a query is part of the file name, a fragment is
+   * dropped). A missing file, a directory, a URL of another scheme and a {@code file:} URL on
+   * another host are left out, as the JVM finds nothing there; so is everything when {@code
+   * listing} is not a regular file or its manifest cannot be read. An entry that throws anywhere in
+   * between is flagged as unresolved.
    */
-  private static List<Path> listedBy(Path listing, ClassPathAttribute manifests) {
+  @SuppressWarnings("deprecation") // new URL(URL, String) is how the JVM resolves Class-Path
+  private static Listed listedBy(Path listing, ClassPathAttribute manifests) {
     String value;
+    URL base;
     try {
       if (!Files.isRegularFile(listing)) {
-        return List.of();
+        return Listed.NONE;
       }
       value = manifests.of(listing);
+      base = listing.toUri().toURL();
     } catch (Throwable t) {
-      return List.of();
+      return Listed.NONE;
     }
     if (value == null || value.isBlank()) {
-      return List.of();
+      return Listed.NONE;
     }
-    var listed = new ArrayList<Path>();
-    URI base = listing.toUri();
+    var jars = new ArrayList<Path>();
+    boolean unresolved = false;
     for (String entry : value.strip().split("\\s+")) {
       try {
-        URI uri = base.resolve(new URI(entry));
-        if (!"file".equalsIgnoreCase(uri.getScheme())) {
+        Path path = fileOf(new URL(base, entry));
+        if (path == null) {
           continue;
         }
-        Path path = realPath(Path.of(uri));
+        path = realPath(path);
         if (Files.isRegularFile(path)) {
-          listed.add(path);
+          jars.add(path);
         }
       } catch (Throwable t) {
-        // the JVM finds nothing there either
+        unresolved = true;
       }
     }
-    return listed;
+    return new Listed(jars, unresolved);
+  }
+
+  /**
+   * The local file a {@code file:} URL names, decoded as the JVM decodes it ({@code %XX} as UTF-8,
+   * every other character as it is, the query part of the name, the fragment dropped), or {@code
+   * null} for a URL of another scheme, or on another host where that names no local file. Throws
+   * when the URL cannot be decoded to a path.
+   */
+  static Path fileOf(URL url) throws Exception {
+    if (url == null || !"file".equalsIgnoreCase(url.getProtocol())) {
+      return null;
+    }
+    String path = decode(url.getFile());
+    String host = url.getHost();
+    boolean local = host == null || host.isEmpty() || "localhost".equalsIgnoreCase(host);
+    if (File.separatorChar == '/') {
+      return local ? Path.of(path) : null;
+    }
+    // Windows: a drive letter (/C:/...) or a UNC host, which Path.of(URI) knows how to read.
+    return Path.of(new URI("file", local ? null : host, path, null));
+  }
+
+  /** {@code s} with each run of {@code %XX} decoded as UTF-8; a malformed escape throws. */
+  private static String decode(String s) {
+    if (s.indexOf('%') < 0) {
+      return s;
+    }
+    var out = new StringBuilder(s.length());
+    var bytes = new java.io.ByteArrayOutputStream();
+    int i = 0;
+    while (i < s.length()) {
+      char c = s.charAt(i);
+      if (c != '%') {
+        out.append(c);
+        i++;
+        continue;
+      }
+      bytes.reset();
+      while (i < s.length() && s.charAt(i) == '%') {
+        if (i + 2 >= s.length()) {
+          throw new IllegalArgumentException("truncated escape in " + s);
+        }
+        int hi = Character.digit(s.charAt(i + 1), 16);
+        int lo = Character.digit(s.charAt(i + 2), 16);
+        if (hi < 0 || lo < 0) {
+          throw new IllegalArgumentException("malformed escape in " + s);
+        }
+        bytes.write(hi * 16 + lo);
+        i += 3;
+      }
+      out.append(bytes.toString(java.nio.charset.StandardCharsets.UTF_8));
+    }
+    return out.toString();
   }
 
   /** The {@code Class-Path} value of {@code jar}'s manifest, or {@code null}. */
@@ -352,11 +447,10 @@ final class BootstrapEntry {
     if (separator < 0) {
       return null;
     }
-    URI inner = new URI(spec.substring(0, separator));
-    if (!"file".equalsIgnoreCase(inner.getScheme())) {
-      return null;
-    }
-    return Path.of(inner);
+    // new URL, not new URI: the JVM leaves a ^, [ or { in a Class-Path-made URL as it is.
+    @SuppressWarnings("deprecation")
+    URL inner = new URL(spec.substring(0, separator));
+    return fileOf(inner);
   }
 
   /** {@code path} with symbolic links resolved, or absolute and normalized if it does not exist. */
