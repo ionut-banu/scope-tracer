@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
@@ -119,7 +120,7 @@ final class ScopeTracerPanel extends JPanel {
       @Override
       public void run(@NotNull ProgressIndicator indicator) {
         try {
-          var model = AnalyzerProcessRunner.analyze(jfrPath, javaPath);
+          var model = AnalyzerProcessRunner.analyze(jfrPath, javaPath, indicator::isCanceled);
           SwingUtilities.invokeLater(
               () -> {
                 populate(model);
@@ -131,6 +132,10 @@ final class ScopeTracerPanel extends JPanel {
                       NotificationType.INFORMATION);
                 }
               });
+        } catch (CancellationException e) {
+          // Cancelled from the progress bar, or the project closed: the analyzer is already
+          // dead. Not a failure, so no error balloon; the tool window keeps what it showed.
+          LOG.info("Scope Tracer: " + e.getMessage());
         } catch (Exception e) {
           SwingUtilities.invokeLater(() -> showError(e));
         } finally {

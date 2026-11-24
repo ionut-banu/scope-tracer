@@ -2,9 +2,16 @@ package com.ionutbanu.scopetracer.plugin.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+
+import java.nio.file.Path;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class AnalyzerJdkTest {
+
+  @TempDir Path temp;
 
   private static final String JAVA = "/jdks/some-jdk/bin/java";
 
@@ -61,5 +68,31 @@ class AnalyzerJdkTest {
     assertThat(AnalyzerJdk.parseVersionOutput(TEMURIN_26)).isEqualTo(26);
     assertThat(AnalyzerJdk.parseVersionOutput("")).isEqualTo(-1);
     assertThat(AnalyzerJdk.parseVersionOutput(null)).isEqualTo(-1);
+  }
+
+  @Test
+  void aJavaThatNeverExitsIsReportedAsUndeterminableAfterItsTimeoutInsteadOfHanging() {
+    var output =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(10),
+            () ->
+                AnalyzerJdk.versionOutput(
+                    Children.command("NeverExits"), Duration.ofSeconds(1), temp));
+
+    assertThat(AnalyzerJdk.refusal(JAVA, output))
+        .hasValueSatisfying(reason -> assertThat(reason).contains("Could not determine"));
+    assertThat(Children.aliveChildren()).isEmpty();
+  }
+
+  @Test
+  void theBoundedVersionCheckReadsARealJavaVersionFromStderr() {
+    var output =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(30),
+            () ->
+                AnalyzerJdk.versionOutput(
+                    AnalyzerJdk.versionCommand(Children.JAVA), Duration.ofSeconds(20), temp));
+
+    assertThat(AnalyzerJdk.parseVersionOutput(output)).isEqualTo(Runtime.version().feature());
   }
 }

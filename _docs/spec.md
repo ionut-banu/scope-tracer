@@ -659,6 +659,15 @@ runs it as a subprocess on a user-configured JDK 27 with
 The configured `java` is saved as `scopeTracer.jdk27JavaPath` and
 checked with `java -version` (`AnalyzerJdk` in `:model`) every time it
 is used; one older than 27 is refused with a message naming 27.
+Every subprocess the plugin starts (the analyzer, `java -version`)
+goes through `BoundedProcess` in `:model`: stdout and stderr go to
+files or are discarded, so the child never blocks on a pipe, and the
+call ends when the child exits, when its timeout passes (10 minutes
+for the analyzer, `AnalyzerInvocation.TIMEOUT`, until #92; 30 s for
+`java -version`) or when the background task is cancelled (which is
+also what closing the project does), killing and reaping the child
+first and deleting its temp files; a cancel is not reported as a
+failure.
 
 - `:model` - plain Java (`--release 25`), no IntelliJ dependency, so
   its tests run as ordinary JUnit. Gson is `compileOnly` (the IDE ships it).
@@ -714,7 +723,7 @@ input. Both sides change in the same issue.
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 61 |
+| plugin `:model` | Gradle | 77 |
 
 `mvn -q verify` runs the first six: 934 tests (surefire plus
 failsafe, measured on 2026-11-24 on the branch of #176 on Temurin 27; the
