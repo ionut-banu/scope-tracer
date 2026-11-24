@@ -903,10 +903,16 @@ try (var file = new RecordingFile(tempPath)) {
   upload, #198); otherwise the step is skipped with a notice, and with
   the variable `true` a missing `JETBRAINS_MARKETPLACE_TOKEN` fails the
   job. The secrets reach Gradle only as the environment of the steps
-  that sign or upload, as `CERTIFICATE_CHAIN`, `PRIVATE_KEY`,
-  `PRIVATE_KEY_PASSWORD` and `PUBLISH_TOKEN`, with the configuration
-  cache off; the build's `publishPlugin` refuses to run without the
-  chain and key. The plugin's bundled jars come from
+  that sign or upload, as `CERTIFICATE_CHAIN`, `PRIVATE_KEY` (both
+  Base64), `PRIVATE_KEY_PASSWORD` and `PUBLISH_TOKEN`, with the
+  configuration cache off and the project cache (where Gradle records
+  task inputs in plain text) under `$RUNNER_TEMP`, deleted by an
+  `if: always()` step. In the build, `requireSignedZip` fails unless
+  `signPlugin` wrote the `-signed` zip; `verifyPluginSignature` and
+  `publishPlugin` depend on it, `verifyPluginSignature` checks that zip
+  against the decoded chain, and `publishPlugin`'s archive is that zip
+  and nothing else (2.20.1 would take the unsigned one whenever
+  `signPlugin` is up to date) and is printed before the upload. The plugin's bundled jars come from
   `copyAnalyzerJar` and `copyAgentJar`, `Sync`s into
   `scope-tracer-plugin/build/bundled-resources/` that run every build,
   so a zip never carries an earlier version's jar. The Marketplace

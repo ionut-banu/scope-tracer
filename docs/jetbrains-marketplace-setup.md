@@ -96,8 +96,10 @@ openssl x509 -enddate -noout -in chain.crt
 |---|---|---|---|
 | current | _(date)_ | _(days)_ | _(date from the command above)_ |
 
-The secrets take the chain and the key Base64-encoded, on one line; the IntelliJ
-Platform Gradle Plugin decodes them:
+The secrets take the chain and the key Base64-encoded, on one line. `signPlugin`
+decodes both itself; for `verifyPluginSignature`, which would otherwise write the
+Base64 text to a `.pem` file as it is and find no certificate in it,
+`scope-tracer-plugin/build.gradle.kts` decodes the chain first:
 
 ```bash
 base64 -i chain.crt | tr -d '\n'     # macOS; on Linux: base64 -w0 chain.crt
@@ -120,7 +122,12 @@ add four repository secrets:
 | `JETBRAINS_MARKETPLACE_TOKEN` | The token from step 3 | `PUBLISH_TOKEN` |
 
 `release.yml` gives them to Gradle only as environment variables of the steps
-that sign and upload, under the names in the last column. A step before the
+that sign and upload, under the names in the last column. Gradle records task
+inputs, these among them, in plain text in its project cache, so those steps keep
+that cache under the runner's temp directory (`--project-cache-dir
+"$RUNNER_TEMP/gradle-project-cache"`) and the job's last step deletes it, however
+the job ended. If you ever sign by hand, delete `scope-tracer-plugin/.gradle/`
+afterwards for the same reason. A step before the
 build checks only whether each one is set, never its value: with any of the
 first three missing, `publish-plugin` fails before building and never uploads an
 unsigned zip.

@@ -1,5 +1,9 @@
+import java.util.Base64
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.models.ProductRelease
+import org.jetbrains.intellij.platform.gradle.tasks.PublishPluginTask
+import org.jetbrains.intellij.platform.gradle.tasks.SignPluginTask
+import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginSignatureTask
 
 plugins {
   java
@@ -98,21 +102,52 @@ intellijPlatform {
   }
 }
 
-// Signing and publishing take their keys and token from the Gradle plugin's own environment
-// variables (CERTIFICATE_CHAIN, PRIVATE_KEY, PRIVATE_KEY_PASSWORD, PUBLISH_TOKEN), which only
-// release.yml's publish-plugin job sets, from repository secrets (#42). Without the chain and key
-// signPlugin is skipped and publishPlugin would upload the unsigned zip; the release never ships
-// one, so publishPlugin refuses to run unsigned. Only presence is checked, never a value.
-tasks.named("publishPlugin") {
-  val chain = providers.environmentVariable("CERTIFICATE_CHAIN")
-  val key = providers.environmentVariable("PRIVATE_KEY")
-  doFirst {
-    if (chain.orNull.isNullOrBlank() || key.orNull.isNullOrBlank()) {
-      throw GradleException(
-          "publishPlugin uploads only a signed zip: CERTIFICATE_CHAIN and PRIVATE_KEY must be " +
-              "set (see docs/jetbrains-marketplace-setup.md).")
+// --- Signing and publishing (#42) ---
+//
+// The keys and the token come from the Gradle plugin's own environment variables
+// (CERTIFICATE_CHAIN, PRIVATE_KEY, PRIVATE_KEY_PASSWORD, PUBLISH_TOKEN), which only release.yml's
+// publish-plugin job sets, from repository secrets; CERTIFICATE_CHAIN and PRIVATE_KEY are Base64.
+// Left to itself, 2.20.1 ships an unsigned zip in three ways, all closed here:
+// - signPlugin skips itself without a chain and key, and verifyPluginSignature then passes as
+//   NO-SOURCE: requireSignedZip fails instead, and both later tasks depend on it.
+// - publishPlugin takes the signed zip only when signPlugin did work in the same run, and the
+//   unsigned one when signPlugin was UP-TO-DATE: its archive is set to the signed zip, always.
+// - verifyPluginSignature writes CERTIFICATE_CHAIN verbatim to a .pem file, so a Base64 chain is
+//   "No certificate data found": it gets the decoded chain (a certificate, not a secret).
+val signPluginTask = tasks.named<SignPluginTask>("signPlugin")
+val signedZip = signPluginTask.flatMap { it.signedArchiveFile }
+
+val requireSignedZip =
+    tasks.register("requireSignedZip") {
+      description = "Fails unless signPlugin wrote the signed plugin zip."
+      dependsOn(signPluginTask)
+      val zip = signedZip
+      doLast {
+        val file = zip.get().asFile
+        if (!file.isFile) {
+          throw GradleException(
+              "No signed plugin zip at $file: signPlugin needs CERTIFICATE_CHAIN, PRIVATE_KEY " +
+                  "and PRIVATE_KEY_PASSWORD (see docs/jetbrains-marketplace-setup.md). An " +
+                  "unsigned zip is never verified or published.")
+        }
+      }
     }
-  }
+
+tasks.named<VerifyPluginSignatureTask>("verifyPluginSignature") {
+  dependsOn(requireSignedZip)
+  inputArchiveFile.set(signedZip)
+  certificateChain.set(
+      providers.environmentVariable("CERTIFICATE_CHAIN").map { value ->
+        if (value.contains("-----BEGIN")) value
+        else String(Base64.getMimeDecoder().decode(value.trim()), Charsets.UTF_8)
+      })
+}
+
+tasks.named<PublishPluginTask>("publishPlugin") {
+  dependsOn(requireSignedZip)
+  archiveFiles.setFrom(signedZip)
+  val uploads = archiveFiles
+  doFirst { logger.lifecycle("publishPlugin uploads: ${uploads.files.joinToString { it.name }}") }
 }
 
 // No tests live directly in this module for this milestone (see :model's build.gradle.kts and

@@ -1386,9 +1386,16 @@ Decided by the maintainer, following the PM's recommendations:
   written in `docs/jetbrains-marketplace-setup.md`. The cost is a key to
   keep and renew.
 - **No unsigned zip, ever.** With a signing secret missing,
-  `publish-plugin` fails before building and names it; the build's
-  `publishPlugin` also refuses to run without the chain and key, since
-  it would otherwise upload the unsigned zip. Maven Central and the
+  `publish-plugin` fails before building and names it. The build closes
+  the three ways IntelliJ Platform Gradle Plugin 2.20.1 lets an unsigned
+  zip through, each found by QA: `verifyPluginSignature` passes as
+  NO-SOURCE when `signPlugin` skipped itself (a `requireSignedZip` task
+  now fails first); `publishPlugin` takes the unsigned zip whenever
+  `signPlugin` is up to date in that run (its archive is now set to the
+  `-signed` zip); and `verifyPluginSignature` writes the Base64 chain to
+  a `.pem` file verbatim and finds no certificate (the build decodes it).
+  Gradle's project cache records the keys in plain text, so the signing
+  steps keep it under `$RUNNER_TEMP` and delete it. Maven Central and the
   GitHub Release are finished in `publish` first, so a red
   `publish-plugin` holds back only the plugin.
 - **The Marketplace upload is opt-in, by a repository variable.** The

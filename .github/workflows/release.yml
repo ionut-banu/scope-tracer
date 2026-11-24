@@ -176,7 +176,11 @@ jobs:
   #
   # Secrets reach Gradle only as the environment of the steps that run it, under the names the
   # IntelliJ Platform Gradle Plugin reads. The gate step sees only whether each one is set.
-  # Gradle runs these steps with --no-configuration-cache, so no value is stored in an entry.
+  # Gradle records task inputs, the keys among them, in plain text in its project cache
+  # (.gradle/<version>/executionHistory). So the steps that hold a secret run with
+  # --no-configuration-cache and --project-cache-dir under $RUNNER_TEMP, never in the workspace,
+  # and the last step deletes that directory however the job ended. setup-gradle is read-only
+  # here: this job saves nothing to the Actions cache.
   publish-plugin:
     needs: publish
     if: ${{ !inputs.check_only }}
@@ -235,6 +239,8 @@ jobs:
       - name: Set up Gradle
         if: steps.plugin.outputs.release == 'true'
         uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
 
       - name: Build the analyzer and agent jars the plugin bundles
         if: steps.plugin.outputs.release == 'true'
@@ -250,6 +256,7 @@ jobs:
           PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
         run: >-
           JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew --no-configuration-cache
+          --project-cache-dir "$RUNNER_TEMP/gradle-project-cache"
           -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64
           buildPlugin signPlugin verifyPluginSignature
 
@@ -275,8 +282,10 @@ jobs:
           files: tagged/scope-tracer-plugin/build/distributions/scope-tracer-plugin-${{ steps.version.outputs.version }}-signed.zip
           fail_on_unmatched_files: true
 
-      # publishPlugin uploads the signed zip (it refuses to run without the signing variables, see
-      # build.gradle.kts). The Marketplace reviews every version before users see it.
+      # publishPlugin uploads the -signed zip and nothing else: build.gradle.kts sets its archive to
+      # signPlugin's output (2.20.1 would otherwise take the unsigned zip whenever signPlugin is
+      # UP-TO-DATE, as it is here) and fails when that zip is missing. The task prints the file it
+      # uploads. The Marketplace reviews every version before users see it.
       - name: Upload the signed plugin zip to the JetBrains Marketplace
         if: steps.plugin.outputs.release == 'true' && steps.gate.outputs.marketplace == 'true'
         working-directory: tagged/scope-tracer-plugin
@@ -287,5 +296,10 @@ jobs:
           PUBLISH_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
         run: >-
           JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew --no-configuration-cache
+          --project-cache-dir "$RUNNER_TEMP/gradle-project-cache"
           -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64
           publishPlugin
+
+      - name: Delete Gradle's project cache, which holds the signing inputs
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/gradle-project-cache" tagged/scope-tracer-plugin/.gradle
