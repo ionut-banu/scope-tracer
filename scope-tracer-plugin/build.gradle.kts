@@ -3,7 +3,6 @@ plugins {
   id("org.jetbrains.intellij.platform") version "2.18.1"
 }
 
-val pluginVersion = providers.gradleProperty("pluginVersion").get()
 val platformVersion = providers.gradleProperty("platformVersion").get()
 val pluginSinceBuild = providers.gradleProperty("pluginSinceBuild").get()
 
@@ -22,7 +21,9 @@ val analyzerVersion: String =
 
 group = providers.gradleProperty("pluginGroup").get()
 
-version = pluginVersion
+// The plugin's version is the Maven project version (#151): the zip bundles that exact analyzer
+// and agent, so one number names one set of bits and there is nothing to bump here.
+version = analyzerVersion
 
 repositories {
   mavenCentral()
@@ -47,11 +48,26 @@ dependencies {
   }
 }
 
+// Change notes are a link, not rendered text: a release links its GitHub Release and the tagged
+// CHANGELOG.md, a -SNAPSHOT links CHANGELOG.md's [Unreleased] section. No changelog plugin.
+val changeNotesHtml: String =
+    "https://github.com/ionut-banu/scope-tracer".let { repo ->
+      if (analyzerVersion.endsWith("-SNAPSHOT")) {
+        "<p>Development build. See the <a href=\"$repo/blob/main/CHANGELOG.md#unreleased\">" +
+            "[Unreleased] section of the changelog</a>.</p>"
+      } else {
+        "<p>See the <a href=\"$repo/releases/tag/v$analyzerVersion\">GitHub Release " +
+            "$analyzerVersion</a> and the <a href=\"$repo/blob/v$analyzerVersion/CHANGELOG.md\">" +
+            "[$analyzerVersion] section of the changelog</a>.</p>"
+      }
+    }
+
 intellijPlatform {
   pluginConfiguration {
     id.set("com.ionutbanu.scopetracer.plugin")
     name.set("Scope Tracer")
-    version.set(pluginVersion)
+    version.set(analyzerVersion)
+    changeNotes.set(changeNotesHtml)
     ideaVersion { sinceBuild.set(pluginSinceBuild) }
   }
 }

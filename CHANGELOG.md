@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The IntelliJ plugin's version follows the project's** (#151). The plugin zip is now
+  `scope-tracer-plugin-<project version>.zip` and its `plugin.xml` carries that version
+  (it was a fixed `0.1.0`), with generated change notes linking the GitHub Release and the
+  changelog. There is no separate plugin version to bump.
+
 ## [0.6.0] - 2026-11-24
 
 ### Added

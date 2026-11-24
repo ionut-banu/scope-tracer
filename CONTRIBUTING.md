@@ -167,6 +167,8 @@ version (for example 0.3.0 and 0.4.0-SNAPSHOT).
 VERSION=X.Y.Z
 git checkout -b release/$VERSION
 mvn versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
+# (this also sets the IntelliJ plugin's version: it is read from the parent POM, so there is
+#  nothing to bump in scope-tracer-plugin/)
 
 # 2. Update the four things that go stale (see below), then check them
 .github/scripts/check-release-docs.sh $VERSION

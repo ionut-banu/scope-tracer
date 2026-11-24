@@ -674,6 +674,13 @@ is used; one older than 27 is refused with a message naming 27.
   (`TracedRunLifecycle` decides).
 - `build.gradle.kts` reads `analyzerVersion` from the parent POM, so
   the bundled jar always matches the Maven project version.
+- The plugin's version is that same version: `version` and
+  `plugin.xml`'s `<version>` come from the parent POM, and nothing in
+  `scope-tracer-plugin/` is bumped by hand. A plugin-only fix ships as
+  a patch release of every artifact. The Marketplace does not accept
+  the same version twice, so a re-release needs a new patch version.
+  `<change-notes>` is generated: a release links its GitHub Release and
+  the tagged `CHANGELOG.md`, a `-SNAPSHOT` links `[Unreleased]`.
 
 A change to `TraceModelJson`'s output is a change to the plugin's
 input. Both sides change in the same issue.
