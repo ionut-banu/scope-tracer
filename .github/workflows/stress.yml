@@ -56,6 +56,13 @@ jobs:
           -Dsurefire.failIfNoSpecifiedTests=false
           -Dfailsafe.failIfNoSpecifiedTests=false
 
+      - name: Check that stress tests ran
+        # failIfNoSpecifiedTests=false lets a renamed package or IT select nothing and still pass.
+        run: |
+          n=$(find scope-tracer-stress-tests/target/failsafe-reports -name 'TEST-*.xml' 2>/dev/null | wc -l)
+          echo "stress IT reports: $n"
+          test "$n" -ge 1
+
       - name: Upload JFR dumps on failure
         if: failure()
         uses: actions/upload-artifact@v7
