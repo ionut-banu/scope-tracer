@@ -863,12 +863,60 @@ try (var file = new RecordingFile(tempPath)) {
   `Released:` line below name the release version) must pass before the `publish` job runs; a
   `check_only` dispatch input runs the check job alone. The script comes
   from the dispatched ref and reads the tag's docs, so a dry run from
-  `main` can check an old tag. The release publishes the parent POM,
-  core, analyzer and agent only: the `check` job also builds the
-  bundle with `-DskipUpload=true`, and
+  `main` can check an old tag. To Maven Central the release publishes
+  the parent POM, core, analyzer and agent only: the `check` job also
+  builds the bundle with `-DskipUpload=true`, and
   `.github/scripts/check-release-bundle.sh` fails it when it holds any
   other artifact (the demos and stress tests set `skipPublishing`).
-  Steps are in `CONTRIBUTING.md`.
+  The IntelliJ plugin zip is never in the Central bundle; it goes to
+  the GitHub Release and the JetBrains Marketplace (#42). Steps are in
+  `CONTRIBUTING.md`, the one-time setup in
+  `docs/jetbrains-marketplace-setup.md`.
+- The plugin in `release.yml`. The `check` job, with no secret,
+  installs Temurin 21 and 27 and Gradle, runs `./gradlew buildPlugin
+  verifyPluginStructure verifyPlugin` in the tag's
+  `scope-tracer-plugin/` after the Central bundle build has built the
+  jars it bundles, then the dispatched ref's
+  `.github/scripts/check-plugin-zip.sh <zip> <version> <tag's
+  gradle.properties>`. The script exits 0 only when the plugin jar's
+  `plugin.xml` has the plugin id, the version, the `pluginSinceBuild`
+  of `gradle.properties` and non-empty change notes, the jar has
+  `META-INF/pluginIcon.svg`, exactly one `agent/*.jar` named for the
+  version and matching `agent/agent-jar-name.txt`, and an
+  `analyzer/analyzer.jar` whose `pom.properties` says that version;
+  it refuses a SNAPSHOT version and names each rule that fails.
+  `check-plugin-zip-test.sh` is its self-test, in CI. A tag whose tree
+  has no `.github/scripts/check-plugin-zip.sh` predates plugin
+  releases (v0.6.0 and earlier, plugin 0.1.0): its plugin steps are
+  skipped with a `::notice::`, so a `check_only` dry run of it passes.
+  The `publish-plugin` job (`needs: publish`, skipped by `check_only`,
+  JDK 21 and 27) first runs `.github/scripts/check-plugin-secrets.sh`
+  (self-test `check-plugin-secrets-test.sh`, in CI), which is told only
+  whether each secret is set: a missing `JETBRAINS_CERTIFICATE_CHAIN`,
+  `JETBRAINS_PRIVATE_KEY` or `JETBRAINS_PRIVATE_KEY_PASSWORD` fails the
+  job before anything is built, naming the secret. It then rebuilds the
+  zip from the tag, runs `signPlugin` and `verifyPluginSignature`,
+  re-runs `check-plugin-zip.sh` on the `-signed` zip and attaches it to
+  the tag's GitHub Release. `publishPlugin` uploads the signed zip to
+  the Marketplace only when the repository variable
+  `PLUGIN_MARKETPLACE_PUBLISH` is `true` (set after the first, manual
+  upload, #198); otherwise the step is skipped with a notice, and with
+  the variable `true` a missing `JETBRAINS_MARKETPLACE_TOKEN` fails the
+  job. The secrets reach Gradle only as the environment of the steps
+  that sign or upload, as `CERTIFICATE_CHAIN`, `PRIVATE_KEY` (both
+  Base64), `PRIVATE_KEY_PASSWORD` and `PUBLISH_TOKEN`, with the
+  configuration cache off and the project cache (where Gradle records
+  task inputs in plain text) under `$RUNNER_TEMP`, deleted by an
+  `if: always()` step. In the build, `requireSignedZip` fails unless
+  `signPlugin` wrote the `-signed` zip; `verifyPluginSignature` and
+  `publishPlugin` depend on it, `verifyPluginSignature` checks that zip
+  against the decoded chain, and `publishPlugin`'s archive is that zip
+  and nothing else (2.20.1 would take the unsigned one whenever
+  `signPlugin` is up to date) and is printed before the upload. The plugin's bundled jars come from
+  `copyAnalyzerJar` and `copyAgentJar`, `Sync`s into
+  `scope-tracer-plugin/build/bundled-resources/` that run every build,
+  so a zip never carries an earlier version's jar. The Marketplace
+  reviews each version before users see it.
 - `jbang-catalog.json` at the repository root defines the JBang aliases
   `analyze` (the analyzer's `-executable` jar from the release assets)
   and `demo` (`scope-tracer-demos/jbang/ScopeTracerDemo.java`, which

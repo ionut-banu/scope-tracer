@@ -1371,3 +1371,44 @@ Decided by the maintainer, following the PM's recommendations:
   way.
 - **Remote development and Gateway are not a target for M5.** Where
   JCEF does not reach the client, the table fallback covers it.
+
+## 2026-11-24 - The release signs and publishes the plugin, opt-in for the Marketplace (#42)
+
+Decided by the maintainer, following the PM's recommendations:
+
+- **Vendor.** An individual vendor, "Ionut Banu", with the address
+  `plugin.xml` and the POM's `<developers>` already give; it is public
+  on the listing.
+- **Signed with a self-signed key.** JetBrains' publishing guide says to
+  sign before publishing, and a signed zip lets the Marketplace detect a
+  zip changed between CI and the upload. A self-signed certificate is
+  accepted; its validity is picked when it is made and its expiry is
+  written in `docs/jetbrains-marketplace-setup.md`. The cost is a key to
+  keep and renew.
+- **No unsigned zip, ever.** With a signing secret missing,
+  `publish-plugin` fails before building and names it. The build closes
+  the three ways IntelliJ Platform Gradle Plugin 2.20.1 lets an unsigned
+  zip through, each found by QA: `verifyPluginSignature` passes as
+  NO-SOURCE when `signPlugin` skipped itself (a `requireSignedZip` task
+  now fails first); `publishPlugin` takes the unsigned zip whenever
+  `signPlugin` is up to date in that run (its archive is now set to the
+  `-signed` zip); and `verifyPluginSignature` writes the Base64 chain to
+  a `.pem` file verbatim and finds no certificate (the build decodes it).
+  Gradle's project cache records the keys in plain text, so the signing
+  steps keep it under `$RUNNER_TEMP` and delete it. Maven Central and the
+  GitHub Release are finished in `publish` first, so a red
+  `publish-plugin` holds back only the plugin.
+- **The Marketplace upload is opt-in, by a repository variable.** The
+  first version can only be uploaded through the web form (#198), so
+  `publishPlugin` runs only when `PLUGIN_MARKETPLACE_PUBLISH` is `true`,
+  a variable rather than a secret because it is not sensitive and must
+  be readable in a step's `if`. Until it is set, each release attaches
+  the signed zip to the GitHub Release and skips the upload with a
+  notice.
+- **"Predates plugin releases"** means the tag's tree has no
+  `.github/scripts/check-plugin-zip.sh`. It is the one file that arrived
+  with this pipeline, so the rule needs no list of versions; v0.6.0 and
+  earlier take it and their plugin steps are skipped.
+- **The secret gate sees no value.** The workflow passes
+  `secrets.X != ''` to `check-plugin-secrets.sh`, so the step that
+  decides is testable locally and never holds a secret.

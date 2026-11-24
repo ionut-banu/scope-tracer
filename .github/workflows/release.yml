@@ -34,6 +34,7 @@ jobs:
           path: tagged
 
       - name: Verify tag matches pom version
+        id: version
         run: |
           TAG="${GITHUB_REF_NAME#v}"
           if [ -n "${{ inputs.tag }}" ]; then TAG="${{ inputs.tag }}"; TAG="${TAG#v}"; fi
@@ -43,6 +44,7 @@ jobs:
             exit 1
           fi
           echo "Releasing version $POM_VERSION"
+          echo "version=$POM_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check the docs name this version
         run: |
@@ -54,10 +56,14 @@ jobs:
       # be checked in `publish` before the upload. Build it here with -DskipUpload=true: no
       # credentials and no signing key are needed. The checkout of the dispatched ref supplies the
       # script; the tag's tree supplies the bundle.
-      - name: Set up JDK 27
+      # JDK 21 is for Gradle, which builds the plugin below; 27 is listed last, so it is JAVA_HOME
+      # for Maven, and the plugin's toolchain. The same pair as ci.yml's plugin job.
+      - name: Set up JDK 21 and 27
         uses: actions/setup-java@v5
         with:
-          java-version: '27'
+          java-version: |
+            21
+            27
           distribution: 'temurin'
           cache: maven
 
@@ -67,6 +73,45 @@ jobs:
 
       - name: Check the bundle holds only the published artifacts
         run: bash .github/scripts/check-release-bundle.sh tagged/target/central-publishing/central-bundle.zip
+
+      # The plugin zip (#42). A tag "predates plugin releases" when its tree has no
+      # .github/scripts/check-plugin-zip.sh: that script came with the release pipeline for the
+      # plugin, so every tag cut since has a plugin whose version is the POM version, and no tag
+      # cut before has (v0.6.0 and earlier ship plugin 0.1.0). Such a tag skips the plugin steps
+      # with a notice instead of failing, so a check_only dry run of an old tag still passes.
+      - name: Does the tag predate plugin releases?
+        id: plugin
+        run: |
+          if [ -f tagged/.github/scripts/check-plugin-zip.sh ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping the plugin checks: this tag predates plugin releases (its tree has no .github/scripts/check-plugin-zip.sh)"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Gradle
+        if: steps.plugin.outputs.release == 'true'
+        uses: gradle/actions/setup-gradle@v6
+
+      # The analyzer and agent jars the plugin bundles were built by the bundle step above, in
+      # the tag's tree. verifyPlugin runs the Plugin Verifier against the IDEs that
+      # pluginVerification names (it downloads them). No secret is set in this job.
+      - name: Build and verify the plugin
+        if: steps.plugin.outputs.release == 'true'
+        working-directory: tagged/scope-tracer-plugin
+        run: >-
+          JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew
+          -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64
+          javaToolchains buildPlugin verifyPluginStructure verifyPlugin
+
+      - name: Check the plugin zip
+        if: steps.plugin.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: >-
+          bash .github/scripts/check-plugin-zip.sh
+          "tagged/scope-tracer-plugin/build/distributions/scope-tracer-plugin-$VERSION.zip"
+          "$VERSION" tagged/scope-tracer-plugin/gradle.properties
 
   publish:
     needs: check
@@ -122,3 +167,139 @@ jobs:
             scope-tracer-analyzer/target/scope-tracer-analyzer-*.jar
             scope-tracer-agent/target/scope-tracer-agent-*.jar
           fail_on_unmatched_files: false
+
+  # The IntelliJ plugin (#42): rebuilt from the tag, signed, checked, attached to the GitHub
+  # Release that `publish` created, and uploaded to the JetBrains Marketplace once the repository
+  # variable PLUGIN_MARKETPLACE_PUBLISH is 'true' (after the first, manual upload: #198). Maven
+  # Central and the GitHub Release are done before this job starts, so a red publish-plugin
+  # never affects them. Setup: docs/jetbrains-marketplace-setup.md.
+  #
+  # Secrets reach Gradle only as the environment of the steps that run it, under the names the
+  # IntelliJ Platform Gradle Plugin reads. The gate step sees only whether each one is set.
+  # Gradle records task inputs, the keys among them, in plain text in its project cache
+  # (.gradle/<version>/executionHistory). So the steps that hold a secret run with
+  # --no-configuration-cache and --project-cache-dir under $RUNNER_TEMP, never in the workspace,
+  # and the last step deletes that directory however the job ended. setup-gradle is read-only
+  # here: this job saves nothing to the Actions cache.
+  publish-plugin:
+    needs: publish
+    if: ${{ !inputs.check_only }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          path: tagged
+
+      # The same rule as in `check`.
+      - name: Does the tag predate plugin releases?
+        id: plugin
+        run: |
+          if [ -f tagged/.github/scripts/check-plugin-zip.sh ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Not publishing the plugin: this tag predates plugin releases (its tree has no .github/scripts/check-plugin-zip.sh)"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Fails before anything is built when a signing secret is missing, naming it: an unsigned
+      # zip is never uploaded. Decides whether the Marketplace upload runs.
+      - name: Check the signing secrets and the Marketplace switch
+        id: gate
+        if: steps.plugin.outputs.release == 'true'
+        env:
+          JETBRAINS_CERTIFICATE_CHAIN_SET: ${{ secrets.JETBRAINS_CERTIFICATE_CHAIN != '' }}
+          JETBRAINS_PRIVATE_KEY_SET: ${{ secrets.JETBRAINS_PRIVATE_KEY != '' }}
+          JETBRAINS_PRIVATE_KEY_PASSWORD_SET: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD != '' }}
+          JETBRAINS_MARKETPLACE_TOKEN_SET: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN != '' }}
+          PLUGIN_MARKETPLACE_PUBLISH: ${{ vars.PLUGIN_MARKETPLACE_PUBLISH }}
+        run: bash .github/scripts/check-plugin-secrets.sh
+
+      - name: Read the version
+        id: version
+        if: steps.plugin.outputs.release == 'true'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -n "${{ inputs.tag }}" ]; then VERSION="${{ inputs.tag }}"; VERSION="${VERSION#v}"; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 21 and 27
+        if: steps.plugin.outputs.release == 'true'
+        uses: actions/setup-java@v5
+        with:
+          java-version: |
+            21
+            27
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Set up Gradle
+        if: steps.plugin.outputs.release == 'true'
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: Build the analyzer and agent jars the plugin bundles
+        if: steps.plugin.outputs.release == 'true'
+        working-directory: tagged
+        run: mvn -B -q -DskipTests package
+
+      - name: Build, sign and verify the signature of the plugin zip
+        if: steps.plugin.outputs.release == 'true'
+        working-directory: tagged/scope-tracer-plugin
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.JETBRAINS_CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
+        run: >-
+          JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew --no-configuration-cache
+          --project-cache-dir "$RUNNER_TEMP/gradle-project-cache"
+          -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64
+          buildPlugin signPlugin verifyPluginSignature
+
+      # signPlugin skips itself, silently, without a chain and key; the gate above makes that
+      # impossible, and this step makes sure: only the -signed zip goes on.
+      - name: Check the signed plugin zip
+        if: steps.plugin.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          SIGNED="tagged/scope-tracer-plugin/build/distributions/scope-tracer-plugin-$VERSION-signed.zip"
+          if [ ! -f "$SIGNED" ]; then
+            echo "::error::signPlugin wrote no $SIGNED; not uploading an unsigned zip"
+            exit 1
+          fi
+          bash .github/scripts/check-plugin-zip.sh "$SIGNED" "$VERSION" tagged/scope-tracer-plugin/gradle.properties
+
+      - name: Attach the signed plugin zip to the GitHub Release
+        if: steps.plugin.outputs.release == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: tagged/scope-tracer-plugin/build/distributions/scope-tracer-plugin-${{ steps.version.outputs.version }}-signed.zip
+          fail_on_unmatched_files: true
+
+      # publishPlugin uploads the -signed zip and nothing else: build.gradle.kts sets its archive to
+      # signPlugin's output (2.20.1 would otherwise take the unsigned zip whenever signPlugin is
+      # UP-TO-DATE, as it is here) and fails when that zip is missing. The task prints the file it
+      # uploads. The Marketplace reviews every version before users see it.
+      - name: Upload the signed plugin zip to the JetBrains Marketplace
+        if: steps.plugin.outputs.release == 'true' && steps.gate.outputs.marketplace == 'true'
+        working-directory: tagged/scope-tracer-plugin
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.JETBRAINS_CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
+          PUBLISH_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
+        run: >-
+          JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew --no-configuration-cache
+          --project-cache-dir "$RUNNER_TEMP/gradle-project-cache"
+          -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64
+          publishPlugin
+
+      - name: Delete Gradle's project cache, which holds the signing inputs
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/gradle-project-cache" tagged/scope-tracer-plugin/.gradle

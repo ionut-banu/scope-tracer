@@ -158,7 +158,8 @@ first to discuss the approach.
 ## Releasing
 
 Releases are published to Maven Central by the `.github/workflows/release.yml`
-workflow, triggered when a `v*.*.*` tag is pushed.
+workflow, triggered when a `v*.*.*` tag is pushed. The same tag publishes the IntelliJ plugin:
+its signed zip goes on the GitHub Release and, once switched on, to the JetBrains Marketplace.
 
 ### Prerequisites (one-time, maintainer only)
 
@@ -169,6 +170,19 @@ Summary of what must be in place before the first release:
 - GPG signing key generated; public key published to `keys.openpgp.org`.
 - Four repository secrets configured under Settings → Secrets and variables → Actions:
   `CENTRAL_USERNAME`, `CENTRAL_TOKEN`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`.
+
+For the IntelliJ plugin, full instructions are in
+[docs/jetbrains-marketplace-setup.md](docs/jetbrains-marketplace-setup.md):
+
+- A JetBrains Account with the Marketplace Developer Agreement accepted and a vendor profile.
+- Four more repository secrets: `JETBRAINS_CERTIFICATE_CHAIN`, `JETBRAINS_PRIVATE_KEY` and
+  `JETBRAINS_PRIVATE_KEY_PASSWORD` (a self-signed signing key and certificate, the first two
+  Base64-encoded), and `JETBRAINS_MARKETPLACE_TOKEN` (a Marketplace personal access token).
+  Without the three signing secrets every release's `publish-plugin` job fails, naming them;
+  Maven Central and the GitHub Release are already done by then.
+- After the first, manual Marketplace upload (#198), the repository variable (not a secret)
+  `PLUGIN_MARKETPLACE_PUBLISH` set to `true`. Until then each release attaches the signed zip
+  to the GitHub Release and skips the Marketplace upload with a notice.
 
 ### Cutting a release
 
@@ -188,7 +202,10 @@ mvn versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
 mvn -q verify
 git commit -am "release: $VERSION"
 
-# 3. Tag and push (the tag triggers the release workflow)
+# 3. Tag and push (the tag triggers the release workflow: Maven Central, the GitHub Release,
+#    then the signed plugin zip on that release and, when PLUGIN_MARKETPLACE_PUBLISH is true,
+#    on the JetBrains Marketplace. The Marketplace reviews each version before users see it,
+#    normally within two business days, so the plugin update reaches users a few days later.)
 git tag v$VERSION
 git push origin release/$VERSION v$VERSION
 
@@ -269,6 +286,29 @@ Central when either fails. `publish` then runs the full `mvn -P release deploy`,
 Central to confirm publication, then creates
 a GitHub Release using the matching CHANGELOG section as the body.
 
+The `check` job also builds the tag's IntelliJ plugin, with no secret: Temurin 21 (for Gradle)
+and 27, then `./gradlew buildPlugin verifyPluginStructure verifyPlugin` in the tag's
+`scope-tracer-plugin/` (the Plugin Verifier against the IDEs `pluginVerification` names), then
+`.github/scripts/check-plugin-zip.sh` from the dispatched ref on the zip. That script fails
+unless the zip's `plugin.xml` has the plugin's id, the tag's version, the `since-build` of the
+tag's `gradle.properties`, non-empty change notes and `META-INF/pluginIcon.svg`, the zip holds
+exactly one agent jar, named for the version and matching `agent/agent-jar-name.txt`, and its
+`analyzer/analyzer.jar` is the same version; it refuses a SNAPSHOT version.
+`.github/scripts/check-plugin-zip-test.sh` is its self-test and runs in CI. A tag **predates
+plugin releases** when its tree has no `.github/scripts/check-plugin-zip.sh` (v0.6.0 and
+earlier, whose plugin is version 0.1.0): `check` skips the plugin steps for it with a notice
+instead of failing.
+
+After `publish`, the `publish-plugin` job rebuilds the zip from the tag, signs it with
+`signPlugin`, runs `verifyPluginSignature` and `check-plugin-zip.sh` on the signed zip, and
+attaches it to the GitHub Release. Before building it runs
+`.github/scripts/check-plugin-secrets.sh` (self-test `check-plugin-secrets-test.sh`, in CI),
+which sees only whether each secret is set: it fails naming any missing signing secret, so no
+unsigned zip is ever attached or uploaded, and it decides whether `publishPlugin` uploads the
+signed zip to the Marketplace (only when `PLUGIN_MARKETPLACE_PUBLISH` is `true`, and then a
+missing `JETBRAINS_MARKETPLACE_TOKEN` fails the job). A red `publish-plugin` leaves Maven
+Central and the GitHub Release as they are; fix the secret and re-run the job.
+
 To run the checks on a real runner without publishing, dispatch the `Release` workflow from
 `main` with `tag` set to `v0.3.0` (or any existing tag) and `check_only` ticked, or:
 
@@ -276,8 +316,9 @@ To run the checks on a real runner without publishing, dispatch the `Release` wo
 gh workflow run release.yml --ref main -f tag=v0.3.0 -f check_only=true
 ```
 
-The `check` job runs `main`'s script against that tag's docs and `publish` is skipped. A tag
-push always publishes. A tag older than this check can fail on its own stale docs; that is the
+The `check` job runs `main`'s script against that tag's docs (and builds and checks the tag's
+plugin, unless the tag predates plugin releases) and `publish` and `publish-plugin` are
+skipped. A tag push always publishes. A tag older than this check can fail on its own stale docs; that is the
 check working.
 
 ### Verifying a release locally
@@ -299,6 +340,15 @@ mvn versions:set -DnewVersion=X.Y.Z -DgenerateBackupPoms=false   # in the copy, 
 mvn -B -P release deploy -DskipTests -DskipITs -Dgpg.skip=true -DskipUpload=true \
   -Dmaven.javadoc.skip=true -Dmaven.repo.local=/tmp/scratch-m2
 .github/scripts/check-release-bundle.sh target/central-publishing/central-bundle.zip
+```
+
+The plugin zip can be checked the same way, in that copy, without a key (signing is the
+`publish-plugin` job's, on CI only; never ship a zip built on your machine):
+
+```bash
+mvn -q -DskipTests package -Dmaven.repo.local=/tmp/scratch-m2
+(cd scope-tracer-plugin && ./gradlew buildPlugin verifyPluginStructure verifyPlugin)
+.github/scripts/check-plugin-zip.sh scope-tracer-plugin/build/distributions/scope-tracer-plugin-X.Y.Z.zip X.Y.Z
 ```
 
 To do a real staging publish without the auto-release flag, temporarily set

@@ -4,8 +4,23 @@
   <vendor email="ionutba@protonmail.com" url="https://github.com/ionut-banu/scope-tracer">Ionut Banu</vendor>
 
   <description><![CDATA[
-    Opens .jfr recordings produced by <a href="https://github.com/ionut-banu/scope-tracer">scope-tracer</a>
-    and renders java.util.concurrent.StructuredTaskScope task trees in a native tool window.
+    <p>Shows how Java structured concurrency (<code>java.util.concurrent.StructuredTaskScope</code>)
+    actually ran: the tree of scopes and forked tasks, how long each task lived, which one failed
+    and which siblings were cancelled. It reads JFR recordings made by
+    <a href="https://github.com/ionut-banu/scope-tracer">scope-tracer</a>.</p>
+    <p>Two actions, both in the Tools menu:</p>
+    <ul>
+      <li><b>Run with Scope Tracer</b> runs the selected Java application run configuration with
+      the scope-tracer agent, <code>--enable-preview</code> and a JFR recording, and opens the
+      trace in the Scope Tracer tool window when the process exits.</li>
+      <li><b>Open .jfr Recording (Scope Tracer)...</b> opens a recording you made elsewhere in the
+      same tool window. Clicking a task jumps to the <code>fork</code> call that created it.</li>
+    </ul>
+    <p>Requirements: IntelliJ IDEA 2026.3 or later. A JDK 27 must be installed: traced runs need
+    a JDK 27 in the run configuration, and the bundled analyzer runs as a separate process on a
+    JDK 27 that you configure.</p>
+    <p>See the <a href="https://github.com/ionut-banu/scope-tracer#readme">README</a> for
+    details and the source code.</p>
   ]]></description>
 
   <depends>com.intellij.modules.platform</depends>
