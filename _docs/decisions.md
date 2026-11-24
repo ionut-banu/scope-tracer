@@ -1352,3 +1352,22 @@ Decided by the maintainer, following the PM's recommendations:
   properties false. `-am` stays, as AGENTS.md requires; upstream modules' surefire and failsafe
   find no matching test and run nothing, the stress ITs run and fail the job. No POM change. The
   `build` job covers the other modules.
+
+## 2026-11-24 - The tool window embeds the report with JCEF (#62)
+
+- **JCEF, with the table as the fallback**, the maintainer's choice on
+  #62. One renderer: the timeline is the analyzer's own HTML. A native
+  Swing timeline is #192 (v2).
+- **Two analyzer runs, JSON then HTML.** The HTML embeds the JSON, but
+  reading it from there would make the report's inner structure part
+  of the plugin's contract. The second run costs one more parse.
+- **JCEF is an optional plugin dependency.** The 2025.3 reading on #62
+  had JCEF in the core platform; in 2026.3 it is the bundled plugin
+  "Web Browser (JCEF)" (`com.intellij.modules.jcef`), so the build
+  declares it with `bundledPlugin` and `plugin.xml` depends on it with
+  `optional="true"`. A user who disables that plugin keeps the table;
+  a required dependency would have disabled Scope Tracer. Plugin
+  Verifier 1.411 finds 2026.3 and IU-263.8311.30 compatible either
+  way.
+- **Remote development and Gateway are not a target for M5.** Where
+  JCEF does not reach the client, the table fallback covers it.

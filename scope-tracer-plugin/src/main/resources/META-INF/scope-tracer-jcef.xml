@@ -1,0 +1,5 @@
+<!-- Loaded when "Web Browser (JCEF)" (com.intellij.modules.jcef) is present: it only makes the
+     JCEF classes visible to the plugin, which still asks JBCefApp.isSupported() before using them
+     (#62). Nothing is registered here. -->
+<idea-plugin>
+</idea-plugin>

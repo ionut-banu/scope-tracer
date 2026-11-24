@@ -12,6 +12,9 @@ public final class ScopeTracerToolWindowFactory implements ToolWindowFactory {
   public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
     var panel = new ScopeTracerPanel(project);
     var content = ContentFactory.getInstance().createContent(panel, "", false);
+    // Disposing the content (the project closes) disposes the panel, its embedded browser and the
+    // temp HTML file it shows.
+    content.setDisposer(panel);
     toolWindow.getContentManager().addContent(content);
   }
 }

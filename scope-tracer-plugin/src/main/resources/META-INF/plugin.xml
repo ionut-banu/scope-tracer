@@ -11,6 +11,9 @@
   <depends>com.intellij.modules.platform</depends>
   <!-- Java PSI (PsiClass, PsiShortNamesCache) for click-to-source navigation. -->
   <depends>com.intellij.modules.java</depends>
+  <!-- The embedded browser for the "Timeline" view (#62); optional, as the task table works
+       without it. In 2026.3 JCEF is the bundled plugin "Web Browser (JCEF)". -->
+  <depends optional="true" config-file="scope-tracer-jcef.xml">com.intellij.modules.jcef</depends>
 
   <extensions defaultExtensionNs="com.intellij">
     <toolWindow id="Scope Tracer" anchor="bottom"

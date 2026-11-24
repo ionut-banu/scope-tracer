@@ -1,7 +1,9 @@
 package com.ionutbanu.scopetracer.plugin;
 
+import com.intellij.ide.BrowserUtil;
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileChooser.FileChooser;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
@@ -9,22 +11,31 @@ import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.components.JBScrollPane;
+import com.intellij.ui.components.JBTabbedPane;
 import com.intellij.ui.table.JBTable;
 import com.ionutbanu.scopetracer.plugin.model.CallSite;
 import com.ionutbanu.scopetracer.plugin.model.CallSiteParser;
+import com.ionutbanu.scopetracer.plugin.model.HtmlReport;
 import com.ionutbanu.scopetracer.plugin.model.PluginScopeRecord;
 import com.ionutbanu.scopetracer.plugin.model.PluginTaskOutcome;
 import com.ionutbanu.scopetracer.plugin.model.PluginTaskRecord;
 import com.ionutbanu.scopetracer.plugin.model.PluginTraceModel;
+import com.ionutbanu.scopetracer.plugin.model.ReportAnalysis;
+import com.ionutbanu.scopetracer.plugin.model.ReportViews;
+import com.ionutbanu.scopetracer.plugin.model.ReportViews.Display;
+import com.ionutbanu.scopetracer.plugin.model.ShownReport;
 import java.awt.BorderLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
@@ -32,12 +43,27 @@ import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import org.jetbrains.annotations.NotNull;
 
-/** Flat task table for a parsed trace: one row per scope header, indented rows per task. */
-final class ScopeTracerPanel extends JPanel {
+/**
+ * The Scope Tracer tool window's content: two views of one recording (#62). "Timeline" is the
+ * analyzer's own HTML report in an embedded browser ({@link TimelineView}), shown first; "Tasks" is
+ * the flat task table, one row per scope header and indented rows per task, with double-click to
+ * source. Without JCEF only "Tasks" is shown. "Open in Browser" opens the same HTML file in the
+ * system browser either way. What is shown is decided by {@link ReportViews}; the temp HTML file
+ * is owned by {@link ShownReport} and deleted when the next recording replaces it or this panel is
+ * disposed with its content (the project closes).
+ */
+final class ScopeTracerPanel extends JPanel implements Disposable {
 
   private static final Logger LOG = Logger.getInstance(ScopeTracerPanel.class);
 
+  /** The "timeline needs JCEF" notice is shown once an IDE session, not once a recording. */
+  private static final AtomicBoolean JCEF_NOTICE_SHOWN = new AtomicBoolean();
+
   private final Project project;
+  private final boolean jcefSupported;
+  private final TimelineView timeline; // null without JCEF
+  private final ShownReport shown = new ShownReport();
+  private final JButton openInBrowserButton = new JButton("Open in Browser");
   private final DefaultTableModel tableModel =
       new DefaultTableModel(
           new Object[] {"Scope / Task", "Thread", "Fork Offset", "Duration", "Outcome"}, 0) {
@@ -64,6 +90,10 @@ final class ScopeTracerPanel extends JPanel {
     var openButton = new JButton("Open .jfr…");
     openButton.addActionListener(e -> openAndAnalyze());
     toolbar.add(openButton);
+    openInBrowserButton.setToolTipText("Open this recording's HTML report in the system browser");
+    openInBrowserButton.setEnabled(false);
+    openInBrowserButton.addActionListener(e -> openInBrowser());
+    toolbar.add(openInBrowserButton);
 
     table.addMouseListener(
         new MouseAdapter() {
@@ -86,7 +116,33 @@ final class ScopeTracerPanel extends JPanel {
         });
 
     add(toolbar, BorderLayout.NORTH);
-    add(new JBScrollPane(table), BorderLayout.CENTER);
+    var tasks = new JBScrollPane(table);
+    // Asked before any JCEF object exists; without JCEF the panel is the table alone, as before.
+    jcefSupported = JcefSupport.isSupported();
+    if (jcefSupported) {
+      timeline = new TimelineView(this);
+      var tabs = new JBTabbedPane();
+      tabs.addTab("Timeline", timeline.component());
+      tabs.addTab("Tasks", tasks);
+      tabs.setSelectedIndex(0);
+      add(tabs, BorderLayout.CENTER);
+    } else {
+      timeline = null;
+      add(tasks, BorderLayout.CENTER);
+    }
+  }
+
+  /** The content is disposed (the project closes): delete the temp HTML file shown. */
+  @Override
+  public void dispose() {
+    shown.dispose();
+  }
+
+  private void openInBrowser() {
+    var file = shown.current();
+    if (file != null && Files.exists(file)) {
+      BrowserUtil.browse(file);
+    }
   }
 
   void openAndAnalyze() {
@@ -111,44 +167,107 @@ final class ScopeTracerPanel extends JPanel {
   }
 
   /**
-   * Analyzes {@code jfrPath} off the EDT and shows the result. {@code deleteAfter} removes the
-   * recording once it has been loaded or has failed to load (used for temp recordings made by "Run
-   * with Scope Tracer").
+   * Analyzes {@code jfrPath} off the EDT and shows the result: the JSON run, then the HTML run
+   * (both in this background task, with the runner's timeout and cancellation), then both views
+   * replaced on the EDT. {@code deleteAfter} removes the recording once both runs have finished
+   * (used for temp recordings made by "Run with Scope Tracer").
    */
   void analyzeRecording(Path jfrPath, Path javaPath, boolean deleteAfter) {
     new Task.Backgroundable(project, "Analyzing scope-tracer recording", true) {
       @Override
       public void run(@NotNull ProgressIndicator indicator) {
         try {
-          var model = AnalyzerProcessRunner.analyze(jfrPath, javaPath, indicator::isCanceled);
-          SwingUtilities.invokeLater(
-              () -> {
-                populate(model);
-                if (model.scopes().isEmpty()) {
-                  ScopeTracerNotifier.notify(
-                      project,
-                      "Scope Tracer",
-                      "The recording contains no StructuredTaskScope activity.",
-                      NotificationType.INFORMATION);
-                }
-              });
+          var result =
+              ReportAnalysis.run(
+                  () -> AnalyzerProcessRunner.analyze(jfrPath, javaPath, indicator::isCanceled),
+                  () -> Files.createTempFile("scope-tracer-report-", ".html"),
+                  html -> {
+                    indicator.setText("Rendering the scope-tracer timeline");
+                    AnalyzerProcessRunner.writeHtml(jfrPath, javaPath, html, indicator::isCanceled);
+                  },
+                  () -> {
+                    if (deleteAfter) {
+                      deleteQuietly(jfrPath);
+                    }
+                  });
+          var model = result.trace();
+          var display =
+              ReportViews.decide(
+                  jcefSupported,
+                  new ReportViews.Json.Parsed(model.scopes().isEmpty()),
+                  result.html());
+          SwingUtilities.invokeLater(() -> apply(model, display));
         } catch (CancellationException e) {
           // Cancelled from the progress bar, or the project closed: the analyzer is already
           // dead. Not a failure, so no error balloon; the tool window keeps what it showed.
           LOG.info("Scope Tracer: " + e.getMessage());
         } catch (Exception e) {
-          SwingUtilities.invokeLater(() -> showError(e));
-        } finally {
-          if (deleteAfter) {
-            try {
-              java.nio.file.Files.deleteIfExists(jfrPath);
-            } catch (java.io.IOException ignored) {
-              // temp file
+          var display =
+              ReportViews.decide(
+                  jcefSupported,
+                  new ReportViews.Json.Failed(String.valueOf(e.getMessage())),
+                  HtmlReport.NOT_RUN);
+          SwingUtilities.invokeLater(() -> apply(null, display));
+        }
+      }
+    }.queue();
+  }
+
+  /** Carries out {@link ReportViews}'s decision. On the EDT. */
+  private void apply(PluginTraceModel model, Display display) {
+    switch (display) {
+      case Display.Keep keep -> {
+        deleteQuietly(keep.discard());
+        if (!project.isDisposed()) {
+          showError("Scope Tracer analysis failed", keep.error());
+        }
+      }
+      case Display.Replace replace -> {
+        if (!shown.show(replace.htmlFile())) {
+          return; // disposed meanwhile; the file has been deleted
+        }
+        populate(model);
+        if (timeline != null) {
+          timeline.show(replace.timeline());
+        }
+        openInBrowserButton.setEnabled(replace.htmlFile() != null);
+        if (replace.error() != null) {
+          showError("Scope Tracer timeline could not be generated", replace.error());
+        }
+        for (var notice : replace.notices()) {
+          switch (notice) {
+            case NO_SCOPES ->
+                ScopeTracerNotifier.notify(
+                    project,
+                    "Scope Tracer",
+                    "The recording contains no StructuredTaskScope activity.",
+                    NotificationType.INFORMATION);
+            case JCEF_NEEDED -> {
+              if (JCEF_NOTICE_SHOWN.compareAndSet(false, true)) {
+                ScopeTracerNotifier.notify(
+                    project,
+                    "Scope Tracer",
+                    "The timeline needs the IDE's embedded browser (JCEF), which is not available"
+                        + " here, so only the task table is shown. Use Open in Browser to see the"
+                        + " report's timeline in the system browser.",
+                    NotificationType.INFORMATION);
+              }
             }
           }
         }
       }
-    }.queue();
+    }
+  }
+
+  private static void deleteQuietly(Path file) {
+    if (file == null) {
+      return;
+    }
+    try {
+      Files.deleteIfExists(file);
+    } catch (IOException ignored) {
+      // temp file
+    }
   }
 
   private void populate(PluginTraceModel model) {
@@ -172,10 +291,13 @@ final class ScopeTracerPanel extends JPanel {
   }
 
   private void showError(Exception e) {
+    showError("Scope Tracer analysis failed", String.valueOf(e.getMessage()));
+  }
+
+  private void showError(String title, String message) {
     NotificationGroupManager.getInstance()
         .getNotificationGroup("Scope Tracer")
-        .createNotification(
-            "Scope Tracer analysis failed", String.valueOf(e.getMessage()), NotificationType.ERROR)
+        .createNotification(title, message, NotificationType.ERROR)
         .notify(project);
   }
 

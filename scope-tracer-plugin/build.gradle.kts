@@ -52,6 +52,11 @@ dependencies {
     intellijIdea(platformVersion)
     // Java PSI (PsiClass, PsiShortNamesCache) for click-to-source navigation.
     bundledPlugin("com.intellij.java")
+    // The embedded browser for the "Timeline" view (#62). In 2026.3, unlike 2025.3, JCEF is the
+    // bundled plugin "Web Browser (JCEF)", com.intellij.modules.jcef, not part of the core
+    // platform, so it is declared. plugin.xml depends on it optionally: without it, as without
+    // JBCefApp.isSupported(), the tool window shows the task table alone.
+    bundledPlugin("com.intellij.modules.jcef")
     pluginVerifier()
   }
 }
