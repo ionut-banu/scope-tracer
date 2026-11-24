@@ -1277,3 +1277,20 @@ Decided by the maintainer, following the PM's recommendations:
 - **No hint in the WARN line**, as #130 decided.
 - **Upstream.** The maintainer may file a ByteBuddy issue about the
   signed minor comparison; nothing here waits on it.
+
+## 2026-11-24 - The plugin's version is the Maven version (#151)
+
+- **Decision.** `scope-tracer-plugin` takes its version from the
+  parent POM, the same value it already reads as `analyzerVersion`.
+  `gradle.properties` has no `pluginVersion`. The zip bundles that
+  exact analyzer and agent, so one number names one set of bits and the
+  release's `mvn versions:set` is the only bump.
+- **Cost.** A plugin-only fix is a patch release of every artifact,
+  and the Marketplace refuses the same version twice, so a re-release
+  needs a new patch version.
+- **Change notes.** Generated in `build.gradle.kts`: a link to the
+  GitHub Release and to the tagged `CHANGELOG.md`; a `-SNAPSHOT` links
+  `[Unreleased]`. Rendering the section would need a changelog plugin,
+  which the maintainer declined.
+- **Alternative rejected.** An independent plugin version needs its own
+  bump, its own tag check and a bundled-analyzer mapping.
