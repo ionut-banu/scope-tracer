@@ -692,7 +692,14 @@ failure.
   action is traced (Run executor, once); an ordinary Run or Debug of
   the same configuration is not, and everything the action set up is
   released when that launch terminates or fails to start
-  (`TracedRunLifecycle` decides).
+  (`TracedRunLifecycle` decides). The action is shown whenever a
+  project is open, whatever is selected (`RunActionState` decides).
+  When no configuration is selected, clicking it shows an information
+  notification saying to select or create a Java Application run
+  configuration; when the selected one is of another type (JUnit,
+  Gradle, Remote JVM Debug, ...), the notification names it and its
+  type and says that "Run with Scope Tracer" runs Java Application
+  configurations. Neither starts a run.
 - `build.gradle.kts` reads `analyzerVersion` from the parent POM, so
   the bundled jar always matches the Maven project version.
 - The plugin's version is that same version: `version` and
@@ -720,7 +727,7 @@ in place, asserts every value, and fails on a key it does not map.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-24, #94 on #201, JDK 27) |
+| Suite | Runner | Count (2026-11-24, #187, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 172 |
@@ -729,10 +736,10 @@ in place, asserts every value, and fails on a key it does not map.
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 87 |
+| plugin `:model` | Gradle | 94 |
 
 `mvn -q verify` runs the first six: 939 tests (surefire plus
-failsafe, measured on 2026-11-24 on the branch of #94 rebased on #201, on Temurin 27; the
+failsafe, measured on 2026-11-24 on the branch of #187 from `main` at 299179e, on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
