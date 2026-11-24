@@ -58,7 +58,7 @@ val changeNotesHtml: String =
       } else {
         "<p>See the <a href=\"$repo/releases/tag/v$analyzerVersion\">GitHub Release " +
             "$analyzerVersion</a> and the <a href=\"$repo/blob/v$analyzerVersion/CHANGELOG.md\">" +
-            "[$analyzerVersion] section of the changelog</a>.</p>"
+            "changelog at v$analyzerVersion</a>.</p>"
       }
     }
 
