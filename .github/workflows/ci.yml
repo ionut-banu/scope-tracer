@@ -81,5 +81,5 @@ jobs:
         # cache (no auto-provisioning); javaToolchains prints the toolchains it found.
         run: >-
           JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew
-          -Porg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64
+          -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64
           javaToolchains build

@@ -1338,6 +1338,6 @@ Decided by the maintainer, following the PM's recommendations:
   what `printProductsReleases` returns (on 2026-11-24, IU-263.8311.30,
   2026.3.1 Preview; the newest release is 2026.3 itself).
 - **CI.** The plugin job names the 27 for Gradle with
-  `org.gradle.java.installations.fromEnv=JAVA_HOME_27_X64` rather than
+  `-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64` rather than
   rely on auto-detection of the runner's tool cache, and prints
   `javaToolchains`. No auto-provisioning.

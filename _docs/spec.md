@@ -777,7 +777,7 @@ try (var file = new RecordingFile(tempPath)) {
   (`stress.yml`) use Temurin 27, one JDK and no matrix; the plugin
   job adds JDK 21, which Gradle runs on, and names the 27 to Gradle
   as the plugin's toolchain
-  (`org.gradle.java.installations.fromEnv=JAVA_HOME_27_X64`, printed
+  (`-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64`, printed
   by `javaToolchains`; no auto-provisioning). The plugin compiles with
   `--release 25` for 2026.3's JBR 25. The Maven enforcer refuses a
   JDK older than 27 before anything is compiled.
