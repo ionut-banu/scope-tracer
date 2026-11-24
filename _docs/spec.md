@@ -146,7 +146,8 @@ with them.
 ## §3 Architecture
 
 Java 27 with `--enable-preview` project-wide, Maven 3.9+, JUnit 5,
-AssertJ, Awaitility. The plugin is a separate Gradle build on JDK 21.
+AssertJ, Awaitility. The plugin is a separate Gradle build: Gradle runs
+on JDK 21, and the plugin compiles for Java 25 on a JDK 27 toolchain.
 
 ### The pipeline
 
@@ -637,9 +638,20 @@ with a control child that has no scope-tracer code (see decisions,
 
 ### Plugin
 
-The IDE runs on JBR (JDK 21) and cannot load classes compiled with
-`--release 27` (class-file major version 71), which JBR 21 rejects.
-So the plugin never loads analyzer classes:
+The plugin supports IntelliJ IDEA 2026.3 and later: `since-build`
+263 and no `until-build` (see decisions, 2026-11-24). 2026.3 is the
+first release that both runs on a JBR the plugin targets and whose
+Java plugin knows language level 27, without which the IDE cannot
+import a `release 27` project. It is built against `platformVersion`
+2026.3 with the IntelliJ Platform Gradle Plugin 2.20.1, and both
+Gradle modules compile with `--release 25` (class-file major 69) on a
+JDK 27 toolchain, because 2026.3's own jars are Java 25 class files;
+Gradle itself runs on JDK 21. `verifyPlugin` checks 2026.3 and the
+newest IntelliJ IDEA build from 263 on, EAP included.
+
+The IDE runs on JBR 25 (2026.3 bundles 25.0.4.1) and cannot load
+classes compiled with `--release 27` (class-file major version 71),
+which JBR 25 rejects. So the plugin never loads analyzer classes:
 it bundles the analyzer's `-executable` jar as a resource
 (`copyAnalyzerJar` reads it from `../scope-tracer-analyzer/target/`),
 runs it as a subprocess on a user-configured JDK 27 with
@@ -648,8 +660,8 @@ The configured `java` is saved as `scopeTracer.jdk27JavaPath` and
 checked with `java -version` (`AnalyzerJdk` in `:model`) every time it
 is used; one older than 27 is refused with a message naming 27.
 
-- `:model` - plain Java 21, no IntelliJ dependency, so its tests run
-  as ordinary JUnit. Gson is `compileOnly` (the IDE ships it).
+- `:model` - plain Java (`--release 25`), no IntelliJ dependency, so
+  its tests run as ordinary JUnit. Gson is `compileOnly` (the IDE ships it).
 - The root module has no tests; the IntelliJ Gradle plugin's test
   instrumentation needs a sandbox.
 - Features: Tools → "Open .jfr Recording (Scope Tracer)…", a "Scope
@@ -763,8 +775,12 @@ try (var file = new RecordingFile(tempPath)) {
   `mvn verify`; CI fails on any of them.
 - CI (`ci.yml`), the release (`release.yml`) and the stress run
   (`stress.yml`) use Temurin 27, one JDK and no matrix; the plugin
-  job adds JDK 21 for Gradle. The Maven enforcer refuses a JDK older
-  than 27 before anything is compiled.
+  job adds JDK 21, which Gradle runs on, and names the 27 to Gradle
+  as the plugin's toolchain
+  (`-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64`, printed
+  by `javaToolchains`; no auto-provisioning). The plugin compiles with
+  `--release 25` for 2026.3's JBR 25. The Maven enforcer refuses a
+  JDK older than 27 before anything is compiled.
 - The JDK early-access run (`jdk-ea.yml`, "JDK 28 early access")
   runs `mvn -B -Pjdk-ea verify` on Temurin `28-ea`
   (`actions/setup-java@v5`) every Saturday at 06:17 UTC, on

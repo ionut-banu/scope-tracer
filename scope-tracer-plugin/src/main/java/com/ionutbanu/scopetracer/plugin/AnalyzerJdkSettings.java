@@ -14,7 +14,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Persists the path to a JDK 27 {@code java} launcher, used to run the bundled analyzer out of
- * process (the IDE's own JVM, JBR, is JDK 21 and cannot load the analyzer's JDK 27 classes).
+ * process (the IDE's own JVM, JBR 25 in IntelliJ IDEA 2026.3, cannot load the analyzer's JDK 27
+ * classes).
  * Milestone-1: a single manually-entered path, no Settings UI page yet.
  *
  * <p>Every path, saved or entered, is checked with {@code java -version} through {@link

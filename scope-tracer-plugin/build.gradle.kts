@@ -1,6 +1,9 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+import org.jetbrains.intellij.platform.gradle.models.ProductRelease
+
 plugins {
   java
-  id("org.jetbrains.intellij.platform") version "2.18.1"
+  id("org.jetbrains.intellij.platform") version "2.20.1"
 }
 
 val platformVersion = providers.gradleProperty("platformVersion").get()
@@ -30,7 +33,12 @@ repositories {
   intellijPlatform { defaultRepositories() }
 }
 
-java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+// 2026.3 runs on JBR 25 and its jars are Java 25 class files, which a JDK 21 javac cannot read.
+// Compile with the JDK 27 the repository already requires, for Java 25. Gradle itself still runs
+// on JDK 21. No toolchain auto-provisioning: the JDK 27 must be installed.
+java { toolchain { languageVersion = JavaLanguageVersion.of(27) } }
+
+tasks.withType<JavaCompile>().configureEach { options.release = 25 }
 
 dependencies {
   // The JSON wire-format model/parser lives in :model, a plain Java module with no IntelliJ
@@ -68,7 +76,20 @@ intellijPlatform {
     name.set("Scope Tracer")
     version.set(analyzerVersion)
     changeNotes.set(changeNotesHtml)
+    // No untilBuild, on purpose: JetBrains recommends against it (#120).
     ideaVersion { sinceBuild.set(pluginSinceBuild) }
+  }
+  pluginVerification {
+    ides {
+      // The lowest IDE in the range, and the newest build from it on, EAP included (what
+      // printProductsReleases returns; on 2026-11-24 that was IU-263.8311.30, 2026.3.1 Preview).
+      create(IntelliJPlatformType.IntellijIdea, platformVersion)
+      select {
+        types = listOf(IntelliJPlatformType.IntellijIdea)
+        channels = listOf(ProductRelease.Channel.RELEASE, ProductRelease.Channel.EAP)
+        sinceBuild = pluginSinceBuild
+      }
+    }
   }
 }
 
@@ -80,7 +101,7 @@ tasks.test { enabled = false }
 // --- Bundle the scope-tracer-analyzer executable jar as a plugin resource ---
 //
 // The analyzer is a Maven module compiled with --enable-preview (JDK 27) and can never be
-// loaded inside the IDE's own JVM (JBR, JDK 21). The plugin instead ships the analyzer's
+// loaded inside the IDE's own JVM (JBR 25 in 2026.3). The plugin instead ships the analyzer's
 // executable jar as a resource and runs it as an external subprocess against a real JDK 27 —
 // see AnalyzerProcessRunner. This task copies that jar out of the Maven build's `target/`.
 val copyAnalyzerJar =

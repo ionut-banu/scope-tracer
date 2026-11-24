@@ -87,6 +87,19 @@ maintainer's to triage: GitHub mails the failure of a scheduled run to whoever l
 in a public repository after 60 days without activity; re-enable it from the Actions tab if
 that happens.
 
+### The IntelliJ plugin
+
+`scope-tracer-plugin/` is a separate Gradle build, outside the Maven reactor. It targets
+IntelliJ IDEA 2026.3 and later, which runs on JBR 25. Gradle runs on JDK 21; both Gradle
+modules compile with `--release 25` on a JDK 27 toolchain, which Gradle finds among the
+installed JDKs (it does not download one). Build the jars it bundles first:
+
+```bash
+mvn -q -DskipTests package
+cd scope-tracer-plugin && JAVA_HOME=/path/to/jdk-21 ./gradlew build
+./gradlew verifyPlugin   # Plugin Verifier against 2026.3 and the newest 263+ build
+```
+
 ### Formatting
 
 The project uses Spotless with google-java-format 1.36.1 and sortPom. CI
