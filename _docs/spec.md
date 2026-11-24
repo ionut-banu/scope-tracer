@@ -704,7 +704,13 @@ failure.
   the tagged `CHANGELOG.md`, a `-SNAPSHOT` links `[Unreleased]`.
 
 A change to `TraceModelJson`'s output is a change to the plugin's
-input. Both sides change in the same issue.
+input. Both sides change in the same issue. Golden JSON files, one
+per fixture recording, in
+`scope-tracer-analyzer/src/test/resources/contract/` enforce it: the
+analyzer's `TraceModelJsonContractTest` (`mvn verify`) checks they
+are byte for byte what the analyzer writes, and the plugin's
+`AnalyzerJsonContractTest` (`./gradlew build`) parses the same files
+in place, asserts every value, and fails on a key it does not map.
 
 ---
 
@@ -714,19 +720,19 @@ input. Both sides change in the same issue.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-24, #201, JDK 27) |
+| Suite | Runner | Count (2026-11-24, #94 on #201, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
-| analyzer unit | surefire | 169 |
+| analyzer unit | surefire | 172 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
 | agent unit | surefire | 250 |
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 77 |
+| plugin `:model` | Gradle | 87 |
 
-`mvn -q verify` runs the first six: 936 tests (surefire plus
-failsafe, measured on 2026-11-24 on the branch of #201 on Temurin 27; the
+`mvn -q verify` runs the first six: 939 tests (surefire plus
+failsafe, measured on 2026-11-24 on the branch of #94 rebased on #201, on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

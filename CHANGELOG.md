@@ -20,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compiled for Java 25, 2026.3's JBR, on a JDK 27 toolchain; Gradle still runs on JDK 21. The
   plugin was never published, so no installed version stops working.
 
+- **The analyzer's JSON and the plugin's parser are tested against each other** (#94). Golden
+  JSON files, the analyzer's real output for each fixture recording, sit in
+  `scope-tracer-analyzer/src/test/resources/contract/`. `mvn verify` checks they are byte for
+  byte what `TraceModelJson` writes, and the plugin's `:model` tests parse the same files,
+  assert every value and fail on a key the parser does not map, so a renamed or added key fails
+  a build instead of reaching the plugin as `null` or `0`. A new fixture,
+  `v0.6.0-contract.jfr`, recorded by 0.6.0's agent, covers structured call sites, escaped names
+  and a scope still open when the recording was dumped. Nothing changes for users.
+
 ### Fixed
 
 - **The plugin's analyzer subprocess is bounded, and cancelling it stops it** (#93). Before,

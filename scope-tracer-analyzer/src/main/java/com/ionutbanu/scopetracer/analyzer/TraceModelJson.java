@@ -12,8 +12,10 @@ import java.time.Instant;
  * the schema is small and stable enough that the cost is justified.
  *
  * <p>The output is consumed by the in-browser "Export JSON" button embedded in the HTML report (see
- * {@link HtmlRenderer}). External tools can also read this directly when produced by the CLI via a
- * future {@code --format=json} option.
+ * {@link HtmlRenderer}), and written by the CLI's {@code --format=json} option ({@link
+ * AnalyzerMain}), which is what the IntelliJ plugin's {@code TraceModelJsonParser} reads. The
+ * goldens under {@code src/test/resources/contract/} pin this output, and the plugin's {@code
+ * :model} tests parse them (#94): a change here is a change to the plugin's input.
  *
  * <h2>Schema</h2>
  *
@@ -22,15 +24,17 @@ import java.time.Instant;
  *   "scopes": [
  *     {
  *       "scopeId": 1, "name": "...", "ownerThreadName": "...", "ownerThreadId": 42,
- *       "openTime": "2026-01-01T00:00:00Z", "closeTime": "...",
+ *       "openTime": "2026-01-01T00:00:00Z", "closeTime": "..." | null,
  *       "parent": { "parentScopeId": 0, "scopeName": "...", "taskId": 7 } | null,
  *       "tasks": [
  *         {
  *           "taskId": 1, "taskName": "...", "threadName": "...", "threadId": 17,
  *           "forkTime": "...", "completionTime": "..." | null,
- *           "outcome": { "type": "success" | "failed" | "cancelled" | null,
- *                         "exceptionType": "...", "exceptionMessage": "...",
- *                         "stackTrace": "..." },
+ *           "outcome": { "type": "success" }
+ *                    | { "type": "cancelled" }
+ *                    | { "type": "failed", "exceptionType": "...", "exceptionMessage": "..." | null,
+ *                        "stackTrace": "..." | null }
+ *                    | null,
  *           "callSite": { "className": "...", "methodName": "..." | null, "line": 42 | null } | null
  *         }
  *       ]
@@ -43,6 +47,12 @@ import java.time.Instant;
  * com.acme.Plain$Named}), as recorded in {@code callSiteClassName}; it is not the simple name.
  * {@code callSite} is {@code null} for a recording without the {@code callSite*} fields or with
  * them unset.
+ *
+ * <p>{@code closeTime} is {@code null} for a scope with no {@code ScopeClosed} event, and {@code
+ * completionTime} and {@code outcome} are both {@code null} for a task with no completion event
+ * (say one still running when the recording was dumped). Every key is always written, with {@code
+ * null} for a missing value. Strings are JSON-escaped, and {@code /} is written as {@code \/} so
+ * the output can sit inside a {@code <script>} element.
  */
 public final class TraceModelJson {
 
