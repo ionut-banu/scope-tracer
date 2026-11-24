@@ -93,7 +93,7 @@
       program with a succeeding, a failing and a slow task under it, and leaves
       <code>trial.jfr</code> and <code>trial.html</code> beside it.
     </p>
-    <pre>curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.5.0/scope-tracer-agent-0.5.0-agent.jar
+    <pre>curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.6.0/scope-tracer-agent-0.6.0-agent.jar
 
 cat &gt; Trial.java &lt;&lt;'EOF'
 import java.util.concurrent.StructuredTaskScope;
@@ -112,7 +112,7 @@ public class Trial {
 }
 EOF
 
-java --enable-preview --source 27 -javaagent:scope-tracer-agent-0.5.0-agent.jar=record=trial.jfr Trial.java</pre>
+java --enable-preview --source 27 -javaagent:scope-tracer-agent-0.6.0-agent.jar=record=trial.jfr Trial.java</pre>
     <p style="color:var(--muted);font-size:0.85rem;">
       Or, with <a href="https://www.jbang.dev/download/">JBang</a> and nothing else:
       <code>jbang demo@ionut-banu/scope-tracer</code> runs a small program with the agent

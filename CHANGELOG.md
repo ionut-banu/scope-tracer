@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-24
+
 ### Added
 
 - **A weekly build on JDK 28 early access** (`.github/workflows/jdk-ea.yml`, #55). Every
@@ -525,7 +527,8 @@ public API may change without notice until the first tagged release.
 - License: PolyForm Noncommercial 1.0.0.
 - `docs/jfr-events.md` documents the JFR event schema.
 
-[Unreleased]: https://github.com/ionut-banu/scope-tracer/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/ionut-banu/scope-tracer/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ionut-banu/scope-tracer/compare/v0.2.0...v0.3.0

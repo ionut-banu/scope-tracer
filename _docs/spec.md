@@ -814,8 +814,8 @@ try (var file = new RecordingFile(tempPath)) {
   its command-line arguments on to its child JVM, and SIGTERM to the
   demo stops the child too.
 - Released: 0.1.0 (2026-05-14), 0.2.0 (2026-05-24), 0.3.0
-  (2026-11-14), 0.4.0 (2026-11-19), 0.5.0 (2026-11-23). `main` is
-  0.6.0-SNAPSHOT.
+  (2026-11-14), 0.4.0 (2026-11-19), 0.5.0 (2026-11-23), 0.6.0
+  (2026-11-24). `main` is 0.7.0-SNAPSHOT.
 - GitHub Pages serves `docs/`: the landing page, the gallery at
   `gallery/` (a page and eight reports, one per join policy, plus the
   example report) and `example/order-processing-report.html`. The
