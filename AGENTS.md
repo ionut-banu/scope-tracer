@@ -32,8 +32,10 @@ Layout
 - `scope-tracer-agent/` - ByteBuddy agent; fat-jar classifier `agent`
 - `scope-tracer-demos/` - runnable examples, correct and buggy
 - `scope-tracer-stress-tests/` - only in the `stress` profile
-- `scope-tracer-plugin/` - IntelliJ plugin, a separate Gradle build
-  on JDK 21, not in the Maven reactor
+- `scope-tracer-plugin/` - IntelliJ plugin for IntelliJ IDEA 2026.3+
+  (JBR 25), a separate Gradle build, not in the Maven reactor: Gradle
+  runs on JDK 21, the code compiles with `--release 25` on a JDK 27
+  toolchain
 - `docs/` - published by GitHub Pages; `docs/jfr-events.md` is the
   public event schema
 - `_docs/` - how the project is specified and run; not published

@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (it was a fixed `0.1.0`), with generated change notes linking the GitHub Release and the
   changelog. There is no separate plugin version to bump.
 
+- **The IntelliJ plugin requires IntelliJ IDEA 2026.3 or later** (`since-build` 263, no
+  `until-build`, #120). 2025.3 cannot import a JDK 27 project (a `PluginException` from
+  `getNonPreviewLevel` when it opens one), and 2026.3 is the first release checked with one. The plugin is
+  compiled for Java 25, 2026.3's JBR, on a JDK 27 toolchain; Gradle still runs on JDK 21. The
+  plugin was never published, so no installed version stops working.
+
+### Dependencies
+
+- IntelliJ Platform Gradle Plugin 2.18.1 → 2.20.1
+- IntelliJ Platform (`platformVersion`) 2025.3.6.1 → 2026.3
+
 ## [0.6.0] - 2026-11-24
 
 ### Added

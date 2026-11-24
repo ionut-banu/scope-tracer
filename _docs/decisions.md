@@ -1294,3 +1294,50 @@ Decided by the maintainer, following the PM's recommendations:
   which the maintainer declined.
 - **Alternative rejected.** An independent plugin version needs its own
   bump, its own tag check and a bundled-analyzer mapping.
+
+## 2026-11-24 - The plugin supports IntelliJ IDEA 2026.3 and later (#120)
+
+`./gradlew runIde` against 2025.3.6.1 failed to import the
+repository's own `release 27` project with a `getNonPreviewLevel`
+null, and the built zip was refused by the maintainer's 2026.3. Two
+things decide which IDEs the plugin can support.
+
+- **Language level 27.** Whether an IDE imports a `release 27` project
+  depends on its Java plugin's `com.intellij.pom.java.LanguageLevel`,
+  not on its JBR. Read with `javap` from
+  `com.jetbrains.intellij.java:java-syntax:<build>` and from the IDEs'
+  own jars: 253 (2025.3.6.1) stops at `JDK_26`/`JDK_26_PREVIEW`;
+  261.x, 262.8665 (2026.2) and 262.9437 (2026.2.1) have no `JDK_27`;
+  `JDK_27` and `JDK_27_PREVIEW` first appear in 262.10315 (2026.2.2)
+  and are in every later 262 build and in 263.7307.200 (2026.3). No
+  build has `JDK_28` (#188).
+- **JBR.** 2025.3.6.1 bundles JBR 21.0.11, 2026.3 bundles 25.0.4.1
+  (each IDE's `jbr/Contents/Home/release`). The statement "the IDE
+  runs on JBR (JDK 21)" in the spec was stale. Neither loads
+  class-file major 71, so the analyzer stays a subprocess.
+
+Decided by the maintainer, following the PM's recommendations:
+
+- **`since-build` 263.** 2026.3 is the only release checked in a real
+  IDE and against the verifier with the new build. 262.10315 to 262.x
+  would also know language level 27 but nobody opened a JDK 27 project
+  in one; rejected for now.
+- **No `until-build`.** JetBrains recommends against it, and Plugin
+  Verifier 1.411 finds the zip without one compatible with 2026.3. If
+  2026.3 still refuses the zip by hand, the fallback is `263.*`.
+- **A JDK 27 toolchain with `--release 25`**, against `platformVersion`
+  2026.3 and IntelliJ Platform Gradle Plugin 2.20.1. 2026.3's jars are
+  Java 25 class files (major 69), which a JDK 21 javac refuses ("class
+  file has wrong version 69.0, should be 65.0", 99 errors). JDK 27 is
+  already required by the repository and installed in CI's plugin
+  job; a JDK 25 toolchain would add a third JDK everywhere. Gradle
+  itself stays on JDK 21. `platformVersion` 2026.3.0.1 does not
+  resolve a download URL in 2.20.1, so it is 2026.3.
+- **Verification.** `pluginVerification.ides` names 2026.3 and selects
+  the newest IntelliJ IDEA build from 263 on, release or EAP, which is
+  what `printProductsReleases` returns (on 2026-11-24, IU-263.8311.30,
+  2026.3.1 Preview; the newest release is 2026.3 itself).
+- **CI.** The plugin job names the 27 for Gradle with
+  `org.gradle.java.installations.fromEnv=JAVA_HOME_27_X64` rather than
+  rely on auto-detection of the runner's tool cache, and prints
+  `javaToolchains`. No auto-provisioning.

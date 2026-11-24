@@ -194,7 +194,7 @@ Put your own classpath (including `scope-tracer-core-0.6.0.jar`, from Maven Cent
 
 `scope-tracer-plugin/` opens a recording inside IntelliJ IDEA: Tools → **Open .jfr Recording (Scope Tracer)…** loads a `.jfr` file into the **Scope Tracer** tool window, and clicking a task jumps to the `fork` call that created it. It is not on the Marketplace yet; [build it from source](#building-the-plugin).
 
-The IDE itself runs on JDK 21, so the plugin runs the bundled analyzer as a subprocess on a JDK 27 that you configure; it needs that JDK installed, and refuses an older `java`. To trace your own code from the IDE, select a Java application run configuration and use Tools → **Run with Scope Tracer**: the plugin adds the agent, `--enable-preview` and a JFR recording to that run and opens the result when the process exits (the run configuration needs a JDK 27). You can also open a `.jfr` you recorded yourself (see "A report from a recording you made elsewhere" in the quick start, and the agent and `TracedScope` sections).
+It needs IntelliJ IDEA 2026.3 or later, the first release that can open a JDK 27 project. The IDE itself runs on JBR 25, which cannot load the analyzer's Java 27 classes, so the plugin runs the bundled analyzer as a subprocess on a JDK 27 that you configure; it needs that JDK installed, and refuses an older `java`. To trace your own code from the IDE, select a Java application run configuration and use Tools → **Run with Scope Tracer**: the plugin adds the agent, `--enable-preview` and a JFR recording to that run and opens the result when the process exits (the run configuration needs a JDK 27). You can also open a `.jfr` you recorded yourself (see "A report from a recording you made elsewhere" in the quick start, and the agent and `TracedScope` sections).
 
 ---
 
@@ -564,6 +564,8 @@ mvn -q -DskipTests package                 # builds the analyzer's -executable j
 cd scope-tracer-plugin && ./gradlew build  # bundles that jar and builds the plugin
 ./gradlew runIde                           # try it in a sandbox IDE
 ```
+
+Gradle runs on JDK 21; the plugin compiles with `--release 25` on a JDK 27 toolchain, which Gradle finds among the installed JDKs (it does not download one).
 
 ### Modules
 

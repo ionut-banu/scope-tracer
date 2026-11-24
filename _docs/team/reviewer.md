@@ -40,7 +40,8 @@ These are not style. Each one breaks something concrete if violated:
   who uses `TracedScope` inherits its dependencies.
 - The plugin never loads analyzer classes in the IDE's JVM. The
   analyzer is compiled with `--release 27` (class-file major 71) and
-  cannot load on JBR 21; the boundary is a subprocess and JSON.
+  cannot load on JBR 25 (IntelliJ IDEA 2026.3); the boundary is a
+  subprocess and JSON.
 - `TraceModelJson` and the plugin's `:model` parser change together.
   A field one side writes and the other ignores is a silent loss.
 - Events and fields are never renamed or removed, and new fields are
