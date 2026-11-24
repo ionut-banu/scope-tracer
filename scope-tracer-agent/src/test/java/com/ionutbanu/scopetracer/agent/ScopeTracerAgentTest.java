@@ -16,6 +16,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import net.bytebuddy.dynamic.ClassFileLocator;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -28,6 +30,24 @@ import org.junit.jupiter.api.io.TempDir;
 class ScopeTracerAgentTest {
 
   private static final String WARN_NOT_TRACING = "[scope-tracer] WARN not tracing: ";
+  private static final String EXPERIMENTAL = "net.bytebuddy.experimental";
+
+  private String experimentalBefore;
+
+  @BeforeEach
+  void rememberExperimental() {
+    experimentalBefore = System.getProperty(EXPERIMENTAL);
+  }
+
+  /** {@code ScopeTracerAgent.start} sets the property for the JVM; a test must not leak it. */
+  @AfterEach
+  void restoreExperimental() {
+    if (experimentalBefore == null) {
+      System.clearProperty(EXPERIMENTAL);
+    } else {
+      System.setProperty(EXPERIMENTAL, experimentalBefore);
+    }
+  }
 
   /** Calls {@code premainFromAppendedJar} with stderr captured; the lines it printed. */
   private static List<String> enterWith(Path jar, List<String> calls) {
