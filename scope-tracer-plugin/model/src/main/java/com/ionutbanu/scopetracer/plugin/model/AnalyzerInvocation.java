@@ -12,10 +12,12 @@ import java.util.concurrent.CancellationException;
 import java.util.function.BooleanSupplier;
 
 /**
- * Runs the bundled analyzer jar on a recording and returns the JSON it writes, through {@link
- * BoundedProcess}: the run ends when the analyzer exits, when {@code timeout} passes, or when the
- * cancellation check turns true, and in every case the child is dead and the temp files this class
- * made (the extracted jar, the output JSON, the stderr capture) are deleted before it returns.
+ * Runs the bundled analyzer jar on a recording and returns the JSON it writes ({@link #run}), or
+ * writes its HTML report to a file ({@link #writeHtml}), through {@link BoundedProcess}: a run
+ * ends when the analyzer exits, when {@code timeout} passes, or when the cancellation check turns
+ * true, and in every case the child is dead and the temp files this class made (the extracted
+ * jar, the output JSON, the stderr capture) are deleted before it returns. The HTML file is the
+ * caller's. The plugin runs both, JSON first, each with its own timeout (#62).
  * Plain Java with no IntelliJ dependency, so it is tested with real child JVMs.
  *
  * <pre>{@code
@@ -55,6 +57,21 @@ public final class AnalyzerInvocation {
   }
 
   /**
+   * The command line of the HTML run: {@code <java> --enable-preview -jar <jar> <in> <out>}, the
+   * analyzer's default output, byte for byte what the CLI writes without {@code --format}.
+   */
+  public static List<String> htmlCommand(
+      Path java, Path analyzerJar, Path jfrFile, Path outputHtml) {
+    return List.of(
+        java.toString(),
+        "--enable-preview",
+        "-jar",
+        analyzerJar.toString(),
+        jfrFile.toString(),
+        outputHtml.toString());
+  }
+
+  /**
    * Analyzes {@code jfrFile} and returns the analyzer's JSON.
    *
    * @throws CancellationException when {@code cancelled} turned true (or the thread was
@@ -70,8 +87,58 @@ public final class AnalyzerInvocation {
       Duration timeout,
       BooleanSupplier cancelled)
       throws IOException {
-    Path jar = null;
     Path outputJson = null;
+    try {
+      outputJson = Files.createTempFile(tempDir, "scope-tracer-trace-", ".json");
+      var out = outputJson;
+      invoke(
+          jar -> command(java, jar, jfrFile, out), analyzerJar, jfrFile, tempDir, timeout, cancelled);
+      return Files.readString(outputJson, StandardCharsets.UTF_8);
+    } finally {
+      deleteQuietly(outputJson);
+    }
+  }
+
+  /**
+   * Writes the analyzer's HTML report for {@code jfrFile} to {@code outputHtml}, under the same
+   * timeout and cancellation as {@link #run}. {@code outputHtml} is the caller's: it is neither
+   * made nor deleted here, whatever the ending; the extracted jar and the stderr capture are.
+   *
+   * @throws CancellationException when {@code cancelled} turned true before the analyzer finished.
+   * @throws IOException when the analyzer exits non-zero, times out or cannot be started.
+   */
+  public static void writeHtml(
+      Path java,
+      JarSource analyzerJar,
+      Path jfrFile,
+      Path outputHtml,
+      Path tempDir,
+      Duration timeout,
+      BooleanSupplier cancelled)
+      throws IOException {
+    invoke(
+        jar -> htmlCommand(java, jar, jfrFile, outputHtml),
+        analyzerJar,
+        jfrFile,
+        tempDir,
+        timeout,
+        cancelled);
+  }
+
+  private interface CommandForJar {
+    List<String> command(Path extractedJar);
+  }
+
+  /** Extracts the jar, runs the command it gives through {@link BoundedProcess}, maps the end. */
+  private static void invoke(
+      CommandForJar command,
+      JarSource analyzerJar,
+      Path jfrFile,
+      Path tempDir,
+      Duration timeout,
+      BooleanSupplier cancelled)
+      throws IOException {
+    Path jar = null;
     try {
       jar = Files.createTempFile(tempDir, "scope-tracer-analyzer-", ".jar");
       try (InputStream in = analyzerJar.open()) {
@@ -80,15 +147,10 @@ public final class AnalyzerInvocation {
         }
         Files.copy(in, jar, StandardCopyOption.REPLACE_EXISTING);
       }
-      outputJson = Files.createTempFile(tempDir, "scope-tracer-trace-", ".json");
       var result =
           BoundedProcess.run(
-              command(java, jar, jfrFile, outputJson),
-              BoundedProcess.Capture.STDERR,
-              timeout,
-              cancelled,
-              tempDir);
-      return switch (result) {
+              command.command(jar), BoundedProcess.Capture.STDERR, timeout, cancelled, tempDir);
+      switch (result) {
         case BoundedProcess.Cancelled c ->
             throw new CancellationException("The analysis of " + jfrFile + " was cancelled.");
         case BoundedProcess.TimedOut t ->
@@ -102,10 +164,9 @@ public final class AnalyzerInvocation {
         case BoundedProcess.Exited e when e.exitCode() != 0 ->
             throw new IOException(
                 "Analyzer subprocess failed (exit " + e.exitCode() + "): " + e.output());
-        case BoundedProcess.Exited e -> Files.readString(outputJson, StandardCharsets.UTF_8);
-      };
+        case BoundedProcess.Exited e -> {}
+      }
     } finally {
-      deleteQuietly(outputJson);
       deleteQuietly(jar);
     }
   }
