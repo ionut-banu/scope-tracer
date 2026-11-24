@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -167,6 +168,111 @@ class AnalyzerInvocationTest {
                 "/r/in.jfr",
                 "/tmp/scope-tracer-trace-1.json",
                 "--format=json"));
+  }
+
+  private void writeHtml(Path jfr, Path html, Duration timeout, BooleanSupplier cancelled)
+      throws IOException {
+    AnalyzerInvocation.writeHtml(
+        Children.JAVA, AnalyzerInvocationTest::jar, jfr, html, runnerTemp, timeout, cancelled);
+  }
+
+  @Test
+  void theHtmlRunWritesTheAnalyzersDefaultOutputToTheGivenFileAndKeepsIt() throws IOException {
+    var jfr = recording("ok");
+    var html = inputs.resolve("report.html");
+
+    assertTimeoutPreemptively(GENEROUS, () -> writeHtml(jfr, html, GENEROUS, () -> false));
+
+    assertThat(html).hasContent("<html>ok</html>");
+  }
+
+  @Test
+  void aFailedHtmlRunFailsWithTheExitCodeAndStderrLine() throws IOException {
+    var jfr = recording("htmlfail");
+    var html = inputs.resolve("report.html");
+
+    assertTimeoutPreemptively(
+        GENEROUS,
+        () ->
+            assertThatThrownBy(() -> writeHtml(jfr, html, GENEROUS, () -> false))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("exit 3")
+                .hasMessageContaining("error: cannot render"));
+  }
+
+  @Test
+  void theHtmlRunHasTheSameTimeout() throws IOException {
+    var jfr = recording("hang");
+    var html = inputs.resolve("report.html");
+
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(5),
+        () ->
+            assertThatThrownBy(() -> writeHtml(jfr, html, Duration.ofSeconds(1), () -> false))
+                .isInstanceOf(IOException.class)
+                .isNotInstanceOf(CancellationException.class)
+                .hasMessageContaining("did not finish within 1 second"));
+  }
+
+  @Test
+  void theHtmlRunIsCancelledLikeTheJsonRun() throws IOException {
+    var jfr = recording("hang");
+    var html = inputs.resolve("report.html");
+    var started = System.nanoTime();
+
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(15),
+        () ->
+            assertThatThrownBy(
+                    () ->
+                        writeHtml(
+                            jfr,
+                            html,
+                            GENEROUS,
+                            () -> System.nanoTime() - started > Duration.ofSeconds(1).toNanos()))
+                .isInstanceOf(CancellationException.class));
+  }
+
+  @Test
+  void bothRealRunsWithOnlyTheHtmlRunFailingKeepTheJsonAndLeaveNoHtmlFile() throws IOException {
+    var jfr = recording("htmlfail");
+
+    var result =
+        assertTimeoutPreemptively(
+            GENEROUS,
+            () ->
+                ReportAnalysis.run(
+                    () -> run(jfr, GENEROUS, () -> false),
+                    () -> Files.createTempFile(inputs, "scope-tracer-report-", ".html"),
+                    html -> writeHtml(jfr, html, GENEROUS, () -> false),
+                    () -> {}));
+
+    assertThat(result.trace()).isEqualTo("{\"scopes\":[]}");
+    assertThat(result.html()).isInstanceOf(HtmlReport.Failed.class);
+    assertThat(((HtmlReport.Failed) result.html()).message())
+        .contains("exit 3")
+        .contains("error: cannot render");
+    try (var left = Files.list(inputs)) {
+      assertThat(left.filter(p -> p.toString().endsWith(".html"))).isEmpty();
+    }
+  }
+
+  @Test
+  void theHtmlCommandLineIsTheAnalyzersDefaultOutputWithNoFormatOption() {
+    var java = Path.of("/jdk27/bin/java");
+    var jar = Path.of("/tmp/scope-tracer-analyzer-1.jar");
+    var in = Path.of("/r/in.jfr");
+    var out = Path.of("/tmp/scope-tracer-report-1.html");
+
+    assertThat(AnalyzerInvocation.htmlCommand(java, jar, in, out))
+        .isEqualTo(
+            List.of(
+                "/jdk27/bin/java",
+                "--enable-preview",
+                "-jar",
+                "/tmp/scope-tracer-analyzer-1.jar",
+                "/r/in.jfr",
+                "/tmp/scope-tracer-report-1.html"));
   }
 
   @Test

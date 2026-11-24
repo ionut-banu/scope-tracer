@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The plugin's tool window shows the report's timeline** (#62). After a recording is
+  analyzed, the Scope Tracer tool window has two views: "Timeline", the analyzer's own HTML
+  report for that recording (per-scope Gantt bars, nested scopes under their parent task, the
+  critical path, "cancelled ← #N", the recording overview) in the IDE's embedded browser
+  (JCEF), shown first, and "Tasks", the task table with double-click to source, unchanged. A new
+  toolbar button, "Open in Browser", opens the same report in the system browser. Where JCEF is
+  not available (`ide.browser.jcef.enabled` off, a runtime other than the bundled JBR, the "Web
+  Browser (JCEF)" plugin disabled) the tool window shows only "Tasks" and "Open in Browser",
+  with a one-time notice. The plugin runs the analyzer twice, `--format=json` for the table and
+  the default HTML output for the timeline, both with the 10-minute timeout and cancellation; a
+  failed HTML run costs only the timeline. The report is loaded from a temp file, which is
+  deleted when the next recording replaces it or the project closes, and the embedded page
+  cannot navigate anywhere but its own file.
+
 ### Changed
 
 - **The stress workflow runs only when stressed code changes, and only the stress tests**
@@ -56,6 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
+- The plugin depends, optionally, on the bundled IntelliJ plugin "Web Browser (JCEF)"
+  (`com.intellij.modules.jcef`, #62). In 2026.3 JCEF is no longer part of the core platform.
+  Nothing is bundled into the plugin.
 - IntelliJ Platform Gradle Plugin 2.18.1 → 2.20.1
 - IntelliJ Platform (`platformVersion`) 2025.3.6.1 → 2026.3
 

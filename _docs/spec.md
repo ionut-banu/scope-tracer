@@ -656,6 +656,9 @@ it bundles the analyzer's `-executable` jar as a resource
 (`copyAnalyzerJar` reads it from `../scope-tracer-analyzer/target/`),
 runs it as a subprocess on a user-configured JDK 27 with
 `--format=json`, and parses the JSON with its own `:model` module.
+For the timeline it runs the same jar a second time, after the JSON
+run, with the default output, so the HTML it shows is byte for byte
+what the CLI writes; it never reads the JSON embedded in the HTML.
 The configured `java` is saved as `scopeTracer.jdk27JavaPath` and
 checked with `java -version` (`AnalyzerJdk` in `:model`) every time it
 is used; one older than 27 is refused with a message naming 27.
@@ -674,7 +677,26 @@ failure.
 - The root module has no tests; the IntelliJ Gradle plugin's test
   instrumentation needs a sandbox.
 - Features: Tools → "Open .jfr Recording (Scope Tracer)…", a "Scope
-  Tracer" tool window, click-to-source on call sites via Java PSI
+  Tracer" tool window with two views of the recording (#62):
+  "Timeline", shown first, is the analyzer's HTML report in a
+  `JBCefBrowser`, loaded from a temp file's `file:` URL and allowed to
+  navigate only within that file (the overview's `#scope-N` links;
+  `ReportNavigation` decides), and "Tasks" is the task table. A
+  toolbar button "Open in Browser" opens the same file in the system
+  browser. JCEF is the bundled plugin "Web Browser (JCEF)"
+  (`com.intellij.modules.jcef`), an optional dependency; when it is
+  absent or `JBCefApp.isSupported()` is false (checked before any JCEF
+  object is made) only "Tasks" and "Open in Browser" are shown, with a
+  notice once per IDE session. Both runs happen in the one background
+  task, each with the analyzer timeout and cancellation; a failed JSON
+  run is one error and replaces nothing, a failed HTML run keeps
+  "Tasks", says so in "Timeline" and is one error (`ReportAnalysis`
+  and `ReportViews` in `:model`). The temp HTML file is deleted when
+  the next recording replaces it and when the project closes
+  (`ShownReport`), and a temp recording of "Run with Scope Tracer" only
+  after both runs. The embedded report does not follow a dark theme
+  (#191) and its bars do not navigate to source (#190). The table
+  has click-to-source on call sites via Java PSI
   (a structured `callSite` is exact: its binary class name is looked
   up with `JavaPsiFacade.findClass`, a nested class exactly, an
   anonymous or local class as its enclosing named class, with no
@@ -727,7 +749,7 @@ in place, asserts every value, and fails on a key it does not map.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-24, #187, JDK 27) |
+| Suite | Runner | Count (2026-11-24, #62 on #187, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 172 |
@@ -736,10 +758,10 @@ in place, asserts every value, and fails on a key it does not map.
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 94 |
+| plugin `:model` | Gradle | 132 |
 
 `mvn -q verify` runs the first six: 939 tests (surefire plus
-failsafe, measured on 2026-11-24 on the branch of #187 from `main` at 299179e, on Temurin 27; the
+failsafe, measured on 2026-11-24 on the branch of #62 from `main` at 574d4a2, on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
