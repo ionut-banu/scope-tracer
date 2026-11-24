@@ -129,17 +129,20 @@ class PreviewClassFileReaderTest {
     }
   }
 
-  /** {@code reader} with ByteBuddy's experimental flag {@code true}, as {@code premain} sets it. */
-  private static AsmClassReader.Factory experimental(AsmClassReader.Factory reader) {
+  /**
+   * {@code reader} with ByteBuddy's experimental flag fixed at {@code flag}, whatever the JVM's
+   * frozen {@code OpenedClassReader.EXPERIMENTAL} holds (it depends on which test class ran first).
+   */
+  private static AsmClassReader.Factory withFlag(AsmClassReader.Factory reader, boolean flag) {
     return new AsmClassReader.Factory() {
       @Override
       public AsmClassReader make(byte[] bytes) {
-        return reader.make(bytes, true);
+        return reader.make(bytes, flag);
       }
 
       @Override
       public AsmClassReader make(byte[] bytes, boolean ignored) {
-        return reader.make(bytes, true);
+        return reader.make(bytes, flag);
       }
     };
   }
@@ -204,20 +207,54 @@ class PreviewClassFileReaderTest {
     assertThat(bytes).isEqualTo(before);
   }
 
+  /**
+   * The agent's pool against ByteBuddy's {@code FAST} strategy (a lazy pool over {@code ASM_ONLY}),
+   * both with the experimental flag fixed at the parameter.
+   */
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void aMinorOtherThanPreviewFailsExactlyAsWithByteBuddysDefaultPool(boolean experimental)
+      throws IOException {
+    byte[] minor3 = versioned(jdkClass(DURATION), LATEST_MAJOR, 3);
+    var asmOnly = AsmClassReader.Factory.Default.ASM_ONLY;
+    var byDefaultPool = new PreviewClassFileReader.Pool(withFlag(asmOnly, experimental));
+    var byAgentPool =
+        new PreviewClassFileReader.Pool(
+            withFlag(new PreviewClassFileReader(asmOnly), experimental));
+
+    Throwable byDefault = catchThrowable(() -> describe(byDefaultPool, minor3));
+    Throwable byAgent = catchThrowable(() -> describe(byAgentPool, minor3));
+
+    if (experimental) {
+      assertThat(byDefault).isNull();
+      assertThat(byAgent).isNull();
+      assertThat(shape(describe(byAgentPool, minor3)))
+          .isEqualTo(shape(describe(byDefaultPool, minor3)))
+          .contains(DURATION);
+    } else {
+      assertThat(byDefault).isNotNull();
+      assertThat(byAgent)
+          .hasSameClassAs(byDefault)
+          .hasMessage(byDefault.getMessage())
+          // ByteBuddy prints the version as minor << 16 | major
+          .hasMessageContaining("(" + (3 << 16 | LATEST_MAJOR) + ")");
+    }
+  }
+
+  /** Through the static flag, which holds whatever the first test in the JVM froze it at. */
   @Test
-  void aMinorOtherThanPreviewFailsExactlyAsWithByteBuddysDefaultPool() throws IOException {
+  void theAgentsPoolAndByteBuddysDefaultPoolAgreeWhateverTheFrozenFlagIs() throws IOException {
     byte[] minor3 = versioned(jdkClass(DURATION), LATEST_MAJOR, 3);
 
     Throwable byDefault =
         catchThrowable(() -> describe(AgentBuilder.PoolStrategy.Default.FAST, minor3));
     Throwable byAgent = catchThrowable(() -> describe(PreviewClassFileReader.POOL, minor3));
 
-    assertThat(byDefault).isNotNull();
-    assertThat(byAgent)
-        .hasSameClassAs(byDefault)
-        .hasMessage(byDefault.getMessage())
-        // ByteBuddy prints the version as minor << 16 | major
-        .hasMessageContaining("(" + (3 << 16 | LATEST_MAJOR) + ")");
+    if (byDefault == null) {
+      assertThat(byAgent).isNull();
+    } else {
+      assertThat(byAgent).hasSameClassAs(byDefault).hasMessage(byDefault.getMessage());
+    }
   }
 
   @Test
@@ -234,7 +271,7 @@ class PreviewClassFileReaderTest {
     // With the experimental flag, as premain sets it, it is described.
     var agentReader = new PreviewClassFileReader(AsmClassReader.Factory.Default.ASM_ONLY);
     TypeDescription described =
-        describe(new PreviewClassFileReader.Pool(experimental(agentReader)), above);
+        describe(new PreviewClassFileReader.Pool(withFlag(agentReader, true)), above);
     TypeDescription plain =
         describe(PreviewClassFileReader.POOL, versioned(duration, LATEST_MAJOR, 0));
     assertThat(shape(described)).isEqualTo(shape(plain));
