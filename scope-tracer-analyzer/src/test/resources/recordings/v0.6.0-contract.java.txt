@@ -1,0 +1,90 @@
+package com.acme.contract;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.StructuredTaskScope;
+
+public class ContractFixture {
+
+  /** A nested class that forks: the call site's class is ContractFixture$Forks. */
+  static final class Forks {
+    static void forkProfile(StructuredTaskScope<Object, ?, ?> scope) {
+      scope.fork(() -> "profile");
+    }
+  }
+
+  /** A named Callable: the call site has the class only. */
+  static final class Inventory implements Callable<String> {
+    @Override
+    public String call() {
+      return "inventory";
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    try (var root = StructuredTaskScope.open(
+        StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow(), cf -> cf.withName("contract-root"))) {
+      Forks.forkProfile(root);
+      root.fork(new Inventory());
+      root.fork(() -> {
+        try (var child = StructuredTaskScope.open(
+            StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow(), cf -> cf.withName("contract-child"))) {
+          child.fork(() -> {
+            try (var grandchild = StructuredTaskScope.open(
+                StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow(),
+                cf -> cf.withName("contract-grandchild"))) {
+              grandchild.fork(() -> "leaf");
+              grandchild.join();
+            }
+            return "child";
+          });
+          child.join();
+        }
+        return "nested";
+      });
+      root.join();
+    }
+
+    var siblingRunning = new CountDownLatch(1);
+    try (var failing = StructuredTaskScope.open(
+        StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow(), cf -> cf.withName("contract-failing"))) {
+      failing.fork(() -> {
+        siblingRunning.countDown();
+        new CountDownLatch(1).await();
+        return "never";
+      });
+      failing.fork(() -> {
+        siblingRunning.await();
+        throw new IllegalStateException("contract failure");
+      });
+      failing.join();
+    } catch (java.util.concurrent.ExecutionException expected) {
+      // the failure cancels the sibling
+    }
+
+    try (var escapes = StructuredTaskScope.open(
+        StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow(),
+        cf -> cf.withName("quote\" back\\slash /path\nnext-line ünïcødé €"))) {
+      escapes.fork(() -> "escaped");
+      escapes.join();
+    }
+
+    var openTaskRunning = new CountDownLatch(1);
+    Thread.ofPlatform().daemon().name("contract-open-owner").start(() -> {
+      try (var open = StructuredTaskScope.open(
+          StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow(), cf -> cf.withName("contract-open"))) {
+        open.fork(() -> {
+          openTaskRunning.countDown();
+          new CountDownLatch(1).await();
+          return "never";
+        });
+        open.join();
+      } catch (Exception e) {
+        throw new IllegalStateException(e);
+      }
+    });
+    openTaskRunning.await();
+    // main returns with contract-open still open and its task still running; the JVM exits and
+    // -XX:StartFlightRecording's dumponexit writes the recording.
+  }
+}

@@ -24,4 +24,18 @@ dependencies {
   testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-tasks.test { useJUnitPlatform() }
+// The analyzer's golden JSON for its fixture recordings (#94), read in place by
+// AnalyzerJsonContractTest: one copy, checked byte for byte by the analyzer's
+// TraceModelJsonContractTest in `mvn verify`. Declared as an input so a changed golden reruns the
+// test instead of leaving it UP-TO-DATE.
+val contractGoldens =
+    layout.projectDirectory.dir("../../scope-tracer-analyzer/src/test/resources/contract")
+
+tasks.test {
+  useJUnitPlatform()
+  inputs
+      .dir(contractGoldens)
+      .withPropertyName("contractGoldens")
+      .withPathSensitivity(PathSensitivity.RELATIVE)
+  systemProperty("scopetracer.contractGoldens", contractGoldens.asFile.absolutePath)
+}
