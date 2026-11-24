@@ -1341,3 +1341,14 @@ Decided by the maintainer, following the PM's recommendations:
   `-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64` rather than
   rely on auto-detection of the runner's tool cache, and prints
   `javaToolchains`. No auto-provisioning.
+
+## 2026-11-24 - The stress workflow is path-filtered and runs only the stress tests (#208)
+
+- **Trigger.** `stress.yml` runs on PRs to `main` and pushes to `main` that touch
+  `scope-tracer-{core,agent,analyzer,stress-tests}/**`, `pom.xml`, `*/pom.xml` or the workflow,
+  weekly, and on `workflow_dispatch`. A plugin-only or docs-only PR does not start it.
+- **Only the stress tests.** The step is `mvn -q -Pstress -pl scope-tracer-stress-tests -am verify`
+  with `-Dtest=NoUnitTests`, `-Dit.test='**/stress/*IT'` and both `failIfNoSpecifiedTests`
+  properties false. `-am` stays, as AGENTS.md requires; upstream modules' surefire and failsafe
+  find no matching test and run nothing, the stress ITs run and fail the job. No POM change. The
+  `build` job covers the other modules.

@@ -4,6 +4,28 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'scope-tracer-core/**'
+      - 'scope-tracer-agent/**'
+      - 'scope-tracer-analyzer/**'
+      - 'scope-tracer-stress-tests/**'
+      - 'pom.xml'
+      - '*/pom.xml'
+      - '.github/workflows/stress.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scope-tracer-core/**'
+      - 'scope-tracer-agent/**'
+      - 'scope-tracer-analyzer/**'
+      - 'scope-tracer-stress-tests/**'
+      - 'pom.xml'
+      - '*/pom.xml'
+      - '.github/workflows/stress.yml'
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
 
 jobs:
   stress:
@@ -24,7 +46,22 @@ jobs:
         run: mvn -q -DskipTests install
 
       - name: Run stress tests
-        run: mvn -q -Pstress verify
+        # -am builds the upstream modules, as AGENTS.md requires. -Dtest names no test, so no
+        # module runs surefire tests, and -Dit.test matches only the stress module's ITs, so
+        # upstream failsafe runs nothing; the stress ITs run and a failure fails the job.
+        run: >-
+          mvn -q -Pstress -pl scope-tracer-stress-tests -am verify
+          -Dtest=NoUnitTests
+          -Dit.test='**/stress/*IT'
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Dfailsafe.failIfNoSpecifiedTests=false
+
+      - name: Check that stress tests ran
+        # failIfNoSpecifiedTests=false lets a renamed package or IT select nothing and still pass.
+        run: |
+          n=$(find scope-tracer-stress-tests/target/failsafe-reports -name 'TEST-*.xml' 2>/dev/null | wc -l)
+          echo "stress IT reports: $n"
+          test "$n" -ge 1
 
       - name: Upload JFR dumps on failure
         if: failure()

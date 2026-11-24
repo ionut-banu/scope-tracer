@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The stress workflow runs only when stressed code changes, and only the stress tests**
+  (#208). `stress.yml` has a `paths` filter (core, agent, analyzer, the stress module, POMs and
+  the workflow itself) on PRs and pushes to `main`, plus a weekly schedule and
+  `workflow_dispatch`. Its test step no longer re-runs the other modules' unit tests and ITs.
+
 - **The IntelliJ plugin's version follows the project's** (#151). The plugin zip is now
   `scope-tracer-plugin-<project version>.zip` and its `plugin.xml` carries that version
   (it was a fixed `0.1.0`), with generated change notes linking the GitHub Release and the
