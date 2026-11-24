@@ -731,7 +731,9 @@ failsafe, measured on 2026-11-24 on the branch of #176 on Temurin 27; the
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
 count the same or higher than `main` had before it. CI runs `verify`
-on every push and PR; the stress profile runs on PRs to `main`. A
+on every push and PR. The stress workflow (`stress.yml`) runs `-Pstress`
+for only the stress module's own tests, on PRs to and pushes to `main` that
+touch core, agent, analyzer, the stress module, a POM or the workflow, and weekly. A
 weekly job (`jdk-ea.yml`, §5) runs the same `verify`, with the same
 suites and count, on the newest JDK 28 early-access build under
 `-Pjdk-ea`; it is not a required check.
