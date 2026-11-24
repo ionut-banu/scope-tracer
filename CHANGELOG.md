@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Tools → "Run with Scope Tracer" is shown whenever a project is open** (#187). It was hidden
+  unless a Java Application run configuration was selected, so a new user saw no such item and
+  no reason. Now, with no configuration selected, clicking it says to select or create a Java
+  Application run configuration; with another kind selected (JUnit, Gradle, ...), it names that
+  configuration and its type and says the action runs Java Application configurations. Running
+  an Application configuration is unchanged.
+
 - **The plugin's analyzer subprocess is bounded, and cancelling it stops it** (#93). Before,
   the plugin read the analyzer's stderr to the end before its 2-minute timeout started, so the
   timeout could never fire, cancelling the background task left the analyzer running (past the
