@@ -4,13 +4,9 @@ import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.ui.Messages;
 import com.ionutbanu.scopetracer.plugin.model.AnalyzerJdk;
 import com.ionutbanu.scopetracer.plugin.model.TracedLaunch;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Persists the path to a JDK 27 {@code java} launcher, used to run the bundled analyzer out of
@@ -71,29 +67,13 @@ final class AnalyzerJdkSettings {
     return path;
   }
 
-  /** Runs {@code <java> -version} and asks {@link AnalyzerJdk} whether it can run the analyzer. */
+  /**
+   * Runs {@code <java> -version}, bounded by {@link AnalyzerJdk#VERSION_CHECK_TIMEOUT}, and asks
+   * {@link AnalyzerJdk} whether it can run the analyzer. A {@code java} that hangs is reported as
+   * "could not determine the JDK version" after the timeout. This still runs on the EDT; moving it
+   * off is #63's.
+   */
   private static Optional<String> check(Path java) {
-    return AnalyzerJdk.refusal(java.toString(), versionOutput(java));
-  }
-
-  private static String versionOutput(Path java) {
-    try {
-      var process =
-          new ProcessBuilder(java.toString(), "-version").redirectErrorStream(true).start();
-      String output;
-      try (InputStream in = process.getInputStream()) {
-        output = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-      }
-      if (!process.waitFor(30, TimeUnit.SECONDS)) {
-        process.destroyForcibly();
-        return "";
-      }
-      return output;
-    } catch (IOException e) {
-      return "";
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return "";
-    }
+    return AnalyzerJdk.check(java, Path.of(System.getProperty("java.io.tmpdir")));
   }
 }

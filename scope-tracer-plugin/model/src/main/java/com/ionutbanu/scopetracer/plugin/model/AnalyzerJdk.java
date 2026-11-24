@@ -1,5 +1,9 @@
 package com.ionutbanu.scopetracer.plugin.model;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -15,7 +19,41 @@ public final class AnalyzerJdk {
   /** The quoted version in a {@code java -version} line: {@code openjdk version "27.0.1" ...}. */
   private static final Pattern VERSION_LINE = Pattern.compile("version \"([^\"]+)\"");
 
+  /** How long {@code java -version} may take before the JDK is reported as undeterminable. */
+  public static final Duration VERSION_CHECK_TIMEOUT = Duration.ofSeconds(30);
+
   private AnalyzerJdk() {}
+
+  /** The version check's command line: {@code <java> -version}. */
+  public static List<String> versionCommand(Path java) {
+    return List.of(java.toString(), "-version");
+  }
+
+  /**
+   * Runs {@code command} (normally {@link #versionCommand}) through {@link BoundedProcess} and
+   * returns what it printed on stdout and stderr together, or {@code ""} when it could not be
+   * started, did not exit within {@code timeout}, or the thread was interrupted. {@code ""} makes
+   * {@link #refusal} say the version could not be determined.
+   */
+  public static String versionOutput(List<String> command, Duration timeout, Path tempDir) {
+    try {
+      var result =
+          BoundedProcess.run(
+              command, BoundedProcess.Capture.STDOUT_AND_STDERR, timeout, () -> false, tempDir);
+      return result instanceof BoundedProcess.Exited e ? e.output() : "";
+    } catch (IOException e) {
+      return "";
+    }
+  }
+
+  /**
+   * Runs {@code <java> -version}, bounded by {@link #VERSION_CHECK_TIMEOUT}, and returns why that
+   * {@code java} cannot run the analyzer, or empty when it can.
+   */
+  public static Optional<String> check(Path java, Path tempDir) {
+    return refusal(
+        java.toString(), versionOutput(versionCommand(java), VERSION_CHECK_TIMEOUT, tempDir));
+  }
 
   /**
    * Finds the major version in the output of {@code java -version} (stderr and stdout together).

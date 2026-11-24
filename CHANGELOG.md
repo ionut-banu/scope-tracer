@@ -20,6 +20,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compiled for Java 25, 2026.3's JBR, on a JDK 27 toolchain; Gradle still runs on JDK 21. The
   plugin was never published, so no installed version stops working.
 
+### Fixed
+
+- **The plugin's analyzer subprocess is bounded, and cancelling it stops it** (#93). Before,
+  the plugin read the analyzer's stderr to the end before its 2-minute timeout started, so the
+  timeout could never fire, cancelling the background task left the analyzer running (past the
+  IDE's own exit), and an analyzer writing more than a pipe buffer to stdout deadlocked. Now
+  stdout is discarded and stderr goes to a temp file, the analysis is stopped after 10 minutes
+  with a message saying large recordings are slow (#92) and can be cancelled, and cancelling
+  from the progress bar, or closing the project, kills the analyzer within 2 s without an error
+  balloon. The extracted analyzer jar and the temp JSON are deleted however it ends. The
+  `java -version` check is bounded the same way (30 s), so a hanging `java` is reported as an
+  undeterminable JDK instead of freezing the IDE.
+
 ### Dependencies
 
 - IntelliJ Platform Gradle Plugin 2.18.1 → 2.20.1
