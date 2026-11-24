@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failed HTML run costs only the timeline. The report is loaded from a temp file, which is
   deleted when the next recording replaces it or the project closes, and the embedded page
   cannot navigate anywhere but its own file.
+- **Each release attaches the IntelliJ plugin, signed, to its GitHub Release** (#42). The
+  release workflow builds the plugin from the tag, runs the Plugin Verifier and a new
+  `.github/scripts/check-plugin-zip.sh` (version, IDE range, change notes, icon, exactly one
+  bundled agent jar and an analyzer of the same version) before anything is published, then
+  signs the zip and attaches `scope-tracer-plugin-X.Y.Z-signed.zip` to the release. Once the
+  first Marketplace upload is done (#198) it also uploads each version to the JetBrains
+  Marketplace. The plugin has an English description and an icon, and its build can no longer
+  bundle an agent jar left over from an earlier version.
 
 ### Changed
 

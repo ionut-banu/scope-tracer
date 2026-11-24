@@ -130,11 +130,13 @@ tasks.test { enabled = false }
 // Both bundling tasks are a Sync into their own directory under build/, added as a resource
 // directory (#42): a Sync deletes whatever an earlier run left there, so a version bump cannot
 // leave the previous version's jar in the zip. They used to Copy into src/main/resources/, which
-// kept every version ever built.
+// kept every version ever built. They are never up to date: Gradle's up-to-date check ignores a
+// file it did not write, so a stray jar dropped into the directory would otherwise survive.
 val bundledResources = layout.buildDirectory.dir("bundled-resources")
 
 val copyAnalyzerJar =
     tasks.register<Sync>("copyAnalyzerJar") {
+      outputs.upToDateWhen { false }
       val analyzerJar =
           rootDir.resolve(
               "../scope-tracer-analyzer/target/scope-tracer-analyzer-$analyzerVersion-executable.jar")
@@ -159,6 +161,7 @@ val copyAnalyzerJar =
 // under exactly that file name. The name is written to a resource beside the jar.
 val copyAgentJar =
     tasks.register<Sync>("copyAgentJar") {
+      outputs.upToDateWhen { false }
       val agentJarName = "scope-tracer-agent-$analyzerVersion-agent.jar"
       val agentJar = rootDir.resolve("../scope-tracer-agent/target/$agentJarName")
       val outDir = bundledResources.map { it.dir("agent") }
