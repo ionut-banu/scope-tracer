@@ -22,7 +22,7 @@ A real report, from the [gallery](https://ionut-banu.github.io/scope-tracer/gall
 Get a report of your own in one command on JDK 27, with nothing cloned and nothing built. This downloads the agent from the GitHub Release, writes a small program with a succeeding, a failing and a slow task, and runs it under the agent. When it exits there are `trial.jfr` and `trial.html` beside it:
 
 ```bash
-curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.5.0/scope-tracer-agent-0.5.0-agent.jar
+curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.6.0/scope-tracer-agent-0.6.0-agent.jar
 
 cat > Trial.java <<'EOF'
 import java.util.concurrent.StructuredTaskScope;
@@ -41,7 +41,7 @@ public class Trial {
 }
 EOF
 
-java --enable-preview --source 27 -javaagent:scope-tracer-agent-0.5.0-agent.jar=record=trial.jfr Trial.java
+java --enable-preview --source 27 -javaagent:scope-tracer-agent-0.6.0-agent.jar=record=trial.jfr Trial.java
 ```
 
 It prints two lines on stderr, with absolute paths, around the program's own output:
@@ -61,19 +61,19 @@ With [JBang](https://www.jbang.dev/) installed, there is nothing to download or 
 The same `java` line, with your classpath and main class in place of `Trial.java`. Plain `StructuredTaskScope` code is enough, with no source change:
 
 ```bash
-java --enable-preview -javaagent:scope-tracer-agent-0.5.0-agent.jar=record -cp <your-classpath> com.example.MyApp
+java --enable-preview -javaagent:scope-tracer-agent-0.6.0-agent.jar=record -cp <your-classpath> com.example.MyApp
 ```
 
-Without a path, `record` writes `scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr` and its `.html` report in the working directory (never over an existing file); `record=<path>` names the `.jfr`, and the report lands beside it. The agent jar is also on Maven Central, the same file: `https://repo1.maven.org/maven2/com/ionutbanu/scope-tracer-agent/0.5.0/scope-tracer-agent-0.5.0-agent.jar`. Every agent argument is in [the agent reference](#the-agent).
+Without a path, `record` writes `scope-tracer-<pid>-<yyyy_MM_dd_HH_mm_ss>.jfr` and its `.html` report in the working directory (never over an existing file); `record=<path>` names the `.jfr`, and the report lands beside it. The agent jar is also on Maven Central, the same file: `https://repo1.maven.org/maven2/com/ionutbanu/scope-tracer-agent/0.6.0/scope-tracer-agent-0.6.0-agent.jar`. Every agent argument is in [the agent reference](#the-agent).
 
 ### A report from a recording you made elsewhere
 
 A `.jfr` from `jcmd <pid> JFR.stop`, from `-XX:StartFlightRecording`, or from the IntelliJ plugin turns into the same report with the analyzer. It needs a JDK 27 and no `--enable-preview`:
 
 ```bash
-curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.5.0/scope-tracer-analyzer-0.5.0-executable.jar
+curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.6.0/scope-tracer-analyzer-0.6.0-executable.jar
 
-java -jar scope-tracer-analyzer-0.5.0-executable.jar trial.jfr report.html
+java -jar scope-tracer-analyzer-0.6.0-executable.jar trial.jfr report.html
 ```
 
 ```text
@@ -86,7 +86,7 @@ The analyzer's options, warnings and exit codes are in [the analyzer reference](
 
 - **JDK 27 or newer** for every scope-tracer jar (`java -version`). On JDK 26 or older the jars fail with `UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 71.0)`. 0.2.0 is the last release for JDK 26.
 - **`--enable-preview`** for the program being traced, until JDK 28: `StructuredTaskScope` is a preview API on JDK 27, and without the flag it fails: compiling or running source (`java Trial.java`) stops with `StructuredTaskScope is a preview API and is disabled by default`, and running a class compiled with preview features stops with `Preview features are not enabled for Trial (class file version 71.65535)`. The analyzer needs none.
-- **JDK 28 early-access builds with `--enable-preview`:** the agent of 0.5.0 and earlier prints `[scope-tracer] WARN cannot instrument java.util.concurrent.StructuredTaskScopeImpl, the trace will be incomplete: IllegalArgumentException: Unsupported class file version 72.65535` and records only `ScopeOpened`, so the report shows each scope with 0 tasks. Either run without `--enable-preview` (if the program uses no other preview feature), or add `-Dcom.ionutbanu.scopetracer.shaded.net.bytebuddy.validation=false` to the `java` command. Fixed in the next release (#176). Without the flag, 0.5.0 traces fully on 28 early access.
+- **JDK 28 early-access builds with `--enable-preview`:** the agent of 0.5.0 and earlier prints `[scope-tracer] WARN cannot instrument java.util.concurrent.StructuredTaskScopeImpl, the trace will be incomplete: IllegalArgumentException: Unsupported class file version 72.65535` and records only `ScopeOpened`, so the report shows each scope with 0 tasks. Either run without `--enable-preview` (if the program uses no other preview feature), or add `-Dcom.ionutbanu.scopetracer.shaded.net.bytebuddy.validation=false` to the `java` command. Fixed in 0.6.0 (#176). Without the flag, 0.5.0 traces fully on 28 early access.
 - **A POSIX shell with `curl`** for the quick start (macOS, Linux, WSL). It is not tested on Windows.
 - **Maven 3.9+** only for the `TracedScope` section's build and for [Contributing](#contributing).
 
@@ -125,7 +125,7 @@ If you would rather change the source than attach an agent, open a `TracedScope`
 <dependency>
   <groupId>com.ionutbanu</groupId>
   <artifactId>scope-tracer-core</artifactId>
-  <version>0.5.0</version>
+  <version>0.6.0</version>
 </dependency>
 ```
 
@@ -146,7 +146,7 @@ with `... TracedScope.class uses preview features of Java SE 27`. In Maven:
 </plugin>
 ```
 
-With plain `javac`: `javac --enable-preview --release 27 -cp scope-tracer-core-0.5.0.jar ...`.
+With plain `javac`: `javac --enable-preview --release 27 -cp scope-tracer-core-0.6.0.jar ...`.
 
 ### Open a `TracedScope` instead of a `StructuredTaskScope`
 
@@ -182,11 +182,11 @@ java --enable-preview \
      -cp <your-classpath> \
      com.example.MyApp
 
-curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.5.0/scope-tracer-analyzer-0.5.0-executable.jar
-java -jar scope-tracer-analyzer-0.5.0-executable.jar myapp.jfr report.html
+curl -LO https://github.com/ionut-banu/scope-tracer/releases/download/v0.6.0/scope-tracer-analyzer-0.6.0-executable.jar
+java -jar scope-tracer-analyzer-0.6.0-executable.jar myapp.jfr report.html
 ```
 
-Put your own classpath (including `scope-tracer-core-0.5.0.jar`, from Maven Central or your build) where `<your-classpath>` is, and your main class where `com.example.MyApp` is. Nothing writes a report at exit with `TracedScope`: the recording is only the `.jfr`, and the analyzer turns it into `report.html`, which you open in any browser. See [the analyzer reference](#the-analyzer) for its output, warnings and exit codes.
+Put your own classpath (including `scope-tracer-core-0.6.0.jar`, from Maven Central or your build) where `<your-classpath>` is, and your main class where `com.example.MyApp` is. Nothing writes a report at exit with `TracedScope`: the recording is only the `.jfr`, and the analyzer turns it into `report.html`, which you open in any browser. See [the analyzer reference](#the-analyzer) for its output, warnings and exit codes.
 
 ---
 
@@ -208,7 +208,7 @@ One flag is enough: with the `record` argument the agent starts a JFR recording 
 
 ```bash
 java --enable-preview \
-     -javaagent:scope-tracer-agent-0.5.0-agent.jar=record \
+     -javaagent:scope-tracer-agent-0.6.0-agent.jar=record \
      -cp <your-classpath> \
      com.example.MyApp
 ```
@@ -228,7 +228,7 @@ A recording you start yourself gets its report at exit too, the same as one stop
 
 ```bash
 java --enable-preview \
-     -javaagent:scope-tracer-agent-0.5.0-agent.jar \
+     -javaagent:scope-tracer-agent-0.6.0-agent.jar \
      -XX:StartFlightRecording=filename=myapp.jfr,dumponexit=true \
      -cp <your-classpath> \
      com.example.MyApp
@@ -329,7 +329,7 @@ the shell does not expand the `*`):
 
 ```bash
 java --enable-preview \
-     "-javaagent:scope-tracer-agent-0.5.0-agent.jar=include.package=com.acme.checkout*,sample.rate=0.1" \
+     "-javaagent:scope-tracer-agent-0.6.0-agent.jar=include.package=com.acme.checkout*,sample.rate=0.1" \
      -XX:StartFlightRecording=filename=checkout.jfr,dumponexit=true \
      -cp <your-classpath> com.acme.Main
 ```
@@ -355,10 +355,10 @@ Replace `<your-classpath>` and `com.acme.Main` with your own classpath and main 
 
 ### The analyzer
 
-`scope-tracer-analyzer-0.5.0-executable.jar` is a self-contained fat-jar, attached to every GitHub Release (and on Maven Central under `com/ionutbanu/scope-tracer-analyzer/0.5.0/`). It bundles all runtime dependencies, so no classpath assembly is needed, and it needs a JDK 27 but no `--enable-preview`:
+`scope-tracer-analyzer-0.6.0-executable.jar` is a self-contained fat-jar, attached to every GitHub Release (and on Maven Central under `com/ionutbanu/scope-tracer-analyzer/0.6.0/`). It bundles all runtime dependencies, so no classpath assembly is needed, and it needs a JDK 27 but no `--enable-preview`:
 
 ```bash
-java -jar scope-tracer-analyzer-0.5.0-executable.jar myapp.jfr report.html
+java -jar scope-tracer-analyzer-0.6.0-executable.jar myapp.jfr report.html
 ```
 
 On success it prints one line on stdout and nothing else:
@@ -402,7 +402,7 @@ classes in-process:
 
 ```bash
 
-java -jar scope-tracer-analyzer-0.5.0-executable.jar \
+java -jar scope-tracer-analyzer-0.6.0-executable.jar \
      myapp.jfr trace.json --format=json
 ```
 
