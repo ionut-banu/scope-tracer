@@ -361,6 +361,10 @@ public final class ScopeTracerAgent {
           .with(TransformFailureListener.INSTANCE)
           .with(MatcherMissListener.INSTANCE)
           .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE)
+          // ByteBuddy's default FAST pool, except that a type it only describes may be a preview
+          // class file (JDK 28's java.time.Duration under --enable-preview, 72.65535), which ASM
+          // refuses. The class being transformed is still read by ByteBuddy's own reader (#176).
+          .with(PreviewClassFileReader.POOL)
           .with(AgentBuilder.TypeStrategy.Default.REDEFINE)
           .ignore(ElementMatchers.none()) // instrument JDK classes too
           // --- every public static open overload on the public API class ---

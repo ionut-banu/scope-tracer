@@ -1222,3 +1222,58 @@ Decided by the maintainer, following the PM's recommendations:
   not reported, and a change that every matcher still matches (V2,
   `fork(Runnable)` no longer delegating) is left to the agent ITs on
   the new JDK (#55).
+
+
+## 2026-11-23 - The agent's type pool reads JDK 28's preview class files (#176)
+
+On JDK 28 EA (measured on 28-ea+25) with `--enable-preview`, the agent
+printed `cannot instrument java.util.concurrent.StructuredTaskScopeImpl
+... Unsupported class file version 72.65535` and recorded only
+`ScopeOpened`. The instrumented class is 72.0. The failing class file
+is the `java.base/META-INF/preview` variant of `java.time.Duration`,
+which the JVM serves under the flag and which ByteBuddy's `TypePool`
+reads to validate `StructuredTaskScopeImpl.scheduleTimeout(Duration)`.
+ASM rejects 72.65535 on purpose until it supports value classes (ASM
+!473). ByteBuddy's experimental property, which `premain` already
+sets, does not apply: `ClassFileVersion` reads the minor version as a
+signed `short`, so 72.65535 compares as older than 72.0.
+
+Decided by the maintainer, following the PM's recommendations:
+
+- **The fix: (a).** A class reader for the agent's `TypePool` only
+  (`PreviewClassFileReader`), which clears a `0xFFFF` minor version on
+  a copy of the bytes and hands every other version to
+  `AsmClassReader.Factory.Default.ASM_ONLY` unchanged. Its one-argument
+  `make`, the one `TypePool.Default` calls, passes
+  `OpenedClassReader.EXPERIMENTAL`, so a 73.65535 class file has only
+  its minor cleared and then takes ByteBuddy's own experimental path;
+  the PM's prototype passed `false`, which would have refused it. The
+  pool is ByteBuddy's `PoolStrategy.Default.FAST` otherwise (lazy
+  resolution, `ReaderMode.FAST`). Public ByteBuddy API, no dependency,
+  no system property. With it, all agent ITs pass on 28 with
+  `--enable-preview` in the child JVMs; without it, 36 of 48 in
+  `ScopeTracerAgentIT` and `ScopeTracerAgentFilterIT` fail.
+- **Rejected:** turning off ByteBuddy's type validation (works only
+  because validation is today the one step that resolves `Duration`,
+  and drops a check on every JDK); ByteBuddy's ClassFile-API reader
+  (not in the fat-jar, never selected on the bootstrap loader, and
+  ByteBuddy #1927 reports a VerifyError in that mode); patching
+  through an ASM visitor wrapper (ASM rejects the version in
+  `ClassReader`'s constructor, before any visitor); waiting for
+  upstream (no date); documenting only (every plugin run on 28 adds
+  `--enable-preview`, so all of them would stay broken).
+- **Never the transformed class.** The `ByteBuddy` instance keeps its
+  default reader, so the class being transformed is read and written
+  with its own version. If a JDK ships a preview variant of a scope
+  class itself, the agent prints today's `cannot instrument` line.
+- **CI.** A second job in `jdk-ea.yml` runs the agent module on 28 EA
+  with `-Dscopetracer.test.preview=true`, weekly, beside #55's job,
+  which stays without the flag. It uploads its reports under its own
+  artifact name, so a run in which both jobs fail keeps both.
+- **README.** One Requirements bullet for 0.5.0 and earlier on 28
+  with the flag, with both measured workarounds (drop the flag, or
+  `-Dcom.ionutbanu.scopetracer.shaded.net.bytebuddy.validation=false`).
+  A wider JDK 28 section is #70.
+- **No hint in the WARN line**, as #130 decided.
+- **Upstream.** The maintainer may file a ByteBuddy issue about the
+  signed minor comparison; nothing here waits on it.

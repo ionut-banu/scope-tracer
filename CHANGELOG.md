@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transformation (#121). Before, the trace was silently partial or empty. Nothing is added to
   `premain` (#130).
 
+### Fixed
+
+- **The agent traces on JDK 28 with `--enable-preview`.** Under the flag JDK 28 serves some of its
+  own classes, `java.time.Duration` among them, as preview class files (version 72.65535), which
+  the agent's bundled ASM refuses to read. The agent printed `cannot instrument
+  java.util.concurrent.StructuredTaskScopeImpl` and recorded only `ScopeOpened`. It now reads such
+  a class file as minor version 0, on a copy, when it only needs to describe the type; the class
+  it instruments is read and written with its own version, unchanged. A second weekly JDK 28
+  early-access job runs the agent's tests with `--enable-preview` (#176).
+
 ## [0.5.0] - 2026-11-23
 
 ### Known issues

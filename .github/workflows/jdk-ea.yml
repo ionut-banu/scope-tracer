@@ -70,3 +70,48 @@ jobs:
             scope-tracer-agent/*.jfr
             scope-tracer-agent/target/*.jfr
           if-no-files-found: ignore
+
+  # The same agent ITs, with --enable-preview in every child JVM they start. Users on 28 keep the
+  # flag (every 0.x quick start has it, and the plugin's traced runs add it), and under it the JVM
+  # serves JDK classes such as java.time.Duration as preview class files (72.65535), which the
+  # agent's type pool has to read (#176). The build itself stays -Pjdk-ea, without the flag; only
+  # the child JVMs get it.
+  agent-preview:
+    name: agent with --enable-preview
+    runs-on: ubuntu-latest
+    # Green takes about 2.5 minutes; the limit is the build job's, for the same reason.
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 28 early access
+        uses: actions/setup-java@v5
+        with:
+          java-version: '28-ea'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Record the JDK build
+        run: |
+          {
+            echo '### JDK under test'
+            echo '```'
+            java -version 2>&1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Test the agent on JDK 28 with --enable-preview
+        run: mvn -B -Pjdk-ea -Dscopetracer.test.preview=true -pl scope-tracer-agent -am verify
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jdk-ea-agent-preview-test-reports
+          path: |
+            scope-tracer-*/target/surefire-reports/
+            scope-tracer-*/target/failsafe-reports/
+            scope-tracer-agent/*.jfr
+            scope-tracer-agent/target/*.jfr
+          if-no-files-found: ignore
