@@ -57,8 +57,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The analyzer and agent jars are built by Maven on JDK 27; the plugin is a separate Gradle
-      # build on JDK 21 (the IDE's JVM). Install both; the later one becomes JAVA_HOME.
+      # The analyzer and agent jars are built by Maven on JDK 27. The plugin is a separate Gradle
+      # build: Gradle runs on JDK 21, and the plugin compiles with --release 25 (IntelliJ IDEA
+      # 2026.3's JBR 25) on the JDK 27 toolchain. Install both; the later one becomes JAVA_HOME.
       - name: Set up JDK 21 and 27
         uses: actions/setup-java@v5
         with:
@@ -76,4 +77,9 @@ jobs:
 
       - name: Build the plugin and run its :model tests
         working-directory: scope-tracer-plugin
-        run: JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew build
+        # Name the 27 for Gradle rather than rely on its auto-detection finding the runner's tool
+        # cache (no auto-provisioning); javaToolchains prints the toolchains it found.
+        run: >-
+          JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew
+          -Porg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64
+          javaToolchains build

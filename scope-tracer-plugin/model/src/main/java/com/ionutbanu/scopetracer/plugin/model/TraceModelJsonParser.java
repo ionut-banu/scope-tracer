@@ -15,7 +15,8 @@ import java.time.Instant;
  * (schema documented on {@code TraceModelJson} in the analyzer module) into plugin-local
  * records. Deliberately independent of any scope-tracer class: JSON is the only coupling,
  * since the analyzer is compiled with {@code --enable-preview} and its classes can never load
- * inside the IDE's own JVM (JBR).
+ * inside the IDE's own JVM (JBR 25 in IntelliJ IDEA 2026.3, which rejects class-file major 71,
+ * the analyzer's Java 27).
  */
 public final class TraceModelJsonParser {
 

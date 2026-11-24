@@ -7,7 +7,10 @@ plugins { `java-library` }
 
 val gsonVersion = providers.gradleProperty("gsonVersion").get()
 
-java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+// Same as the root module: a JDK 27 toolchain compiling for Java 25, the JBR of 2026.3.
+java { toolchain { languageVersion = JavaLanguageVersion.of(27) } }
+
+tasks.withType<JavaCompile>().configureEach { options.release = 25 }
 
 repositories { mavenCentral() }
 
