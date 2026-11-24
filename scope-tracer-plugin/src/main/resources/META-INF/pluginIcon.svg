@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+  <!-- Scope Tracer: one scope forking two tasks, a tree of three nodes. -->
+  <path d="M20 12 L10 28 M20 12 L30 28" stroke="#5A6475" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <circle cx="20" cy="10" r="6" fill="#3574F0"/>
+  <circle cx="10" cy="30" r="5" fill="#4AA563"/>
+  <circle cx="30" cy="30" r="5" fill="#E55765"/>
+</svg>

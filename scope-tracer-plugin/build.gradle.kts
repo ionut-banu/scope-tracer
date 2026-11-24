@@ -98,6 +98,23 @@ intellijPlatform {
   }
 }
 
+// Signing and publishing take their keys and token from the Gradle plugin's own environment
+// variables (CERTIFICATE_CHAIN, PRIVATE_KEY, PRIVATE_KEY_PASSWORD, PUBLISH_TOKEN), which only
+// release.yml's publish-plugin job sets, from repository secrets (#42). Without the chain and key
+// signPlugin is skipped and publishPlugin would upload the unsigned zip; the release never ships
+// one, so publishPlugin refuses to run unsigned. Only presence is checked, never a value.
+tasks.named("publishPlugin") {
+  val chain = providers.environmentVariable("CERTIFICATE_CHAIN")
+  val key = providers.environmentVariable("PRIVATE_KEY")
+  doFirst {
+    if (chain.orNull.isNullOrBlank() || key.orNull.isNullOrBlank()) {
+      throw GradleException(
+          "publishPlugin uploads only a signed zip: CERTIFICATE_CHAIN and PRIVATE_KEY must be " +
+              "set (see docs/jetbrains-marketplace-setup.md).")
+    }
+  }
+}
+
 // No tests live directly in this module for this milestone (see :model's build.gradle.kts and
 // the plan doc) — disabled outright rather than left to fail on the IntelliJ Platform Gradle
 // plugin's automatic test-task instrumentation, which requires a running IDE sandbox.
@@ -109,8 +126,15 @@ tasks.test { enabled = false }
 // loaded inside the IDE's own JVM (JBR 25 in 2026.3). The plugin instead ships the analyzer's
 // executable jar as a resource and runs it as an external subprocess against a real JDK 27 —
 // see AnalyzerProcessRunner. This task copies that jar out of the Maven build's `target/`.
+//
+// Both bundling tasks are a Sync into their own directory under build/, added as a resource
+// directory (#42): a Sync deletes whatever an earlier run left there, so a version bump cannot
+// leave the previous version's jar in the zip. They used to Copy into src/main/resources/, which
+// kept every version ever built.
+val bundledResources = layout.buildDirectory.dir("bundled-resources")
+
 val copyAnalyzerJar =
-    tasks.register<Copy>("copyAnalyzerJar") {
+    tasks.register<Sync>("copyAnalyzerJar") {
       val analyzerJar =
           rootDir.resolve(
               "../scope-tracer-analyzer/target/scope-tracer-analyzer-$analyzerVersion-executable.jar")
@@ -121,9 +145,11 @@ val copyAnalyzerJar =
                   "repo root with `mvn -q -DskipTests package`.")
         }
       }
-      from(analyzerJar)
-      into(layout.projectDirectory.dir("src/main/resources/analyzer"))
-      rename { "analyzer.jar" }
+      from(analyzerJar) {
+        into("analyzer")
+        rename { "analyzer.jar" }
+      }
+      into(bundledResources.map { it.dir("analyzer") })
     }
 
 // --- Bundle the agent fat-jar the same way, for "Run with Scope Tracer" ---
@@ -132,10 +158,11 @@ val copyAnalyzerJar =
 // `scope-tracer-agent-<version>-agent.jar`, resolved next to the jar, so the plugin must extract it
 // under exactly that file name. The name is written to a resource beside the jar.
 val copyAgentJar =
-    tasks.register<Copy>("copyAgentJar") {
+    tasks.register<Sync>("copyAgentJar") {
       val agentJarName = "scope-tracer-agent-$analyzerVersion-agent.jar"
       val agentJar = rootDir.resolve("../scope-tracer-agent/target/$agentJarName")
-      val outDir = layout.projectDirectory.dir("src/main/resources/agent")
+      val outDir = bundledResources.map { it.dir("agent") }
+      inputs.property("agentJarName", agentJarName)
       doFirst {
         if (!agentJar.exists()) {
           throw GradleException(
@@ -143,9 +170,21 @@ val copyAgentJar =
                   "`mvn -q -DskipTests package`.")
         }
       }
-      from(agentJar)
+      from(agentJar) { into("agent") }
       into(outDir)
-      doLast { outDir.file("agent-jar-name.txt").asFile.writeText(agentJarName) }
+      doLast {
+        outDir.get().file("agent/agent-jar-name.txt").asFile.writeText(agentJarName)
+      }
     }
 
-tasks.named("processResources") { dependsOn(copyAnalyzerJar, copyAgentJar) }
+sourceSets { main { resources { srcDir(copyAnalyzerJar).srcDir(copyAgentJar) } } }
+
+// A checkout built before #42 still has jars in src/main/resources/{analyzer,agent}/, now
+// untracked rather than ignored. They are never bundled: only the Syncs above supply those paths.
+tasks.named<ProcessResources>("processResources") {
+  val legacyDirs =
+      listOf("analyzer", "agent").map {
+        layout.projectDirectory.dir("src/main/resources/$it").asFile
+      }
+  exclude { element -> legacyDirs.any { element.file.startsWith(it) } }
+}

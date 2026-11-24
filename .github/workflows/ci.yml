@@ -20,10 +20,12 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Self-test the release docs check
+      - name: Self-test the release scripts
         run: |
           bash .github/scripts/check-release-docs-test.sh
           bash .github/scripts/check-release-bundle-test.sh
+          bash .github/scripts/check-plugin-zip-test.sh
+          bash .github/scripts/check-plugin-secrets-test.sh
           bash .github/scripts/readme-image-test.sh
 
       - name: Build, test, and style check

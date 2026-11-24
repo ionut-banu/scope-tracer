@@ -12,5 +12,3 @@ target/
 scope-tracer-plugin/.gradle/
 scope-tracer-plugin/.intellijPlatform/
 scope-tracer-plugin/**/build/
-scope-tracer-plugin/src/main/resources/analyzer/*.jar
-scope-tracer-plugin/src/main/resources/agent/
