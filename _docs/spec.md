@@ -907,8 +907,9 @@ try (var file = new RecordingFile(tempPath)) {
   Base64), `PRIVATE_KEY_PASSWORD` and `PUBLISH_TOKEN`, with the
   configuration cache off and the project cache (where Gradle records
   task inputs in plain text) under `$RUNNER_TEMP`, deleted by an
-  `if: always()` step. In the build, `requireSignedZip` fails unless
-  `signPlugin` wrote the `-signed` zip; `verifyPluginSignature` and
+  `if: always()` step. In the build, `deleteSignedZip` removes any
+  earlier `-signed` zip before every `signPlugin` (#220), and
+  `requireSignedZip` fails unless `signPlugin` wrote one in this build; `verifyPluginSignature` and
   `publishPlugin` depend on it, `verifyPluginSignature` checks that zip
   against the decoded chain, and `publishPlugin`'s archive is that zip
   and nothing else (2.20.1 would take the unsigned one whenever

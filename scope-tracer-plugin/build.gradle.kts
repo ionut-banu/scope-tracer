@@ -114,8 +114,23 @@ intellijPlatform {
 //   unsigned one when signPlugin was UP-TO-DATE: its archive is set to the signed zip, always.
 // - verifyPluginSignature writes CERTIFICATE_CHAIN verbatim to a .pem file, so a Base64 chain is
 //   "No certificate data found": it gets the decoded chain (a certificate, not a secret).
+// - A -signed zip left by an earlier build would satisfy all of that when signPlugin skips itself
+//   (#220): deleteSignedZip removes it before every signPlugin, so only a zip signed in this
+//   build is ever verified or published. Its path is spelled out rather than taken from
+//   signPlugin, which would make it depend on the task it runs before; if the name ever
+//   drifts, requireSignedZip still checks signPlugin's real output and fails.
 val signPluginTask = tasks.named<SignPluginTask>("signPlugin")
 val signedZip = signPluginTask.flatMap { it.signedArchiveFile }
+
+val deleteSignedZip =
+    tasks.register<Delete>("deleteSignedZip") {
+      description = "Deletes the signed plugin zip of an earlier build before signPlugin runs."
+      delete(
+          layout.buildDirectory.file(
+              "distributions/${rootProject.name}-$analyzerVersion-signed.zip"))
+    }
+
+signPluginTask.configure { dependsOn(deleteSignedZip) }
 
 val requireSignedZip =
     tasks.register("requireSignedZip") {
