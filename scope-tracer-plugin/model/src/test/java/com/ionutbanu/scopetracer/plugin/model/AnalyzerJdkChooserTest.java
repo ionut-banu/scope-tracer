@@ -385,6 +385,23 @@ class AnalyzerJdkChooserTest {
   }
 
   @Test
+  void aSavedValueThatIsNotAPathCountsAsChangedSoAutomaticCanReplaceIt() {
+    var invalid = Optional.of("/jdks/a\u0000b/bin/java");
+    var saved = Optional.of("/jdks/temurin-27/bin/java");
+
+    assertThat(AnalyzerJdkChooser.settingChanged(invalid, Optional.empty())).isTrue();
+    assertThat(AnalyzerJdkChooser.settingChanged(invalid, Optional.of(Path.of("/jdks/a/bin/java"))))
+        .isTrue();
+    assertThat(AnalyzerJdkChooser.settingChanged(Optional.empty(), Optional.empty())).isFalse();
+    assertThat(AnalyzerJdkChooser.settingChanged(saved, Optional.of(Path.of(saved.get())))).isFalse();
+    assertThat(AnalyzerJdkChooser.settingChanged(saved, Optional.empty())).isTrue();
+    assertThat(AnalyzerJdkChooser.settingChanged(Optional.empty(), Optional.of(Path.of(saved.get()))))
+        .isTrue();
+    assertThat(AnalyzerJdkChooser.settingChanged(saved, Optional.of(Path.of("/jdks/other/bin/java"))))
+        .isTrue();
+  }
+
+  @Test
   void aJdkHomeChosenFromDiskMeansItsBinJavaAndAJavaFileMeansItself() throws IOException {
     var jdk = registered("temurin-27", "27", V27);
 

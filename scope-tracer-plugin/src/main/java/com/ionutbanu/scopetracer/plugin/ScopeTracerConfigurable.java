@@ -121,7 +121,8 @@ public final class ScopeTracerConfigurable implements Configurable {
 
   @Override
   public boolean isModified() {
-    return !selectedJava().equals(AnalyzerJdkSettings.explicitJava());
+    return AnalyzerJdkChooser.settingChanged(
+        AnalyzerJdkSettings.explicitJavaText(), selectedJava());
   }
 
   @Override
@@ -165,10 +166,16 @@ public final class ScopeTracerConfigurable implements Configurable {
         .filter(sdk -> TracedLaunch.parseJavaMajor(sdk.getVersionString()) >= TracedLaunch.MIN_JDK_MAJOR)
         .forEach(registeredJdks::addItem);
 
+    // From the raw text: a saved value that is not a valid path is shown in the disk field as is,
+    // so Apply on it is refused and choosing "Automatic" removes it.
+    var savedText = AnalyzerJdkSettings.explicitJavaText();
     var explicit = AnalyzerJdkSettings.explicitJava();
     diskPath.setText("");
-    if (explicit.isEmpty()) {
+    if (savedText.isEmpty()) {
       automatic.setSelected(true);
+    } else if (explicit.isEmpty()) {
+      onDisk.setSelected(true);
+      diskPath.setText(savedText.get());
     } else {
       var match =
           jdks.stream()

@@ -782,7 +782,7 @@ in place, asserts every value, and fails on a key it does not map.
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 154 |
+| plugin `:model` | Gradle | 155 |
 
 `mvn -q verify` runs the first six: 939 tests (surefire plus
 failsafe, measured on 2026-11-25 on the branch of #63 from `main` at 060fa13, on Temurin 27; the

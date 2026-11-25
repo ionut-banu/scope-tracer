@@ -217,6 +217,24 @@ public final class AnalyzerJdkChooser {
   }
 
   /**
+   * Whether the settings page's selection differs from the saved setting, so Apply has something
+   * to do. {@code saved} is the raw saved text (empty for "Automatic"), {@code selected} the
+   * {@code java} the page selects (empty for "Automatic", or for disk text that is not a path).
+   * A saved value that is not a valid path never equals a selection, so the user can always
+   * replace it, and choosing "Automatic" over it removes it.
+   */
+  public static boolean settingChanged(Optional<String> saved, Optional<Path> selected) {
+    if (saved.isEmpty() || selected.isEmpty()) {
+      return saved.isPresent() != selected.isPresent();
+    }
+    try {
+      return !Path.of(saved.get()).equals(selected.get());
+    } catch (InvalidPathException e) {
+      return true;
+    }
+  }
+
+  /**
    * The {@code java} launcher for a path the user chose from disk: the path itself when it is a
    * file, otherwise {@code <home>/bin/java} ({@code java.exe} when {@code windows}).
    */
