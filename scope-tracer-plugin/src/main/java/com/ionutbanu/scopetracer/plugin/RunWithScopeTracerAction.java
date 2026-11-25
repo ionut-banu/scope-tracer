@@ -16,6 +16,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.ToolWindowManager;
+import com.ionutbanu.scopetracer.plugin.model.AnalyzerJdkChooser;
 import com.ionutbanu.scopetracer.plugin.model.RunActionState;
 import com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle;
 import java.io.IOException;
@@ -79,19 +80,18 @@ public final class RunWithScopeTracerAction extends AnAction {
     }
     var profile = settings.getConfiguration();
 
-    // The analyzer needs a JDK 27 `java`; resolve it now, on the EDT, because it may prompt.
-    Path analyzerJava;
+    // No JDK lookup here: the analyzer's JDK is chosen when the run ends, in the analysis's
+    // background task, with the JDK the run itself used (seen by the patcher) first.
     Path jfrFile;
     try {
-      analyzerJava = AnalyzerJdkSettings.resolveJavaPath();
       jfrFile = Files.createTempFile("scope-tracer-run-", ".jfr");
-    } catch (IllegalStateException | IOException ex) {
+    } catch (IOException ex) {
       ScopeTracerNotifier.notify(
           project, "Scope Tracer", String.valueOf(ex.getMessage()), NotificationType.ERROR);
       return;
     }
 
-    var active = new TracedRuns.Active(project, jfrFile, analyzerJava);
+    var active = new TracedRuns.Active(project, jfrFile);
     var connection = project.getMessageBus().connect();
     active.connection(connection);
     // Every platform callback is forwarded to the lifecycle, which decides what it means.
@@ -163,7 +163,8 @@ public final class RunWithScopeTracerAction extends AnAction {
     }
   }
 
-  static void openRecording(Project project, Path jfrFile, Path analyzerJava) {
+  static void openRecording(
+      Project project, Path jfrFile, AnalyzerJdkChooser.@Nullable Candidate tracedRunJdk) {
     try {
       if (!Files.exists(jfrFile) || Files.size(jfrFile) == 0) {
         ScopeTracerNotifier.notify(
@@ -192,7 +193,7 @@ public final class RunWithScopeTracerAction extends AnAction {
                     var content = toolWindow.getContentManager().getContent(0);
                     if (content != null
                         && content.getComponent() instanceof ScopeTracerPanel panel) {
-                      panel.analyzeRecording(jfrFile, analyzerJava, true);
+                      panel.analyzeRecording(jfrFile, tracedRunJdk, true);
                     } else {
                       TracedRuns.deleteQuietly(jfrFile);
                     }

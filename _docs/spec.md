@@ -654,14 +654,38 @@ classes compiled with `--release 27` (class-file major version 71),
 which JBR 25 rejects. So the plugin never loads analyzer classes:
 it bundles the analyzer's `-executable` jar as a resource
 (`copyAnalyzerJar` reads it from `../scope-tracer-analyzer/target/`),
-runs it as a subprocess on a user-configured JDK 27 with
-`--format=json`, and parses the JSON with its own `:model` module.
+runs it as a subprocess on a JDK 27 or newer with `--format=json`,
+and parses the JSON with its own `:model` module.
 For the timeline it runs the same jar a second time, after the JSON
 run, with the default output, so the HTML it shows is byte for byte
 what the CLI writes; it never reads the JSON embedded in the HTML.
-The configured `java` is saved as `scopeTracer.jdk27JavaPath` and
-checked with `java -version` (`AnalyzerJdk` in `:model`) every time it
-is used; one older than 27 is refused with a message naming 27.
+Both runs use the same JDK. Neither action asks
+for a path. The JDK is chosen (`AnalyzerJdkChooser` in `:model`)
+inside the analysis's background task, never on the EDT, first usable
+one wins: the JDK chosen explicitly on Settings → Tools → Scope Tracer
+(an `applicationConfigurable`; the chosen `java` is saved as
+`scopeTracer.jdk27JavaPath`, so a path 0.6.0 saved there is an
+explicit choice, and "Automatic", the default, is that key's
+absence); for "Run with Scope Tracer", the JDK the traced run itself
+used (`JavaParameters.getJdk()`, read in the patcher and carried to
+the analysis when the run ends, so nothing is looked up before the
+run starts); the project SDK; then the registered JDKs, highest major
+version first, then the newest full version, then by name, as
+IntelliJ stored them. A candidate is usable when its home exists, its
+`java` is executable and `java -version` (`AnalyzerJdk`, the bounded
+probe) says 27 or newer; the probe's version decides, not the one
+IntelliJ stored, and anything else is skipped and the next tried.
+Candidates are probed lazily, in order. An explicit choice that is not
+usable falls back to the automatic order with a warning naming it,
+why it was skipped, and a "Configure…" link to the settings page; when
+nothing is usable the analysis does not start, and an error says the
+analyzer needs JDK 27 or newer, lists each candidate tried with its
+reason, and links to the settings page. The page offers "Automatic",
+showing which JDK it would use and what it skipped, a registered JDK
+27+, or a JDK home or `java` from disk; Apply checks the choice with
+`java -version` under a modal progress and refuses one older than 27,
+or a path with no `java`, keeping the previous setting. The plugin does
+not download a JDK (#186) or scan the disk for unregistered ones.
 Every subprocess the plugin starts (the analyzer, `java -version`)
 goes through `BoundedProcess` in `:model`: stdout and stderr go to
 files or are discarded, so the child never blocks on a pipe, and the

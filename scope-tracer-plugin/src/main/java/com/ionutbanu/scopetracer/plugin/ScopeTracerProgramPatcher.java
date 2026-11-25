@@ -38,6 +38,8 @@ public final class ScopeTracerProgramPatcher extends JavaProgramPatcher {
         for (String arg : apply.extraVmArgs()) {
           javaParameters.getVMParametersList().add(arg);
         }
+        // Already checked to be 27+ by TracedLaunch: the analyzer's first automatic choice.
+        active.tracedRunJdk(AnalyzerJdkSettings.tracedRun(sdk));
         active.lifecycle().patchApplied();
       } else if (plan instanceof TracedLaunch.Plan.Refuse refuse) {
         // The run still starts, untraced and with its own arguments unchanged.

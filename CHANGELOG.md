@@ -33,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The IntelliJ plugin finds a JDK for the analyzer instead of asking for a path** (#63).
+  Neither action shows a path dialog any more. The analyzer runs on the JDK chosen on the new
+  Settings → Tools → Scope Tracer page, or, on "Automatic" (the default), on the traced run's own
+  JDK, the project SDK, or the newest registered JDK 27+, each checked with `java -version` off
+  the EDT. A path saved by 0.6.0 is kept as the chosen JDK. When no JDK 27+ is found, an error
+  lists each JDK tried and why it was skipped, with a "Configure…" link to the settings page.
+
 - **The stress workflow runs only when stressed code changes, and only the stress tests**
   (#208). `stress.yml` has a `paths` filter (core, agent, analyzer, the stress module, POMs and
   the workflow itself) on PRs and pushes to `main`, plus a weekly schedule and

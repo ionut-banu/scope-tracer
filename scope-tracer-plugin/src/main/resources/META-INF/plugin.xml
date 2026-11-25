@@ -35,6 +35,11 @@
                 factoryClass="com.ionutbanu.scopetracer.plugin.ScopeTracerToolWindowFactory"/>
     <notificationGroup id="Scope Tracer" displayType="BALLOON"/>
     <java.programPatcher implementation="com.ionutbanu.scopetracer.plugin.ScopeTracerProgramPatcher"/>
+    <!-- Settings → Tools → Scope Tracer: the analyzer's JDK, "Automatic" by default (#63). -->
+    <applicationConfigurable parentId="tools"
+                             instance="com.ionutbanu.scopetracer.plugin.ScopeTracerConfigurable"
+                             id="com.ionutbanu.scopetracer.plugin.settings"
+                             displayName="Scope Tracer"/>
   </extensions>
 
   <actions>
