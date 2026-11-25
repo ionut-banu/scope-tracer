@@ -114,21 +114,54 @@ intellijPlatform {
 //   unsigned one when signPlugin was UP-TO-DATE: its archive is set to the signed zip, always.
 // - verifyPluginSignature writes CERTIFICATE_CHAIN verbatim to a .pem file, so a Base64 chain is
 //   "No certificate data found": it gets the decoded chain (a certificate, not a secret).
+// - A -signed zip left by an earlier build would satisfy all of that when signPlugin skips itself
+//   (#220). Two things stop it. deleteSignedZip removes that zip before every signPlugin; its
+//   path is spelled out, because taking it from signPlugin would make it depend on the task it
+//   runs before, so a drifted name would leave the old zip in place. That is why the second one
+//   decides: signPlugin, only when it actually signs, writes a receipt naming the zip it wrote,
+//   deleteSignedZip deletes the receipt (a path of our own, which cannot drift), and
+//   requireSignedZip fails unless the receipt exists and names signPlugin's real output. A zip
+//   that was not signed in this build is never verified or published.
 val signPluginTask = tasks.named<SignPluginTask>("signPlugin")
 val signedZip = signPluginTask.flatMap { it.signedArchiveFile }
+val signReceipt = layout.buildDirectory.file("tmp/signPlugin/signed-in-this-build.txt")
+
+val deleteSignedZip =
+    tasks.register<Delete>("deleteSignedZip") {
+      description = "Deletes an earlier build's signed plugin zip, and its receipt."
+      delete(
+          layout.buildDirectory.file(
+              "distributions/${rootProject.name}-$analyzerVersion-signed.zip"),
+          signReceipt)
+    }
+
+signPluginTask.configure {
+  dependsOn(deleteSignedZip)
+  val receipt = signReceipt
+  val written = signedArchiveFile
+  doLast {
+    val file = receipt.get().asFile
+    file.parentFile.mkdirs()
+    file.writeText(written.get().asFile.absolutePath)
+  }
+}
 
 val requireSignedZip =
     tasks.register("requireSignedZip") {
-      description = "Fails unless signPlugin wrote the signed plugin zip."
+      description = "Fails unless signPlugin signed the plugin zip in this build."
       dependsOn(signPluginTask)
       val zip = signedZip
+      val receipt = signReceipt
       doLast {
         val file = zip.get().asFile
-        if (!file.isFile) {
+        val receiptFile = receipt.get().asFile
+        val signedNow = receiptFile.isFile && receiptFile.readText() == file.absolutePath
+        if (!signedNow || !file.isFile) {
           throw GradleException(
-              "No signed plugin zip at $file: signPlugin needs CERTIFICATE_CHAIN, PRIVATE_KEY " +
-                  "and PRIVATE_KEY_PASSWORD (see docs/jetbrains-marketplace-setup.md). An " +
-                  "unsigned zip is never verified or published.")
+              "No plugin zip signed in this build at $file: signPlugin needs " +
+                  "CERTIFICATE_CHAIN, PRIVATE_KEY and PRIVATE_KEY_PASSWORD (see " +
+                  "docs/jetbrains-marketplace-setup.md). An unsigned zip, or one signed by an " +
+                  "earlier build, is never verified or published.")
         }
       }
     }

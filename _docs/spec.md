@@ -907,13 +907,18 @@ try (var file = new RecordingFile(tempPath)) {
   Base64), `PRIVATE_KEY_PASSWORD` and `PUBLISH_TOKEN`, with the
   configuration cache off and the project cache (where Gradle records
   task inputs in plain text) under `$RUNNER_TEMP`, deleted by an
-  `if: always()` step. In the build, `requireSignedZip` fails unless
-  `signPlugin` wrote the `-signed` zip; `verifyPluginSignature` and
-  `publishPlugin` depend on it, `verifyPluginSignature` checks that zip
-  against the decoded chain, and `publishPlugin`'s archive is that zip
-  and nothing else (2.20.1 would take the unsigned one whenever
-  `signPlugin` is up to date) and is printed before the upload. The plugin's bundled jars come from
-  `copyAnalyzerJar` and `copyAgentJar`, `Sync`s into
+  `if: always()` step. In the build, `deleteSignedZip` removes any
+  earlier `-signed` zip before every `signPlugin` (#220), `signPlugin`
+  writes a receipt naming the zip only when it actually signs, and
+  `requireSignedZip` fails unless that receipt exists and names
+  `signPlugin`'s output, so a zip not signed in this build is never
+  used, even if the deleted path drifts. `verifyPluginSignature` and
+  `publishPlugin` depend on it, `verifyPluginSignature` checks that
+  zip against the decoded chain, and `publishPlugin`'s archive is that
+  zip and nothing else (2.20.1 would take the unsigned one whenever
+  `signPlugin` is up to date) and is printed before the upload. The
+  plugin's bundled jars come from `copyAnalyzerJar` and
+  `copyAgentJar`, `Sync`s into
   `scope-tracer-plugin/build/bundled-resources/` that run every build,
   so a zip never carries an earlier version's jar. The Marketplace
   reviews each version before users see it.

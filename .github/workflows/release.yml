@@ -35,9 +35,11 @@ jobs:
 
       - name: Verify tag matches pom version
         id: version
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          if [ -n "${{ inputs.tag }}" ]; then TAG="${{ inputs.tag }}"; TAG="${TAG#v}"; fi
+          if [ -n "$INPUT_TAG" ]; then TAG="$INPUT_TAG"; TAG="${TAG#v}"; fi
           POM_VERSION=$(mvn -f tagged/pom.xml help:evaluate -Dexpression=project.version -q -DforceStdout)
           if [ "$TAG" != "$POM_VERSION" ]; then
             echo "::error::Tag '$TAG' does not match pom version '$POM_VERSION'"
@@ -47,9 +49,11 @@ jobs:
           echo "version=$POM_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check the docs name this version
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          if [ -n "${{ inputs.tag }}" ]; then VERSION="${{ inputs.tag }}"; VERSION="${VERSION#v}"; fi
+          if [ -n "$INPUT_TAG" ]; then VERSION="$INPUT_TAG"; VERSION="${VERSION#v}"; fi
           bash .github/scripts/check-release-docs.sh "$VERSION" tagged
 
       # The central-publishing extension builds and uploads in one `deploy`, so the bundle cannot
@@ -145,9 +149,11 @@ jobs:
 
       - name: Extract changelog section
         id: changelog
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          if [ -n "${{ inputs.tag }}" ]; then VERSION="${{ inputs.tag }}"; VERSION="${VERSION#v}"; fi
+          if [ -n "$INPUT_TAG" ]; then VERSION="$INPUT_TAG"; VERSION="${VERSION#v}"; fi
           awk -v v="$VERSION" '
             /^## \[/ { if (found) exit; if ($0 ~ "\\[" v "\\]") { found=1; next } }
             found { print }
@@ -221,9 +227,11 @@ jobs:
       - name: Read the version
         id: version
         if: steps.plugin.outputs.release == 'true'
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          if [ -n "${{ inputs.tag }}" ]; then VERSION="${{ inputs.tag }}"; VERSION="${VERSION#v}"; fi
+          if [ -n "$INPUT_TAG" ]; then VERSION="$INPUT_TAG"; VERSION="${VERSION#v}"; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 21 and 27
@@ -284,8 +292,10 @@ jobs:
 
       # publishPlugin uploads the -signed zip and nothing else: build.gradle.kts sets its archive to
       # signPlugin's output (2.20.1 would otherwise take the unsigned zip whenever signPlugin is
-      # UP-TO-DATE, as it is here) and fails when that zip is missing. The task prints the file it
-      # uploads. The Marketplace reviews every version before users see it.
+      # UP-TO-DATE) and fails when that zip is missing. deleteSignedZip runs before every
+      # signPlugin, so this step signs the zip again with the same key rather than reuse a file
+      # (#220). The task prints the file it uploads. The Marketplace reviews every version before
+      # users see it.
       - name: Upload the signed plugin zip to the JetBrains Marketplace
         if: steps.plugin.outputs.release == 'true' && steps.gate.outputs.marketplace == 'true'
         working-directory: tagged/scope-tracer-plugin
