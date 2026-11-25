@@ -654,14 +654,38 @@ classes compiled with `--release 27` (class-file major version 71),
 which JBR 25 rejects. So the plugin never loads analyzer classes:
 it bundles the analyzer's `-executable` jar as a resource
 (`copyAnalyzerJar` reads it from `../scope-tracer-analyzer/target/`),
-runs it as a subprocess on a user-configured JDK 27 with
-`--format=json`, and parses the JSON with its own `:model` module.
+runs it as a subprocess on a JDK 27 or newer with `--format=json`,
+and parses the JSON with its own `:model` module.
 For the timeline it runs the same jar a second time, after the JSON
 run, with the default output, so the HTML it shows is byte for byte
 what the CLI writes; it never reads the JSON embedded in the HTML.
-The configured `java` is saved as `scopeTracer.jdk27JavaPath` and
-checked with `java -version` (`AnalyzerJdk` in `:model`) every time it
-is used; one older than 27 is refused with a message naming 27.
+Both runs use the same JDK. Neither action asks
+for a path. The JDK is chosen (`AnalyzerJdkChooser` in `:model`)
+inside the analysis's background task, never on the EDT, first usable
+one wins: the JDK chosen explicitly on Settings → Tools → Scope Tracer
+(an `applicationConfigurable`; the chosen `java` is saved as
+`scopeTracer.jdk27JavaPath`, so a path 0.6.0 saved there is an
+explicit choice, and "Automatic", the default, is that key's
+absence); for "Run with Scope Tracer", the JDK the traced run itself
+used (`JavaParameters.getJdk()`, read in the patcher and carried to
+the analysis when the run ends, so nothing is looked up before the
+run starts); the project SDK; then the registered JDKs, highest major
+version first, then the newest full version, then by name, as
+IntelliJ stored them. A candidate is usable when its home exists, its
+`java` is executable and `java -version` (`AnalyzerJdk`, the bounded
+probe) says 27 or newer; the probe's version decides, not the one
+IntelliJ stored, and anything else is skipped and the next tried.
+Candidates are probed lazily, in order. An explicit choice that is not
+usable falls back to the automatic order with a warning naming it,
+why it was skipped, and a "Configure…" link to the settings page; when
+nothing is usable the analysis does not start, and an error says the
+analyzer needs JDK 27 or newer, lists each candidate tried with its
+reason, and links to the settings page. The page offers "Automatic",
+showing which JDK it would use and what it skipped, a registered JDK
+27+, or a JDK home or `java` from disk; Apply checks the choice with
+`java -version` under a modal progress and refuses one older than 27,
+or a path with no `java`, keeping the previous setting. The plugin does
+not download a JDK (#186) or scan the disk for unregistered ones.
 Every subprocess the plugin starts (the analyzer, `java -version`)
 goes through `BoundedProcess` in `:model`: stdout and stderr go to
 files or are discarded, so the child never blocks on a pipe, and the
@@ -749,7 +773,7 @@ in place, asserts every value, and fails on a key it does not map.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-24, #62 on #187, JDK 27) |
+| Suite | Runner | Count (2026-11-25, #63 on #222, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 172 |
@@ -758,10 +782,10 @@ in place, asserts every value, and fails on a key it does not map.
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 132 |
+| plugin `:model` | Gradle | 156 |
 
 `mvn -q verify` runs the first six: 939 tests (surefire plus
-failsafe, measured on 2026-11-24 on the branch of #62 from `main` at 574d4a2, on Temurin 27; the
+failsafe, measured on 2026-11-25 on the branch of #63 from `main` at 6db2c4a, on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

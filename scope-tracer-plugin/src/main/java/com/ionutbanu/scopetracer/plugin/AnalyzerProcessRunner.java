@@ -16,7 +16,7 @@ import java.util.function.BooleanSupplier;
  * <p>The analyzer's classes are compiled with {@code --enable-preview} (JDK 27) and can never be
  * loaded inside the IDE's own JVM (JBR, JDK 25 in IntelliJ IDEA 2026.3) — running out-of-process
  * on a real JDK 27 and exchanging JSON is the only way to bridge the two JVM versions. {@link
- * AnalyzerJdkSettings} refuses a configured {@code java} older than 27 before it gets here. How the
+ * AnalyzerJdkSettings} hands it only a {@code java} whose {@code -version} said 27 or newer. How the
  * subprocess is bounded (timeout, cancellation, temp files) is {@link AnalyzerInvocation}'s, in
  * {@code :model}.
  */

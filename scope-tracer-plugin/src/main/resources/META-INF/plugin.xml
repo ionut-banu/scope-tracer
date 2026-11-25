@@ -18,7 +18,7 @@
     </ul>
     <p>Requirements: IntelliJ IDEA 2026.3 or later. A JDK 27 must be installed: traced runs need
     a JDK 27 in the run configuration, and the bundled analyzer runs as a separate process on a
-    JDK 27 that you configure.</p>
+    JDK 27 or newer, found among the IDE's JDKs or chosen in Settings | Tools | Scope Tracer.</p>
     <p>See the <a href="https://github.com/ionut-banu/scope-tracer#readme">README</a> for
     details and the source code.</p>
   ]]></description>
@@ -35,6 +35,11 @@
                 factoryClass="com.ionutbanu.scopetracer.plugin.ScopeTracerToolWindowFactory"/>
     <notificationGroup id="Scope Tracer" displayType="BALLOON"/>
     <java.programPatcher implementation="com.ionutbanu.scopetracer.plugin.ScopeTracerProgramPatcher"/>
+    <!-- Settings → Tools → Scope Tracer: the analyzer's JDK, "Automatic" by default (#63). -->
+    <applicationConfigurable parentId="tools"
+                             instance="com.ionutbanu.scopetracer.plugin.ScopeTracerConfigurable"
+                             id="com.ionutbanu.scopetracer.plugin.settings"
+                             displayName="Scope Tracer"/>
   </extensions>
 
   <actions>

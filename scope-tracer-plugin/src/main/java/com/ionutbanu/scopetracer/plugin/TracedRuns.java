@@ -4,6 +4,7 @@ import com.intellij.execution.configurations.RunProfile;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.messages.MessageBusConnection;
+import com.ionutbanu.scopetracer.plugin.model.AnalyzerJdkChooser;
 import com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,14 +25,13 @@ final class TracedRuns {
     private final TracedRunLifecycle lifecycle = new TracedRunLifecycle();
     private final Project project;
     private final Path jfrFile;
-    private final Path analyzerJava;
     private volatile MessageBusConnection connection;
     private volatile Path agentJar;
+    private volatile AnalyzerJdkChooser.Candidate tracedRunJdk;
 
-    Active(Project project, Path jfrFile, Path analyzerJava) {
+    Active(Project project, Path jfrFile) {
       this.project = project;
       this.jfrFile = jfrFile;
-      this.analyzerJava = analyzerJava;
     }
 
     TracedRunLifecycle lifecycle() {
@@ -52,6 +52,14 @@ final class TracedRuns {
 
     void agentJar(Path agentJar) {
       this.agentJar = agentJar;
+    }
+
+    /**
+     * The JDK the traced run used, seen by the patcher; the analyzer's first automatic choice
+     * when the run ends.
+     */
+    void tracedRunJdk(AnalyzerJdkChooser.Candidate tracedRunJdk) {
+      this.tracedRunJdk = tracedRunJdk;
     }
   }
 
@@ -96,7 +104,7 @@ final class TracedRuns {
           active.project, "Scope Tracer", release.notice(), NotificationType.WARNING);
     }
     if (release.openRecording()) {
-      RunWithScopeTracerAction.openRecording(active.project, active.jfrFile, active.analyzerJava);
+      RunWithScopeTracerAction.openRecording(active.project, active.jfrFile, active.tracedRunJdk);
     }
   }
 

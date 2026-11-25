@@ -13,6 +13,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.components.JBTabbedPane;
 import com.intellij.ui.table.JBTable;
+import com.ionutbanu.scopetracer.plugin.model.AnalyzerJdkChooser;
 import com.ionutbanu.scopetracer.plugin.model.CallSite;
 import com.ionutbanu.scopetracer.plugin.model.CallSiteParser;
 import com.ionutbanu.scopetracer.plugin.model.HtmlReport;
@@ -42,6 +43,7 @@ import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The Scope Tracer tool window's content: two views of one recording (#62). "Timeline" is the
@@ -151,32 +153,43 @@ final class ScopeTracerPanel extends JPanel implements Disposable {
     if (file == null) {
       return;
     }
-    var jfrPath = Path.of(file.getPath());
-
-    // Resolved on the EDT (this method is only ever invoked from EDT event handlers) because
-    // it may pop a modal input dialog; Task.Backgroundable.run() executes on a pooled
-    // background thread, where showing UI throws "Access is allowed from EDT only".
-    Path javaPath;
-    try {
-      javaPath = AnalyzerJdkSettings.resolveJavaPath();
-    } catch (IllegalStateException e) {
-      showError(e);
-      return;
-    }
-    analyzeRecording(jfrPath, javaPath, false);
+    analyzeRecording(Path.of(file.getPath()), null, false);
   }
 
   /**
    * Analyzes {@code jfrPath} off the EDT and shows the result: the JSON run, then the HTML run
    * (both in this background task, with the runner's timeout and cancellation), then both views
    * replaced on the EDT. {@code deleteAfter} removes the recording once both runs have finished
-   * (used for temp recordings made by "Run with Scope Tracer").
+   * (used for temp recordings made by "Run with Scope Tracer"). The analyzer's JDK is chosen in
+   * the same background task, never on the EDT; {@code tracedRunJdk} is the traced run's own JDK,
+   * or {@code null}.
    */
-  void analyzeRecording(Path jfrPath, Path javaPath, boolean deleteAfter) {
+  void analyzeRecording(
+      Path jfrPath, AnalyzerJdkChooser.@Nullable Candidate tracedRunJdk, boolean deleteAfter) {
     new Task.Backgroundable(project, "Analyzing scope-tracer recording", true) {
       @Override
       public void run(@NotNull ProgressIndicator indicator) {
         try {
+          indicator.setText("Choosing a JDK for the analyzer");
+          Path javaPath;
+          try {
+            javaPath = AnalyzerJdkSettings.resolve(project, tracedRunJdk);
+          } catch (RuntimeException e) {
+            // The analysis does not start: the temp recording goes now, and the catch below
+            // reports the failure (or, for a cancel, stays quiet).
+            if (deleteAfter) {
+              deleteQuietly(jfrPath);
+            }
+            throw e;
+          }
+          if (javaPath == null) {
+            // The error notification, with "Configure…", is shown; the analysis does not start.
+            if (deleteAfter) {
+              deleteQuietly(jfrPath);
+            }
+            return;
+          }
+          indicator.setText("Analyzing scope-tracer recording");
           var result =
               ReportAnalysis.run(
                   () -> AnalyzerProcessRunner.analyze(jfrPath, javaPath, indicator::isCanceled),

@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 /**
@@ -44,6 +45,20 @@ public final class AnalyzerJdk {
     } catch (IOException e) {
       return "";
     }
+  }
+
+  /**
+   * The probe {@link AnalyzerJdkChooser} uses: from a {@code java} launcher to what its {@code
+   * -version} printed, bounded by {@link #VERSION_CHECK_TIMEOUT}; {@code ""} when it could not be
+   * read.
+   */
+  public static Function<Path, String> probe(Path tempDir) {
+    return probe(tempDir, VERSION_CHECK_TIMEOUT);
+  }
+
+  /** {@link #probe(Path)} with another timeout. */
+  public static Function<Path, String> probe(Path tempDir, Duration timeout) {
+    return java -> versionOutput(versionCommand(java), timeout, tempDir);
   }
 
   /**
