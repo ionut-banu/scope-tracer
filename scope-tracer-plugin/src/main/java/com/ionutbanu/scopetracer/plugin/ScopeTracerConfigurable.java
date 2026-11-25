@@ -1,5 +1,7 @@
 package com.ionutbanu.scopetracer.plugin;
 
+import com.intellij.ide.DataManager;
+import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
@@ -13,6 +15,7 @@ import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.wm.IdeFocusManager;
 import com.intellij.ui.SimpleListCellRenderer;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBRadioButton;
@@ -52,6 +55,8 @@ public final class ScopeTracerConfigurable implements Configurable {
   private TextFieldWithBrowseButton diskPath;
   private JBLabel automaticStatus;
   private volatile boolean disposed;
+  /** Bumped on the EDT by every refresh of the "Automatic" preview. */
+  private int statusGeneration;
 
   @Override
   public String getDisplayName() {
@@ -149,6 +154,7 @@ public final class ScopeTracerConfigurable implements Configurable {
       }
     }
     AnalyzerJdkSettings.explicitJava(selected);
+    refreshAutomaticStatus();
   }
 
   @Override
@@ -223,7 +229,8 @@ public final class ScopeTracerConfigurable implements Configurable {
   /** Works out, off the EDT, which JDK "Automatic" would use right now and what it skipped. */
   private void refreshAutomaticStatus() {
     automaticStatus.setText("Automatic: looking for a JDK " + TracedLaunch.MIN_JDK_MAJOR + "+…");
-    var project = anOpenProject();
+    var project = settingsProject();
+    int generation = ++statusGeneration;
     ApplicationManager.getApplication()
         .executeOnPooledThread(
             () -> {
@@ -231,7 +238,8 @@ public final class ScopeTracerConfigurable implements Configurable {
               ApplicationManager.getApplication()
                   .invokeLater(
                       () -> {
-                        if (!disposed) {
+                        // Only the newest refresh (after Apply, say) may write the label.
+                        if (!disposed && generation == statusGeneration) {
                           automaticStatus.setText(text);
                         }
                       },
@@ -239,11 +247,29 @@ public final class ScopeTracerConfigurable implements Configurable {
             });
   }
 
-  private static @Nullable Project anOpenProject() {
-    return Arrays.stream(ProjectManager.getInstance().getOpenProjects())
-        .filter(p -> !p.isDisposed())
-        .findFirst()
-        .orElse(null);
+  /**
+   * The project the settings dialog was opened for: from the dialog's data context once the page
+   * is in it, otherwise the project of the IDE frame focused last (the one the dialog was opened
+   * from), otherwise the only open project. An application-level page is not given a project, and
+   * with several open this is the one whose project SDK the actions in that frame would use.
+   */
+  private @Nullable Project settingsProject() {
+    if (panel != null) {
+      var fromDialog = CommonDataKeys.PROJECT.getData(DataManager.getInstance().getDataContext(panel));
+      if (fromDialog != null && !fromDialog.isDisposed()) {
+        return fromDialog;
+      }
+    }
+    var frame = IdeFocusManager.getGlobalInstance().getLastFocusedFrame();
+    var fromFrame = frame == null ? null : frame.getProject();
+    if (fromFrame != null && !fromFrame.isDisposed()) {
+      return fromFrame;
+    }
+    var open =
+        Arrays.stream(ProjectManager.getInstance().getOpenProjects())
+            .filter(p -> !p.isDisposed())
+            .toList();
+    return open.size() == 1 ? open.get(0) : null;
   }
 
   private static String describe(Choice choice, @Nullable Project project) {

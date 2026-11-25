@@ -4,6 +4,7 @@ import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.options.ShowSettingsUtil;
+import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.projectRoots.JavaSdk;
 import com.intellij.openapi.projectRoots.JavaSdkType;
@@ -17,6 +18,7 @@ import com.ionutbanu.scopetracer.plugin.model.AnalyzerJdkChooser;
 import com.ionutbanu.scopetracer.plugin.model.AnalyzerJdkChooser.Candidate;
 import com.ionutbanu.scopetracer.plugin.model.AnalyzerJdkChooser.Choice;
 import com.ionutbanu.scopetracer.plugin.model.AnalyzerJdkChooser.Source;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -43,10 +45,22 @@ final class AnalyzerJdkSettings {
 
   private AnalyzerJdkSettings() {}
 
-  /** The explicit {@code java} path, or empty for "Automatic". */
-  static Optional<Path> explicitJava() {
+  /** The saved explicit {@code java} path as text, or empty for "Automatic". */
+  static Optional<String> explicitJavaText() {
     var saved = PropertiesComponent.getInstance().getValue(PROPERTY_KEY);
-    return saved == null || saved.isBlank() ? Optional.empty() : Optional.of(Path.of(saved));
+    return saved == null || saved.isBlank() ? Optional.empty() : Optional.of(saved);
+  }
+
+  /**
+   * The explicit {@code java} path, or empty for "Automatic" or a saved value that is not a valid
+   * path (which the analysis still reports as a skipped explicit choice).
+   */
+  static Optional<Path> explicitJava() {
+    try {
+      return explicitJavaText().map(Path::of);
+    } catch (InvalidPathException e) {
+      return Optional.empty();
+    }
   }
 
   /** Saves the explicit {@code java} path; empty means "Automatic" and removes the key. */
@@ -96,7 +110,7 @@ final class AnalyzerJdkSettings {
 
   /** Runs the chooser over the explicit setting and the JDKs the IDE knows. Probes. */
   static Choice choose(@Nullable Project project, @Nullable Candidate tracedRun) {
-    return choose(project, tracedRun, explicitJava());
+    return choose(project, tracedRun, explicitJavaText());
   }
 
   /** What "Automatic" would choose right now, for the settings page. Probes. */
@@ -105,7 +119,7 @@ final class AnalyzerJdkSettings {
   }
 
   private static Choice choose(
-      @Nullable Project project, @Nullable Candidate tracedRun, Optional<Path> explicit) {
+      @Nullable Project project, @Nullable Candidate tracedRun, Optional<String> explicit) {
     var inputs =
         ApplicationManager.getApplication()
             .runReadAction(
@@ -125,13 +139,21 @@ final class AnalyzerJdkSettings {
     return List.copyOf(ProjectJdkTable.getInstance().getSdksOfType(JavaSdk.getInstance()));
   }
 
-  /** The {@code java} launcher of an SDK, or {@code null}. */
+  /** The {@code java} launcher of an SDK, or {@code null} when it has none or it is not a path. */
   static @Nullable Path javaOf(Sdk sdk) {
+    var path = javaTextOf(sdk);
+    try {
+      return path == null ? null : Path.of(path);
+    } catch (InvalidPathException e) {
+      return null;
+    }
+  }
+
+  private static @Nullable String javaTextOf(Sdk sdk) {
     if (!(sdk.getSdkType() instanceof JavaSdkType type) || sdk.getHomePath() == null) {
       return null;
     }
-    var path = type.getVMExecutablePath(sdk);
-    return path == null ? null : Path.of(path);
+    return type.getVMExecutablePath(sdk);
   }
 
   /** What the page and the warning call an explicit {@code java}: its SDK's name, or the path. */
@@ -152,8 +174,11 @@ final class AnalyzerJdkSettings {
                     .showSettingsDialog(project, ScopeTracerConfigurable.class));
   }
 
-  private static Candidate explicitCandidate(Path java, List<Sdk> registered) {
-    return new Candidate(Source.EXPLICIT, nameOf(java, registered), null, java, null);
+  private static Candidate explicitCandidate(String java, List<Sdk> registered) {
+    var candidate = Candidate.of(Source.EXPLICIT, java, null, java, null);
+    return candidate.java() == null
+        ? candidate
+        : new Candidate(Source.EXPLICIT, nameOf(candidate.java(), registered), null, candidate.java(), null);
   }
 
   private static @Nullable Candidate projectSdk(@Nullable Project project) {
@@ -166,14 +191,21 @@ final class AnalyzerJdkSettings {
         : candidate(Source.PROJECT_SDK, sdk);
   }
 
+  /**
+   * One SDK as a candidate. Anything that goes wrong reading one SDK makes it a skipped candidate
+   * with the reason, so one bad entry in the JDK table never stops the analysis.
+   */
   private static Candidate candidate(Source source, Sdk sdk) {
-    var home = sdk.getHomePath();
-    return new Candidate(
-        source,
-        sdk.getName(),
-        home == null ? null : Path.of(home),
-        javaOf(sdk),
-        sdk.getVersionString());
+    var name = String.valueOf(sdk.getName());
+    String stored = null;
+    try {
+      stored = sdk.getVersionString();
+      return Candidate.of(source, name, sdk.getHomePath(), javaTextOf(sdk), stored);
+    } catch (ProcessCanceledException e) {
+      throw e;
+    } catch (RuntimeException e) {
+      return Candidate.unreadable(source, name, stored, "could not be read (" + e + ")");
+    }
   }
 
   private static String html(List<String> lines) {

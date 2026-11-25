@@ -18,7 +18,7 @@
     </ul>
     <p>Requirements: IntelliJ IDEA 2026.3 or later. A JDK 27 must be installed: traced runs need
     a JDK 27 in the run configuration, and the bundled analyzer runs as a separate process on a
-    JDK 27 or newer that the IDE already knows (Settings | Tools | Scope Tracer to choose one).</p>
+    JDK 27 or newer, found among the IDE's JDKs or chosen in Settings | Tools | Scope Tracer.</p>
     <p>See the <a href="https://github.com/ionut-banu/scope-tracer#readme">README</a> for
     details and the source code.</p>
   ]]></description>

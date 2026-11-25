@@ -300,11 +300,30 @@ class AnalyzerJdkChooserTest {
     var project = jdk(Source.PROJECT_SDK, "jdk-26", "26", V26);
     var sameJava = new Candidate(Source.REGISTERED, "jdk-26 (registered)", project.home(), project.java(), "26");
 
-    var choice = choose(null, null, project, sameJava, registered("temurin-27", "27", V27));
+    // The duplicate is the only registered JDK, so it is the next one tried after the project SDK.
+    var choice = choose(null, null, project, sameJava);
 
-    assertThat(chosenName(choice)).isEqualTo("temurin-27");
-    assertThat(probed).containsOnlyOnce(project.java());
+    assertThat(choice.chosen()).isEmpty();
+    assertThat(probed).containsExactly(project.java());
     assertThat(choice.skipped()).extracting(Skipped::line).containsExactly("jdk-26: JDK 26");
+  }
+
+  @Test
+  void aRegisteredJdkWhosePathCannotBeReadIsSkippedWithAReasonAndTheNextOneIsTried()
+      throws IOException {
+    // A NUL character is an invalid path on every platform.
+    var bad = Candidate.of(Source.REGISTERED, "broken-jdk", "/jdks/a\u0000b", "/jdks/a\u0000b/bin/java", "28");
+    var good = registered("temurin-27", "27", V27);
+    var fromStrings =
+        Candidate.of(Source.REGISTERED, "temurin-27", good.home().toString(), good.java().toString(), "27");
+
+    var choice = choose(null, null, null, bad, fromStrings);
+
+    assertThat(fromStrings).isEqualTo(good);
+    assertThat(chosenName(choice)).isEqualTo("temurin-27");
+    assertThat(choice.skipped()).singleElement()
+        .satisfies(s -> assertThat(s.reason()).startsWith("invalid path"));
+    assertThat(probed).containsExactly(good.java());
   }
 
   @Test

@@ -1,6 +1,7 @@
 package com.ionutbanu.scopetracer.plugin.model;
 
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -57,9 +58,41 @@ public final class AnalyzerJdkChooser {
    * @param java the {@code java} launcher, or {@code null} when IntelliJ could not name one.
    * @param storedVersion the version string IntelliJ stored, or {@code null}; orders the
    *     registered JDKs and is never used to decide whether one is usable.
+   * @param unreadable why the IDE's description of this JDK could not be read (an invalid path,
+   *     say), or {@code null}; such a candidate is skipped with this reason and never probed.
    */
   public record Candidate(
-      Source source, String name, Path home, Path java, String storedVersion) {}
+      Source source, String name, Path home, Path java, String storedVersion, String unreadable) {
+
+    /** A candidate the IDE described without problems. */
+    public Candidate(Source source, String name, Path home, Path java, String storedVersion) {
+      this(source, name, home, java, storedVersion, null);
+    }
+
+    /**
+     * A candidate from the strings IntelliJ stores. A home or launcher that is not a valid path
+     * makes a candidate that is skipped with the reason, instead of failing the whole choice.
+     */
+    public static Candidate of(
+        Source source, String name, String home, String java, String storedVersion) {
+      try {
+        return new Candidate(
+            source,
+            name,
+            home == null ? null : Path.of(home),
+            java == null ? null : Path.of(java),
+            storedVersion);
+      } catch (InvalidPathException e) {
+        return unreadable(source, name, storedVersion, "invalid path (" + e.getMessage() + ")");
+      }
+    }
+
+    /** A candidate whose description could not be read; skipped with {@code reason}. */
+    public static Candidate unreadable(
+        Source source, String name, String storedVersion, String reason) {
+      return new Candidate(source, name, null, null, storedVersion, reason);
+    }
+  }
 
   /** What the choice is made from; any of them may be absent or empty. */
   public record Inputs(
@@ -196,6 +229,9 @@ public final class AnalyzerJdkChooser {
 
   /** {@link Chosen} when usable, otherwise {@link Skipped}. */
   static Verdict check(Candidate candidate, Function<Path, String> probe) {
+    if (candidate.unreadable() != null) {
+      return new Skipped(candidate, candidate.unreadable());
+    }
     if (candidate.home() != null && !Files.isDirectory(candidate.home())) {
       return new Skipped(candidate, "home not found");
     }

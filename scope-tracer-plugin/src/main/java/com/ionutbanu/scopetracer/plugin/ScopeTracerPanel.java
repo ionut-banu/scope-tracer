@@ -171,7 +171,17 @@ final class ScopeTracerPanel extends JPanel implements Disposable {
       public void run(@NotNull ProgressIndicator indicator) {
         try {
           indicator.setText("Choosing a JDK for the analyzer");
-          var javaPath = AnalyzerJdkSettings.resolve(project, tracedRunJdk);
+          Path javaPath;
+          try {
+            javaPath = AnalyzerJdkSettings.resolve(project, tracedRunJdk);
+          } catch (RuntimeException e) {
+            // The analysis does not start: the temp recording goes now, and the catch below
+            // reports the failure (or, for a cancel, stays quiet).
+            if (deleteAfter) {
+              deleteQuietly(jfrPath);
+            }
+            throw e;
+          }
           if (javaPath == null) {
             // The error notification, with "Configure…", is shown; the analysis does not start.
             if (deleteAfter) {

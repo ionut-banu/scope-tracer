@@ -178,6 +178,7 @@ public final class RunWithScopeTracerAction extends AnAction {
     } catch (IOException ex) {
       ScopeTracerNotifier.notify(
           project, "Scope Tracer", String.valueOf(ex.getMessage()), NotificationType.ERROR);
+      TracedRuns.deleteQuietly(jfrFile);
       return;
     }
     com.intellij.openapi.application.ApplicationManager.getApplication()

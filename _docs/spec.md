@@ -782,10 +782,10 @@ in place, asserts every value, and fails on a key it does not map.
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 153 |
+| plugin `:model` | Gradle | 154 |
 
 `mvn -q verify` runs the first six: 939 tests (surefire plus
-failsafe, measured on 2026-11-24 on the branch of #62 from `main` at 574d4a2, on Temurin 27; the
+failsafe, measured on 2026-11-25 on the branch of #63 from `main` at 060fa13, on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
