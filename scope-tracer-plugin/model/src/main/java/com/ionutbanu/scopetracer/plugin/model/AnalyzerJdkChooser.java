@@ -235,14 +235,17 @@ public final class AnalyzerJdkChooser {
   }
 
   /**
-   * The {@code java} launcher for a path the user chose from disk: the path itself when it is a
-   * file, otherwise {@code <home>/bin/java} ({@code java.exe} when {@code windows}).
+   * The {@code java} launcher for a path the user chose from disk: {@code <home>/bin/java}
+   * ({@code java.exe} when {@code windows}) when it is an existing directory, a JDK home;
+   * otherwise the path unchanged. A {@code java} file is itself, and so is a path that no longer
+   * exists (a saved JDK since removed), so the page shows and refuses it as it was saved instead of
+   * appending {@code bin/java} to a launcher path.
    */
   public static Path launcherFor(Path chosen, boolean windows) {
-    if (Files.isRegularFile(chosen)) {
-      return chosen;
+    if (Files.isDirectory(chosen)) {
+      return chosen.resolve("bin").resolve(windows ? "java.exe" : "java");
     }
-    return chosen.resolve("bin").resolve(windows ? "java.exe" : "java");
+    return chosen;
   }
 
   /** {@link Chosen} when usable, otherwise {@link Skipped}. */

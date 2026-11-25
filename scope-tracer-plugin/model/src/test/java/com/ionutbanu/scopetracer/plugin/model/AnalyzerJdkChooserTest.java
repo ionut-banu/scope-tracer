@@ -410,4 +410,29 @@ class AnalyzerJdkChooserTest {
     assertThat(AnalyzerJdkChooser.launcherFor(jdk.home(), true))
         .isEqualTo(jdk.home().resolve("bin").resolve("java.exe"));
   }
+
+  @Test
+  void aSavedJdkRemovedFromDiskIsShownUnchangedNotModifiedOnOpenAndRefusedNamingThePathAsSaved() {
+    var gone = temp.resolve("gone/temurin-27/bin/java");
+    var goneHome = temp.resolve("gone/temurin-27");
+
+    // A path that does not exist is returned as it is, whether it named a java or a home.
+    assertThat(AnalyzerJdkChooser.launcherFor(gone, false)).isEqualTo(gone);
+    assertThat(AnalyzerJdkChooser.launcherFor(goneHome, false)).isEqualTo(goneHome);
+
+    // The page opened on it, with the field showing the saved text, is not modified.
+    var saved = Optional.of(gone.toString());
+    var shown = AnalyzerJdkChooser.launcherFor(Path.of(saved.get()), false);
+    assertThat(AnalyzerJdkChooser.settingChanged(saved, Optional.of(shown))).isFalse();
+
+    // Apply on it is still refused, naming the path as saved and JDK 27.
+    assertThat(AnalyzerJdkChooser.refusalOfExplicit(shown, probe))
+        .hasValueSatisfying(
+            r ->
+                assertThat(r)
+                    .contains("No java launcher at " + gone + ";")
+                    .doesNotContain("bin/java/bin/java")
+                    .contains("JDK 27 or newer"));
+    assertThat(probed).isEmpty();
+  }
 }
