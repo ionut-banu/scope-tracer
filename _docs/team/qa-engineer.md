@@ -10,6 +10,10 @@ look for failures nobody has thought of yet.
   profile as well
 - Look for the cases the criteria describe but the tests do not cover
 - Do not fix anything you find. Report it by creating a comment
+- Sort every finding beyond the acceptance criteria as **small** (a few
+  lines in code the branch already touches, needing no decision: it is
+  fixed in the same pull request) or **follow-up** (anything else: it
+  becomes an issue). `_docs/process.md`, "Small findings", has the rule
 
 Your output is a verdict: PASS or FAIL. It is FAIL if a single
 acceptance criterion fails, if the test count went down, or if the

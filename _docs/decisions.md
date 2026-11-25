@@ -1412,3 +1412,22 @@ Decided by the maintainer, following the PM's recommendations:
 - **The secret gate sees no value.** The workflow passes
   `secrets.X != ''` to `check-plugin-secrets.sh`, so the step that
   decides is testable locally and never holds a secret.
+
+## 2026-11-25 - Small QA findings are fixed in the same pull request
+
+Decided by the maintainer.
+
+- **The problem.** Every finding QA reported beyond the acceptance
+  criteria became a follow-up issue. A task closed one issue and opened
+  one to three, so the backlog kept growing: by 2026-11-24, 33 of the 66
+  open issues came from QA or review, most of them a few lines each.
+- **The rule.** QA sorts each finding as small or follow-up. A small one
+  (a few lines in code the branch touches, no decision needed) goes back
+  to the engineer and is fixed on the same branch before the pull
+  request opens; QA checks the fix. Only the rest become `from: qa`
+  issues. `_docs/process.md`, "Small findings", has the details.
+- **The cost.** One more engineer and QA pass on some tasks. It does not
+  count toward the three-round ceiling, since the work had passed.
+- **Unchanged.** The milestone reviewer's findings still become issues:
+  the reviewer reads merged code, so there is no open pull request to
+  fix them in.

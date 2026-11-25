@@ -10,9 +10,11 @@ Lifecycle
 3. Engineer implements it on a branch, in its own worktree
 4. QA verifies it on that branch, in that worktree
 5. On FAIL, back to step 3 with the QA comment as input
-6. On PASS, push the branch and open a pull request into `main`
-7. Stop. A human reviews and merges it, and the merge closes the issue
-8. Repeat until the backlog is empty
+6. On PASS with small findings, back to step 3 to fix them on the same
+   branch, then QA checks those fixes (see "Small findings")
+7. On PASS, push the branch and open a pull request into `main`
+8. Stop. A human reviews and merges it, and the merge closes the issue
+9. Repeat until the backlog is empty
 
 Rules
 
@@ -26,6 +28,8 @@ Rules
   work is ready to be looked at, not that it is ready to land.
 - The orchestrator never fixes the code itself. Fixing in the main
   session skips QA entirely and is how unverified work gets closed.
+- A small QA finding is fixed in the same pull request, not filed as
+  an issue (see "Small findings").
 - Dependabot pull requests are outside this loop. A human reads CI on
   them and merges or closes them.
 
@@ -48,7 +52,7 @@ applies them:
 
 - `from: review` - a finding from the milestone reviewer
 - `from: qa` - something QA found that was outside the issue it was
-  testing
+  testing, and too large to fix in its pull request
 - `from: user` - reported by someone using scope-tracer, not by this
   team
 
@@ -152,7 +156,31 @@ the test result, and anything known-broken and deliberately deferred.
 It is the one place a human sees the whole change at once, so it is
 written for a reader who has not followed the issue.
 
-Step 7 is a real stop. The loop does not continue to the next issue
+Small findings
+
+QA reports what it finds beyond the acceptance criteria, and sorts
+each finding as small or not. A finding is small when all of these
+hold:
+
+- it is in code, tests or docs the branch already touches, or right
+  next to them;
+- it is a few lines - a wording fix, a missing test case, a guard, a
+  docs note;
+- it needs no decision from the maintainer and no new acceptance
+  criterion from the PM.
+
+A small finding is fixed on the same branch before the pull request is
+opened. The orchestrator sends the small findings back to the engineer
+of that issue, and QA checks the fixes and re-runs the build. This is
+not a failed round and does not count toward the three-round ceiling
+below, but a fix that breaks something turns it into one.
+
+Everything else - a separate feature, a real decision, work in a part
+of the code the issue does not touch - is filed as a follow-up issue
+with `from: qa`, as before. When in doubt, the orchestrator asks the
+maintainer rather than filing.
+
+Step 8 is a real stop. The loop does not continue to the next issue
 while a pull request is waiting, unless the next issue is independent
 of the one under review - and an issue that touches the event schema
 or `TraceModelJson` is never independent of anything downstream of it.
