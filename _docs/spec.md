@@ -773,7 +773,7 @@ in place, asserts every value, and fails on a key it does not map.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-25, #63 on #42, JDK 27) |
+| Suite | Runner | Count (2026-11-25, #63 on #222, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 172 |
@@ -785,7 +785,7 @@ in place, asserts every value, and fails on a key it does not map.
 | plugin `:model` | Gradle | 156 |
 
 `mvn -q verify` runs the first six: 939 tests (surefire plus
-failsafe, measured on 2026-11-25 on the branch of #63 from `main` at 060fa13, on Temurin 27; the
+failsafe, measured on 2026-11-25 on the branch of #63 from `main` at 6db2c4a, on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
