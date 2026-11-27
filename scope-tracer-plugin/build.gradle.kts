@@ -114,6 +114,10 @@ intellijPlatform {
 // resources, and the analyzer is deliberately Java 27 (major 71); only entries that are
 // themselves .class files are read, and a nested jar's entries are never opened.
 // The limit is its own property, pluginMaxClassJava, not options.release.
+// It checks the `jar` task's output (the -base jar), not the instrumented/composed jar the zip
+// ships: instrumentedJar and composedJar repackage those same class files (instrumentation does
+// not change the version bytes), so the classes and majors are the same. Do not "fix" this to
+// another jar.
 evaluationDependsOn(":model")
 
 val checkClassFileVersions =
@@ -126,7 +130,13 @@ val checkClassFileVersions =
           listOf(tasks.named<Jar>("jar"), project(":model").tasks.named<Jar>("jar")).map {
             it.flatMap { jar -> jar.archiveFile }
           }
-      val maxJava = providers.gradleProperty("pluginMaxClassJava").map { it.trim().toInt() }
+      val maxJava =
+          providers.gradleProperty("pluginMaxClassJava").map {
+            it.trim().toIntOrNull()
+                ?: throw GradleException(
+                    "pluginMaxClassJava must be a Java feature version such as 25, " +
+                        "but is \"$it\"")
+          }
       inputs.files(jars)
       inputs.property("pluginMaxClassJava", maxJava)
       doLast {
