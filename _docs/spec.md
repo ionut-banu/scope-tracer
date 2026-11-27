@@ -764,9 +764,11 @@ is a failed analysis saying so, not an empty trace.
   browser, disposed with its client). The file on disk carries no
   bridge code, so "Open in Browser" is unaffected. A click inside a
   link, a button, a form control, a group heading or a failed task's
-  stack trace, a click that ends
-  a text selection, and a click on anything without both attributes
-  (the scope bar, the axis, the overview) are left to the page.
+  stack trace, a click that ends a text selection, and a click on
+  anything without both attributes (the scope bar, the axis, the
+  overview) are left to the page; the second click of a double click
+  (`detail > 1`) is ignored, so it navigates once. A click that
+  arrives after its tab or the project closed does nothing.
   `TaskClick.parse` accepts only two non-negative `long`s in ASCII
   digits; anything else is ignored and logged at INFO. On the EDT the
   panel looks the pair up in its own recording (`TaskCallSites`, from
@@ -899,7 +901,7 @@ in place, asserts every value, and fails on a key it does not map.
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
 | agent unit | surefire | 250 |
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
-| demos unit | surefire | 66 |
+| demos unit | surefire | 67 |
 | stress (`-Pstress`) | failsafe | 3 |
 | plugin `:model` | Gradle | 251 |
 

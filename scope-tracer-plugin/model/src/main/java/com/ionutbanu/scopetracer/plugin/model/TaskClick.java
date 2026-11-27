@@ -62,7 +62,7 @@ public record TaskClick(long scopeId, long taskId) {
       if (window.__scopeTracerTaskClick) return;
       window.__scopeTracerTaskClick = true;
       document.addEventListener('click', function(e) {
-        if (e.button !== 0 || !(e.target instanceof Element)) return;
+        if (e.button !== 0 || e.detail > 1 || !(e.target instanceof Element)) return;
         var own = 'a, button, input, label, select, textarea, summary, details.stack-trace';
         if (e.target.closest(own)) return;
         var selection = window.getSelection();

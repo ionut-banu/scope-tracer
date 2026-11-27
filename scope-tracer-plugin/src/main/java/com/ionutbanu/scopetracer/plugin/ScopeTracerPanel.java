@@ -92,6 +92,7 @@ final class ScopeTracerPanel extends JPanel implements Disposable {
   // The same call sites by (scopeId, taskId), for a click in "Timeline" (#190). Replaced with the
   // recording shown, on the EDT, so a click is always looked up in this panel's own model.
   private TaskCallSites taskCallSites = TaskCallSites.EMPTY;
+  private volatile boolean disposed;
 
   ScopeTracerPanel(Project project) {
     super(new BorderLayout());
@@ -144,15 +145,17 @@ final class ScopeTracerPanel extends JPanel implements Disposable {
     }
   }
 
-  /** The content is disposed (the project closes): delete the temp HTML file shown. */
+  /** The content is disposed (its tab or the project closes): delete the temp HTML file shown. */
   @Override
   public void dispose() {
+    disposed = true;
     shown.dispose();
   }
 
   /** A task bar or row clicked in "Timeline" (#190). On the EDT. */
   private void timelineTaskClicked(TaskClick click) {
-    if (project.isDisposed()) {
+    // A click queued just before this tab or the project closed goes nowhere.
+    if (disposed || project.isDisposed()) {
       return;
     }
     switch (taskCallSites.find(click)) {

@@ -52,6 +52,18 @@ class ReportSkeletonTest {
     assertThat(sameSkeleton(a, b)).isTrue();
   }
 
+  /** A row's thread is masked whatever its name, not only its digits (#190). */
+  @Test
+  void aRowsThreadRenamedToAnotherNameIsIgnored() {
+    var a = render(TestModels.simple(0, 10, 100));
+    var b =
+        a.replaceFirst(
+            "(<tr[^>]*><td>\\d+</td><td>[^<]*</td><td>)[^<]*(</td>)", "$1ForkJoinPool-worker-Z$2");
+
+    assertThat(b).isNotEqualTo(a).contains("ForkJoinPool-worker-Z");
+    assertThat(sameSkeleton(a, b)).isTrue();
+  }
+
   @Test
   void aJdkFrameInAStackTraceIsIgnored() {
     var withFrames =

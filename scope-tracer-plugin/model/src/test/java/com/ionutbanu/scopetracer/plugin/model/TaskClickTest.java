@@ -75,6 +75,12 @@ class TaskClickTest {
     assertThat(TaskClick.parse("1:2" + " ".repeat(100_000))).isEmpty();
   }
 
+  /** A double click fires two clicks; only the first, {@code detail == 1}, goes to the IDE. */
+  @Test
+  void theClickScriptIgnoresTheSecondClickOfADoubleClick() {
+    assertThat(TaskClick.script("window.bridge(msg);")).contains("e.detail > 1");
+  }
+
   @Test
   void theClickScriptCallsTheBridgeWithTheElementsOwnIdsOnly() {
     var script = TaskClick.script("window.bridge(msg);");
