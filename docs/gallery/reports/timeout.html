@@ -92,8 +92,8 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <span class="legend-item"><span class="legend-swatch" style="background:#9e9e9e"></span>incomplete</span>
 <span class="legend-item"><span class="legend-swatch" style="background:#4caf50;box-shadow:0 0 0 2px #d97706"></span>critical path</span>
 </div>
-<script type="application/json" id="trace-data">{"scopes":[{"scopeId":35,"name":"timeout","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-27T14:53:42.201954833Z","closeTime":"2026-11-27T14:53:42.654342500Z","parent":null,"tasks":[{"taskId":1,"taskName":"fast","threadName":"","threadId":138,"forkTime":"2026-11-27T14:53:42.202063Z","completionTime":"2026-11-27T14:53:42.355815458Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"timeout","line":145}},{"taskId":2,"taskName":"slow-1","threadName":"","threadId":139,"forkTime":"2026-11-27T14:53:42.202147Z","completionTime":"2026-11-27T14:53:42.654265875Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"timeout","line":146}},{"taskId":3,"taskName":"slow-2","threadName":"","threadId":140,"forkTime":"2026-11-27T14:53:42.202202958Z","completionTime":"2026-11-27T14:53:42.654311500Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"timeout","line":147}}]}]}</script>
-<p class="summary">1 scope(s) &nbsp;|&nbsp; <span class="count-success">0 success</span> &nbsp;·&nbsp; <span class="count-cancelled">1 cancelled</span> &nbsp;|&nbsp; median: 452.39ms &nbsp;|&nbsp; wall: 452.39ms</p>
+<script type="application/json" id="trace-data">{"scopes":[{"scopeId":35,"name":"timeout","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-27T18:59:12.721946625Z","closeTime":"2026-11-27T18:59:13.177355792Z","parent":null,"tasks":[{"taskId":1,"taskName":"fast","threadName":"","threadId":138,"forkTime":"2026-11-27T18:59:12.722044042Z","completionTime":"2026-11-27T18:59:12.877414833Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"timeout","line":145}},{"taskId":2,"taskName":"slow-1","threadName":"","threadId":139,"forkTime":"2026-11-27T18:59:12.722133583Z","completionTime":"2026-11-27T18:59:13.177206208Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"timeout","line":146}},{"taskId":3,"taskName":"slow-2","threadName":"","threadId":140,"forkTime":"2026-11-27T18:59:12.722182125Z","completionTime":"2026-11-27T18:59:13.177216125Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"timeout","line":147}}]}]}</script>
+<p class="summary">1 scope(s) &nbsp;|&nbsp; <span class="count-success">0 success</span> &nbsp;·&nbsp; <span class="count-cancelled">1 cancelled</span> &nbsp;|&nbsp; median: 455.41ms &nbsp;|&nbsp; wall: 455.41ms</p>
 <div class="filter-bar">
 <input type="text" id="search" placeholder="filter by name…" autocomplete="off"/>
 <span class="filter-sep">|</span>
@@ -110,41 +110,41 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <rect x="0" y="8" width="800" height="18" class="track" rx="2"/>
 <a href="#scope-0" style="text-decoration:none">
 <rect x="0.00" y="8" width="800.00" height="18" rx="1" style="fill:#fb8c00;opacity:0.85">
-<title>timeout | 452.39ms</title>
+<title>timeout | 455.41ms</title>
 </rect>
 </a>
-<text x="0" y="40" class="tick-label" font-size="8" font-family="monospace">14:53:42.201</text>
-<text x="800" y="40" class="tick-label" font-size="8" font-family="monospace" text-anchor="end">14:53:42.654</text>
+<text x="0" y="40" class="tick-label" font-size="8" font-family="monospace">18:59:12.721</text>
+<text x="800" y="40" class="tick-label" font-size="8" font-family="monospace" text-anchor="end">18:59:13.177</text>
 </svg>
 </div>
 <section id="scope-0" data-scope="timeout" data-outcome="cancelled">
 <h2>timeout <a class="anchor-link" href="#scope-0" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 14:53:42.201 &nbsp;|&nbsp; duration: 452.39ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 18:59:12.721 &nbsp;|&nbsp; duration: 455.41ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>fast</td><td>vt-138</td><td>+108.17µs</td><td>153.75ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>slow-1</td><td>vt-139</td><td>+192.17µs</td><td>452.12ms</td><td><span class="outcome-cancelled">cancelled</span></td></tr>
-<tr><td>3</td><td>slow-2</td><td>vt-140</td><td>+248.13µs</td><td>452.11ms</td><td><span class="outcome-cancelled">cancelled</span></td></tr>
+<tr data-scope-id="35" data-task-id="1"><td>1</td><td>fast</td><td>vt-138</td><td>+97.42µs</td><td>155.37ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr data-scope-id="35" data-task-id="2"><td>2</td><td>slow-1</td><td>vt-139</td><td>+186.96µs</td><td>455.07ms</td><td><span class="outcome-cancelled">cancelled</span></td></tr>
+<tr data-scope-id="35" data-task-id="3"><td>3</td><td>slow-2</td><td>vt-140</td><td>+235.50µs</td><td>455.03ms</td><td><span class="outcome-cancelled">cancelled</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>timeout | 452.39ms</title>
+<title>timeout | 455.41ms</title>
 </rect>
-<svg x="0.19" y="32" width="271.90" height="18" overflow="hidden">
-<rect x="0" y="0" width="271.90" height="18" fill="#4caf50" rx="2">
+<svg data-scope-id="35" data-task-id="1" x="0.17" y="32" width="272.93" height="18" overflow="hidden">
+<rect x="0" y="0" width="272.93" height="18" fill="#4caf50" rx="2">
 <title>task 1 | fast | vt-138 | success</title>
 </rect>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#1 fast</text>
 </svg>
-<svg x="0.34" y="58" width="799.52" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.52" height="18" fill="#fb8c00" rx="2">
+<svg data-scope-id="35" data-task-id="2" x="0.33" y="58" width="799.41" height="18" overflow="hidden">
+<rect x="0" y="0" width="799.41" height="18" fill="#fb8c00" rx="2">
 <title>task 2 | slow-1 | vt-139 | cancelled</title>
 </rect>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#2 slow-1</text>
 </svg>
-<svg x="0.44" y="84" width="799.51" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.51" height="18" fill="#fb8c00" rx="2">
+<svg data-scope-id="35" data-task-id="3" x="0.41" y="84" width="799.34" height="18" overflow="hidden">
+<rect x="0" y="0" width="799.34" height="18" fill="#fb8c00" rx="2">
 <title>task 3 | slow-2 | vt-140 | cancelled</title>
 </rect>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#3 slow-2</text>
@@ -152,14 +152,14 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <line x1="0" y1="116" x2="800" y2="116" class="tick"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" class="tick"/>
 <text x="2.00" y="128" class="tick-label" font-size="8" font-family="monospace">0</text>
-<line x1="176.84" y1="113" x2="176.84" y2="119" class="tick"/>
-<text x="178.84" y="128" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
-<line x1="353.68" y1="113" x2="353.68" y2="119" class="tick"/>
-<text x="355.68" y="128" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
-<line x1="530.52" y1="113" x2="530.52" y2="119" class="tick"/>
-<text x="532.52" y="128" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
-<line x1="707.36" y1="113" x2="707.36" y2="119" class="tick"/>
-<text x="709.36" y="128" class="tick-label" font-size="8" font-family="monospace">+400ms</text>
+<line x1="175.67" y1="113" x2="175.67" y2="119" class="tick"/>
+<text x="177.67" y="128" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
+<line x1="351.33" y1="113" x2="351.33" y2="119" class="tick"/>
+<text x="353.33" y="128" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
+<line x1="527.00" y1="113" x2="527.00" y2="119" class="tick"/>
+<text x="529.00" y="128" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
+<line x1="702.66" y1="113" x2="702.66" y2="119" class="tick"/>
+<text x="704.66" y="128" class="tick-label" font-size="8" font-family="monospace">+400ms</text>
 </svg>
 </div>
 </section>
