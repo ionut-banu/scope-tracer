@@ -144,7 +144,7 @@ class ReportSkeletonTest {
   @Test
   void aDeletedRowIsDetected() {
     var original = render(TestModels.simple(0, 10, 100));
-    int row = original.indexOf("<tr><td>2</td>");
+    int row = original.lastIndexOf("<tr", original.indexOf("><td>2</td>"));
     var withoutRow =
         original.substring(0, row) + original.substring(original.indexOf("</tr>", row) + 6);
 

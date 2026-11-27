@@ -8,7 +8,10 @@ import com.ionutbanu.scopetracer.analyzer.model.TaskOutcome;
 import com.ionutbanu.scopetracer.analyzer.model.TaskRecord;
 import com.ionutbanu.scopetracer.analyzer.model.TraceModel;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 class HtmlRendererTest {
@@ -53,7 +56,7 @@ class HtmlRendererTest {
     var scope = new ScopeRecord(1L, "multi", "main", -1L, T0, T4, tasks, null);
     var html = HtmlRenderer.render(new TraceModel(List.of(scope)));
     // one <tr> per task plus the header row
-    var rowCount = countOccurrences(html, "<tr>");
+    var rowCount = countOccurrences(html, "<tr");
     assertThat(rowCount).isGreaterThanOrEqualTo(3);
   }
 
@@ -467,6 +470,103 @@ class HtmlRendererTest {
     var html = HtmlRenderer.render(modelWithSingleSuccessTask("<script>alert(1)</script>"));
     assertThat(html).doesNotContain("<script>alert(1)</script>");
     assertThat(html).contains("&lt;script&gt;");
+  }
+
+  // --- task identity attributes (#190) ---
+
+  private static final Pattern TASK_ROW =
+      Pattern.compile("<tr data-scope-id=\"(\\d+)\" data-task-id=\"(\\d+)\"><td>(\\d+)</td>");
+  private static final Pattern TASK_BAR =
+      Pattern.compile(
+          "<svg data-scope-id=\"(\\d+)\" data-task-id=\"(\\d+)\" x=\"[^\"]*\" y=\"[^\"]*\""
+              + " width=\"[^\"]*\" height=\"18\" overflow=\"hidden\">\n"
+              + "<rect [^>]*>\n<title>task (\\d+)[ <]");
+
+  /**
+   * Every task bar and every task row carries its own scope's id and its own task id: for a root
+   * scope, for a child scope drawn under a parent task, and for the scopes of a repeated-root
+   * group. The task id an attribute names is the one the element shows ({@code <td>N} for a row,
+   * {@code <title>task N} for a bar), and the scope id is the scope that owns the task, never its
+   * parent.
+   */
+  @Test
+  void taskBarsAndRowsCarryTheirOwnScopeAndTaskIds() {
+    var root =
+        new ScopeRecord(
+            10L,
+            "checkout",
+            "main",
+            -1L,
+            T0,
+            T4,
+            List.of(
+                task(1, T1, T3, new TaskOutcome.Success()),
+                task(2, T1, T2, new TaskOutcome.Failed("java.lang.RuntimeException", null, null))),
+            null);
+    var child =
+        new ScopeRecord(
+            20L,
+            "payment",
+            "worker-1",
+            -1L,
+            T1,
+            T3,
+            List.of(task(3, T1, T2, new TaskOutcome.Success()), task(4, T1, null, null)),
+            new ScopeRecord.ParentRef(10L, "checkout", 1));
+    var t5 = T4.plusMillis(10);
+    var t6 = T4.plusMillis(20);
+    var groupFirst =
+        new ScopeRecord(
+            30L,
+            "order-1",
+            "main",
+            -1L,
+            T4,
+            t5,
+            List.of(task(5, T4.plusMillis(1), t5.minusMillis(1), new TaskOutcome.Cancelled())),
+            null);
+    var groupSecond =
+        new ScopeRecord(
+            31L,
+            "order-2",
+            "main",
+            -1L,
+            t5,
+            t6,
+            List.of(task(6, t5.plusMillis(1), t6.minusMillis(1), new TaskOutcome.Success())),
+            null);
+    var html = HtmlRenderer.render(new TraceModel(List.of(root, child, groupFirst, groupSecond)));
+    assertThat(countOccurrences(html, "<details class=\"scope-group\"")).isEqualTo(1);
+
+    var expected = Map.of(1L, 10L, 2L, 10L, 3L, 20L, 4L, 20L, 5L, 30L, 6L, 31L);
+    var expectedPairs =
+        expected.entrySet().stream().map(e -> e.getValue() + ":" + e.getKey()).toList();
+
+    var rowPairs = new ArrayList<String>();
+    var rows = TASK_ROW.matcher(html);
+    while (rows.find()) {
+      assertThat(rows.group(2)).as("row's data-task-id is its own task").isEqualTo(rows.group(3));
+      assertThat(Long.parseLong(rows.group(1)))
+          .as("row of task %s carries its own scope's id", rows.group(3))
+          .isEqualTo(expected.get(Long.parseLong(rows.group(3))));
+      rowPairs.add(rows.group(1) + ":" + rows.group(2));
+    }
+    var barPairs = new ArrayList<String>();
+    var bars = TASK_BAR.matcher(html);
+    while (bars.find()) {
+      assertThat(bars.group(2)).as("bar's data-task-id is its own task").isEqualTo(bars.group(3));
+      assertThat(Long.parseLong(bars.group(1)))
+          .as("bar of task %s carries its own scope's id", bars.group(3))
+          .isEqualTo(expected.get(Long.parseLong(bars.group(3))));
+      barPairs.add(bars.group(1) + ":" + bars.group(2));
+    }
+
+    // One row and one bar per task, no pair repeated, none missing.
+    assertThat(rowPairs).doesNotHaveDuplicates().containsExactlyInAnyOrderElementsOf(expectedPairs);
+    assertThat(barPairs).doesNotHaveDuplicates().containsExactlyInAnyOrderElementsOf(expectedPairs);
+    // The attributes appear on task bars and rows only, nowhere else.
+    assertThat(countOccurrences(html, "data-scope-id=")).isEqualTo(2 * expected.size());
+    assertThat(countOccurrences(html, "data-task-id=")).isEqualTo(2 * expected.size());
   }
 
   // --- helpers ---

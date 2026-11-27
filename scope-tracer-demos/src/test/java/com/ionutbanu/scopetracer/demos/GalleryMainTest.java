@@ -248,7 +248,7 @@ class GalleryMainTest {
     assertThat(run(false, new FakeRecorder())).isZero();
     var report = root.resolve("docs/example/bannered.html");
     var html = text("docs/example/bannered.html");
-    int row = html.indexOf("<tr><td>2</td>");
+    int row = html.lastIndexOf("<tr", html.indexOf("><td>2</td>"));
     Files.writeString(
         report, html.substring(0, row) + html.substring(html.indexOf("</tr>", row) + 6));
 

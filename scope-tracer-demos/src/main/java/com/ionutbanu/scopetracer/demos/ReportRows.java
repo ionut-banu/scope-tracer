@@ -22,7 +22,7 @@ final class ReportRows {
       Pattern.compile("<span class=\"parent-ref\">↳ task \\d+ of (.*?)</span>", Pattern.DOTALL);
   private static final Pattern ROW =
       Pattern.compile(
-          "<tr><td>\\d+</td><td>(.*?)</td><td>.*?</td><td>\\+.*?</td><td>.*?</td><td>(.*?)</td></tr>",
+          "<tr[^>]*><td>\\d+</td><td>(.*?)</td><td>.*?</td><td>\\+.*?</td><td>.*?</td><td>(.*?)</td></tr>",
           Pattern.DOTALL);
   private static final Pattern OUTCOME =
       Pattern.compile("<span class=\"outcome-(success|failed|cancelled|unknown)\">(.*?)</span>");

@@ -29,7 +29,7 @@ final class ReportSkeleton {
   private static final Pattern CRITICAL_NOTE =
       Pattern.compile(" ?<span class=\"critical-path-note\">.*?</span>", Pattern.DOTALL);
   private static final Pattern ROW_THREAD =
-      Pattern.compile("(<tr><td>\\d+</td><td>.*?</td><td>).*?(</td><td>\\+)", Pattern.DOTALL);
+      Pattern.compile("(<tr[^>]*><td>\\d+</td><td>.*?</td><td>).*?(</td><td>\\+)", Pattern.DOTALL);
   private static final Pattern META_THREAD = Pattern.compile("thread: .*?&nbsp;");
   private static final Pattern DURATION = Pattern.compile("\\d+(?:\\.\\d+)?(?:µs|ms|ns|s)\\b");
   private static final Pattern DIGITS = Pattern.compile("\\d+");
