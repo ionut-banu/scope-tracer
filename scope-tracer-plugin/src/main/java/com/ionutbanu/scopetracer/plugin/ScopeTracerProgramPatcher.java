@@ -33,7 +33,7 @@ public final class ScopeTracerProgramPatcher extends JavaProgramPatcher {
       active.agentJar(agentJar);
       active.lifecycle().agentJarExtracted();
 
-      var plan = TracedLaunch.plan(existing, jdkMajor, agentJar, active.jfrFile());
+      var plan = TracedLaunch.plan(existing, jdkMajor, agentJar, active.recordingDirectory());
       if (plan instanceof TracedLaunch.Plan.Apply apply) {
         for (String arg : apply.extraVmArgs()) {
           javaParameters.getVMParametersList().add(arg);

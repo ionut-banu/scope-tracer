@@ -37,8 +37,11 @@ public final class TracedRunLifecycle {
   public enum Resource {
     /** The message-bus connection listening for the run's lifecycle. */
     SUBSCRIPTION,
-    /** The temporary {@code .jfr} file the run was told to write. */
-    JFR_FILE,
+    /**
+     * The run's temporary recording directory and every {@code .jfr} file in it: one per JVM the
+     * run started, a forked test JVM included (#64).
+     */
+    RECORDING_DIRECTORY,
     /** The agent jar extracted for the run. Only present if it was extracted. */
     AGENT_JAR
   }
@@ -46,10 +49,11 @@ public final class TracedRunLifecycle {
   /**
    * What the glue must do now.
    *
-   * @param resources what to release. {@link Resource#JFR_FILE} is absent when {@code
-   *     openRecording} is true, because the recording takes over the file.
-   * @param openRecording whether to open the recording in the tool window (or warn that the run
-   *     wrote none).
+   * @param resources what to release. {@link Resource#RECORDING_DIRECTORY} is absent when {@code
+   *     openRecording} is true, because opening the recordings takes over the directory ({@link
+   *     RunRecordings} decides what in it is deleted and when).
+   * @param openRecording whether to open the run's recordings in the tool window (or warn that the
+   *     run wrote none).
    * @param notice a warning to show the user, or {@code null}.
    */
   public record Release(List<Resource> resources, boolean openRecording, String notice) {
@@ -167,7 +171,7 @@ public final class TracedRunLifecycle {
     var resources = new ArrayList<Resource>();
     resources.add(Resource.SUBSCRIPTION);
     if (!openRecording) {
-      resources.add(Resource.JFR_FILE);
+      resources.add(Resource.RECORDING_DIRECTORY);
     }
     if (agentJarExtracted) {
       resources.add(Resource.AGENT_JAR);

@@ -1,0 +1,19 @@
+<!-- Loaded only when the bundled JUnit plugin (id "JUnit") is present (#64). Everything that names
+     a JUnit class is here, so the plugin still loads without it. -->
+<idea-plugin>
+  <extensions defaultExtensionNs="com.ionutbanu.scopetracer.plugin">
+    <tracedConfigurationKind implementation="com.ionutbanu.scopetracer.plugin.JUnitConfigurationKind"/>
+  </extensions>
+
+  <actions>
+    <!-- A group, as the platform's own CreateRunConfiguration is: a BaseRunConfigurationAction
+         becomes a chooser popup when the context offers several JUnit configurations. -->
+    <group id="ScopeTracer.RunTestWithScopeTracer"
+           class="com.ionutbanu.scopetracer.plugin.RunTestWithScopeTracerAction">
+      <!-- The run gutter icon's menu, after the executors (Run, Debug, Coverage...). -->
+      <add-to-group group-id="RunLineMarkerExtraActions" anchor="first"/>
+      <!-- The editor's (and the project view's) context menu, after Run and Debug. -->
+      <add-to-group group-id="RunContextGroupInner" anchor="after" relative-to-action="RunContextExecutorsGroup"/>
+    </group>
+  </actions>
+</idea-plugin>

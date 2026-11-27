@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 class TracedLaunchTest {
 
   private static final Path AGENT = Path.of("/plugin/scope-tracer-agent-agent.jar");
-  private static final Path JFR = Path.of("/tmp/run-1.jfr");
+  private static final Path JFR = Path.of("/tmp/scope-tracer-run-1");
 
   private static List<String> applied(TracedLaunch.Plan plan) {
     assertThat(plan).isInstanceOf(TracedLaunch.Plan.Apply.class);
@@ -29,7 +29,42 @@ class TracedLaunchTest {
         .containsExactly(
             "-javaagent:" + AGENT + "=html=false",
             "--enable-preview",
-            "-XX:StartFlightRecording=filename=" + JFR + ",dumponexit=true");
+            "-XX:StartFlightRecording=filename="
+                + JFR.resolve("scope-tracer-%p.jfr")
+                + ",dumponexit=true");
+  }
+
+  /** Each JVM of the run, a forked test JVM included, writes its own file: JFR expands %p. */
+  @Test
+  void theRecordingIsAFileUnderTheRunsDirectoryNamedWithThePid() {
+    var recording =
+        applied(TracedLaunch.plan(List.of(), 27, AGENT, JFR)).stream()
+            .filter(a -> a.startsWith("-XX:StartFlightRecording="))
+            .findFirst()
+            .orElseThrow();
+
+    var file =
+        Path.of(
+            recording.substring(
+                "-XX:StartFlightRecording=filename=".length(),
+                recording.indexOf(",dumponexit=true")));
+    assertThat(file.getParent()).isEqualTo(JFR);
+    assertThat(file.getFileName().toString()).contains("%p").endsWith(".jfr");
+    assertThat(file.getFileName().toString()).isEqualTo(TracedLaunch.RECORDING_FILE_NAME);
+  }
+
+  @Test
+  void aRecordingDirectoryWithSpacesStaysOneArgument() {
+    var dir = Path.of("/Users/some one/Library/Caches/scope tracer run 1");
+
+    var extra = applied(TracedLaunch.plan(List.of("-Xmx512m"), 27, AGENT, dir));
+
+    assertThat(extra).hasSize(3);
+    assertThat(extra.get(2))
+        .isEqualTo(
+            "-XX:StartFlightRecording=filename="
+                + dir.resolve("scope-tracer-%p.jfr")
+                + ",dumponexit=true");
   }
 
   /**
