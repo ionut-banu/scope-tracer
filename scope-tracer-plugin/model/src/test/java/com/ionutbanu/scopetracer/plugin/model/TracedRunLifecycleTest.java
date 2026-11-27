@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle.Launch;
 import com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle.Release;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class TracedRunLifecycleTest {
@@ -15,6 +16,9 @@ class TracedRunLifecycleTest {
   private static final Launch ORDINARY_RUN = new Launch("Run", 2, true);
   private static final Launch DEBUG = new Launch("Debug", 3, true);
   private static final Launch OTHER_CONFIGURATION = new Launch("Run", 4, false);
+
+  /** The launch IntelliJ reports for a run it handed to a build tool: another profile, Run. */
+  private static final Launch DELEGATED = new Launch("Run", 5, false);
 
   private final TracedRunLifecycle run = new TracedRunLifecycle();
 
@@ -254,6 +258,99 @@ class TracedRunLifecycleTest {
     assertThat(notStarted.notStarted(TRACED).resources()).contains(RECORDING_DIRECTORY);
     assertThat(abandoned.abandon().resources()).contains(RECORDING_DIRECTORY);
     assertThat(untraced.terminated(TRACED).resources()).contains(RECORDING_DIRECTORY);
+  }
+
+  @Test
+  void aRunLaunchOfAnotherProfileBeforeTheOwnLaunchIsDelegatedAndReleasesEverythingOnce() {
+    var release = run.delegatedLaunchSeen(DELEGATED, DelegatedTool.GRADLE);
+
+    assertThat(release.openRecording()).isFalse();
+    assertThat(release.resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY);
+    assertThat(release.notice()).isEqualTo(DelegatedTool.GRADLE.notice());
+    // The patcher is never asked about it, and nothing else of the request is left.
+    assertThat(run.shouldPatch("Run")).isFalse();
+    assertThat(run.delegatedLaunchSeen(DELEGATED, DelegatedTool.GRADLE).isNothing()).isTrue();
+    var second = new Launch("Run", 6, false);
+    assertThat(run.delegatedLaunchSeen(second, DelegatedTool.MAVEN).isNothing()).isTrue();
+    assertThat(run.terminated(DELEGATED).isNothing()).isTrue();
+    assertThat(run.notStarted(DELEGATED).isNothing()).isTrue();
+    assertThat(run.abandon().isNothing()).isTrue();
+  }
+
+  @Test
+  void aDelegatedReleaseAlsoCleansUpAnExtractedAgentJar() {
+    run.agentJarExtracted();
+
+    assertThat(run.delegatedLaunchSeen(DELEGATED, DelegatedTool.MAVEN).resources())
+        .containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY, AGENT_JAR);
+  }
+
+  @Test
+  void aLaunchThatIsNotARunOfAnotherProfileIsNotDelegated() {
+    for (var launch :
+        new Launch[] {TRACED, ORDINARY_RUN, DEBUG, new Launch("Debug", 7, false)}) {
+      assertThat(run.delegatedLaunchSeen(launch, DelegatedTool.GRADLE).isNothing())
+          .as("%s", launch)
+          .isTrue();
+    }
+    // Still armed: the request patches and traces as usual.
+    assertThat(run.shouldPatch("Run")).isTrue();
+  }
+
+  @Test
+  void anotherProfileAfterTheOwnLaunchWasSeenOrPatchedIsNotDelegated() {
+    run.launchSeen(TRACED);
+    assertThat(run.delegatedLaunchSeen(DELEGATED, DelegatedTool.GRADLE).isNothing()).isTrue();
+    run.shouldPatch("Run");
+    run.patchApplied();
+
+    assertThat(run.delegatedLaunchSeen(DELEGATED, DelegatedTool.GRADLE).isNothing()).isTrue();
+    assertThat(run.terminated(TRACED).openRecording()).isTrue();
+
+    var patchedFirst = new TracedRunLifecycle();
+    patchedFirst.shouldPatch("Run");
+    assertThat(patchedFirst.delegatedLaunchSeen(DELEGATED, DelegatedTool.GRADLE).isNothing())
+        .isTrue();
+  }
+
+  @Test
+  void aFinishedRequestIgnoresADelegatedLaunch() {
+    run.abandon();
+
+    assertThat(run.delegatedLaunchSeen(DELEGATED, DelegatedTool.GRADLE).isNothing()).isTrue();
+  }
+
+  @Test
+  void theNoticeNamesTheToolAndTheSettingToChange() {
+    assertThat(DelegatedTool.GRADLE.notice())
+        .contains(
+            "Gradle", "not traced", "Build and run using", "Run tests using", "IntelliJ IDEA");
+    assertThat(DelegatedTool.MAVEN.notice())
+        .contains("Maven", "not traced", "Delegate IDE build/run actions to Maven");
+    assertThat(DelegatedTool.OTHER.notice()).contains("not traced");
+  }
+
+  @Test
+  void theToolIsToldFromTheProfileClassNames() {
+    assertThat(
+            DelegatedTool.of(
+                List.of(
+                    "org.jetbrains.idea.maven.execution.MavenApplicationConfigurationExecutionEnvironmentProvider$MyExecRunConfiguration",
+                    "com.intellij.execution.configurations.RunConfigurationBase")))
+        .isEqualTo(DelegatedTool.MAVEN);
+    assertThat(
+            DelegatedTool.of(
+                List.of(
+                    "com.intellij.openapi.externalSystem.service.execution.ExternalSystemRunConfiguration")))
+        .isEqualTo(DelegatedTool.GRADLE);
+    assertThat(
+            DelegatedTool.of(
+                List.of(
+                    "org.jetbrains.plugins.gradle.service.execution.GradleRunConfiguration",
+                    "com.intellij.openapi.externalSystem.service.execution.ExternalSystemRunConfiguration")))
+        .isEqualTo(DelegatedTool.GRADLE);
+    assertThat(DelegatedTool.of(List.of("com.example.Other"))).isEqualTo(DelegatedTool.OTHER);
+    assertThat(DelegatedTool.of(List.of())).isEqualTo(DelegatedTool.OTHER);
   }
 
   @Test

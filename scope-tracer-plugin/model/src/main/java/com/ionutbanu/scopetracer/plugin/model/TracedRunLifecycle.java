@@ -23,6 +23,11 @@ import java.util.List;
  *   <li>If a second Run launch of the configuration shows up before the patcher has been asked,
  *       the patcher could be called for either of them, so the request gives up: it releases
  *       everything and nothing is patched (when in doubt, do not patch).
+ *   <li>If a Run launch of <em>another</em> run profile shows up before the configuration's own
+ *       launch was seen or the patcher was asked, IntelliJ has handed the run to a build tool (it
+ *       builds its own run profile for it) and the patcher will never be called: the request
+ *       releases everything and returns a notice that names the setting to change ({@link
+ *       #delegatedLaunchSeen}, #196). The delegated run itself is left alone.
  *   <li>Every release is returned once; after it every method answers "nothing to do".
  * </ul>
  *
@@ -126,6 +131,24 @@ public final class TracedRunLifecycle {
         false,
         "The configuration was started again before the traced run had been launched, so it"
             + " runs without tracing.");
+  }
+
+  /**
+   * A start callback ({@code processStartScheduled}, {@code processStarting} or {@code
+   * processStarted}) for a launch of another run profile. If it is a Run launch that arrives
+   * before the configuration's own launch was seen and before the patcher was asked, the run was
+   * delegated to {@code tool}: everything is released at once, nothing is opened, and the notice
+   * says the run is not traced. Any other launch, and any later callback, changes nothing.
+   */
+  public synchronized Release delegatedLaunchSeen(Launch launch, DelegatedTool tool) {
+    if (finished
+        || launch.sameConfiguration()
+        || !RUN_EXECUTOR_ID.equals(launch.executorId())
+        || claimedExecutionId != null
+        || patchHandedOut) {
+      return Release.NOTHING;
+    }
+    return finish(false, tool.notice());
   }
 
   /** {@code processNotStarted}: the launch failed or was cancelled before a process existed. */

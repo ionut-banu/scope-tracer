@@ -101,6 +101,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **"Run with Scope Tracer" says so when IntelliJ hands the run to Gradle or Maven** (#196). A run
+  that Gradle or Maven starts is not patched, so it used to run untraced and end with "The run
+  finished but wrote no recording" (or nothing). The program still runs; one notice now says it is
+  not traced and names the setting to change: for Gradle, set "Build and run using" (and "Run
+  tests using" for tests) to "IntelliJ IDEA"; for Maven, turn off "Delegate IDE build/run actions
+  to Maven". The request releases its recording directory and subscription at once. Tracing such
+  runs is #231.
+
 - **The plugin says so when the analyzer writes no trace** (#204). An analyzer that exited 0 but
   left an empty or unusable JSON file ended in an "analysis failed" balloon carrying a Java
   null-pointer message. It now says the analyzer wrote no trace. A temp file that cannot be

@@ -784,7 +784,22 @@ is a failed analysis saying so, not an empty trace.
   `tracedConfigurationKind` extension point, so the plugin loads
   without it. Only test runs the IDE's own JUnit runner starts are
   traced: Gradle-delegated test runs are #193, Maven `mvn test`
-  configurations #194, TestNG #195. The recording is
+  configurations #194, TestNG #195. A run IntelliJ hands to Gradle
+  or Maven (an application in a Gradle project by default, with
+  "Delegate IDE build/run actions to Maven" on in a Maven one, or a
+  test Gradle runs) is not traced and is never patched: the build
+  tool's provider makes its own `JavaParameters`, so the program
+  patcher is not asked (read from the 2026.3 jars; not yet observed
+  in an IDE). `TracedRunLifecycle.delegatedLaunchSeen` takes a Run
+  launch of another run profile, seen before the configuration's own
+  launch and before the patcher, as that case (`DelegatedTool` names
+  the tool from the profile's class names, loading none of them),
+  releases the request at once and shows one warning naming the tool
+  and the setting to change ("Build and run using", and "Run tests using" for tests, IntelliJ IDEA
+  for Gradle, "Delegate IDE build/run actions to Maven" off for Maven).
+  The delegated run itself runs unchanged. Tracing it is #231. A
+  Run launch of an unrelated configuration in that window is taken
+  for it too (#196). The recording is
   `scope-tracer-%p.jfr` in a new temp directory per run, so every JVM
   of the run, a forked test JVM included, writes its own file; JFR
   expands `%p` to the pid. `RunRecordings` decides what happens to
@@ -848,7 +863,7 @@ in place, asserts every value, and fails on a key it does not map.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-27, #64 on main 338dbd3, JDK 27) |
+| Suite | Runner | Count (2026-11-27, #196 on main b8fa58e, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 180 |
@@ -857,10 +872,10 @@ in place, asserts every value, and fails on a key it does not map.
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 226 |
+| plugin `:model` | Gradle | 233 |
 
 `mvn -q verify` runs the first six: 947 tests (surefire plus
-failsafe, measured on 2026-11-27 on the branch of #64 from `main` at 338dbd3, on Temurin 27; the
+failsafe, measured on 2026-11-27 on the branch of #196 from `main` at b8fa58e, on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the
