@@ -53,7 +53,7 @@ public final class AnalyzerJdk {
    * read.
    */
   public static Function<Path, String> probe(Path tempDir) {
-    return probe(tempDir, VERSION_CHECK_TIMEOUT);
+    return probe(tempDir, AnalyzerJdk::versionOutput);
   }
 
   /** {@link #probe(Path)} with another timeout. */
@@ -61,13 +61,29 @@ public final class AnalyzerJdk {
     return java -> versionOutput(versionCommand(java), timeout, tempDir);
   }
 
+  /** Runs a version command: what {@link #versionOutput} does, replaceable by a test. */
+  @FunctionalInterface
+  interface VersionRunner {
+    String run(List<String> command, Duration timeout, Path tempDir);
+  }
+
+  /** {@link #probe(Path)} through {@code runner}, so a test sees the timeout it is given. */
+  static Function<Path, String> probe(Path tempDir, VersionRunner runner) {
+    return java -> runner.run(versionCommand(java), VERSION_CHECK_TIMEOUT, tempDir);
+  }
+
   /**
    * Runs {@code <java> -version}, bounded by {@link #VERSION_CHECK_TIMEOUT}, and returns why that
    * {@code java} cannot run the analyzer, or empty when it can.
    */
   public static Optional<String> check(Path java, Path tempDir) {
+    return check(java, tempDir, AnalyzerJdk::versionOutput);
+  }
+
+  /** {@link #check(Path, Path)} through {@code runner}, so a test sees the timeout it is given. */
+  static Optional<String> check(Path java, Path tempDir, VersionRunner runner) {
     return refusal(
-        java.toString(), versionOutput(versionCommand(java), VERSION_CHECK_TIMEOUT, tempDir));
+        java.toString(), runner.run(versionCommand(java), VERSION_CHECK_TIMEOUT, tempDir));
   }
 
   /**

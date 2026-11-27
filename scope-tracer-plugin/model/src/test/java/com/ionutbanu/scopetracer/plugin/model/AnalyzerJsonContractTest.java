@@ -9,12 +9,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -72,6 +76,65 @@ class AnalyzerJsonContractTest {
    * either into the parser and {@link #MAPPED_PATHS}, or here.
    */
   private static final Map<String, String> IGNORED_PATHS = Map.of();
+
+  /** The JSON types a value can have. */
+  private enum Json {
+    STRING,
+    NUMBER,
+    BOOLEAN,
+    OBJECT,
+    ARRAY,
+    NULL
+  }
+
+  private static final Set<Json> STRING = EnumSet.of(Json.STRING);
+  private static final Set<Json> NUMBER = EnumSet.of(Json.NUMBER);
+  private static final Set<Json> NUMBER_OR_NULL = EnumSet.of(Json.NUMBER, Json.NULL);
+  private static final Set<Json> STRING_OR_NULL = EnumSet.of(Json.STRING, Json.NULL);
+  private static final Set<Json> OBJECT_OR_NULL = EnumSet.of(Json.OBJECT, Json.NULL);
+
+  /**
+   * The JSON type each mapped path may have. Gson converts a string {@code "12"} to the number 12
+   * and the number 3 to the string {@code "3"} without a word, so a field that changes type would
+   * pass the value tests; this table is what catches it. A path in {@link #MAPPED_PATHS} with no
+   * entry fails the type check, as an unmapped path fails the key check.
+   */
+  private static final Map<String, Set<Json>> EXPECTED_TYPES =
+      Map.ofEntries(
+          Map.entry("scopes", EnumSet.of(Json.ARRAY)),
+          Map.entry("scopes[].scopeId", NUMBER),
+          Map.entry("scopes[].name", STRING),
+          Map.entry("scopes[].ownerThreadName", STRING),
+          Map.entry("scopes[].ownerThreadId", NUMBER),
+          Map.entry("scopes[].openTime", STRING),
+          Map.entry("scopes[].closeTime", STRING_OR_NULL),
+          Map.entry("scopes[].parent", OBJECT_OR_NULL),
+          Map.entry("scopes[].parent.parentScopeId", NUMBER),
+          Map.entry("scopes[].parent.scopeName", STRING),
+          Map.entry("scopes[].parent.taskId", NUMBER),
+          Map.entry("scopes[].tasks", EnumSet.of(Json.ARRAY)),
+          Map.entry("scopes[].tasks[].taskId", NUMBER_OR_NULL),
+          Map.entry("scopes[].tasks[].taskName", STRING),
+          Map.entry("scopes[].tasks[].threadName", STRING),
+          Map.entry("scopes[].tasks[].threadId", NUMBER),
+          Map.entry("scopes[].tasks[].forkTime", STRING),
+          Map.entry("scopes[].tasks[].completionTime", STRING_OR_NULL),
+          Map.entry("scopes[].tasks[].outcome", OBJECT_OR_NULL),
+          Map.entry("scopes[].tasks[].outcome.type", STRING),
+          Map.entry("scopes[].tasks[].outcome.exceptionType", STRING_OR_NULL),
+          Map.entry("scopes[].tasks[].outcome.exceptionMessage", STRING_OR_NULL),
+          Map.entry("scopes[].tasks[].outcome.stackTrace", STRING_OR_NULL),
+          Map.entry("scopes[].tasks[].callSite", OBJECT_OR_NULL),
+          Map.entry("scopes[].tasks[].callSite.className", STRING),
+          Map.entry("scopes[].tasks[].callSite.methodName", STRING_OR_NULL),
+          Map.entry("scopes[].tasks[].callSite.line", NUMBER_OR_NULL));
+
+  /**
+   * The goldens that have a value test in this class: {@code v0.1.0}, {@code v0.2.0}, {@code
+   * v0.6.0}. A golden in the directory that is not listed fails {@link #everyGoldenHasAValueTest}.
+   */
+  private static final Set<String> GOLDENS_WITH_A_VALUE_TEST =
+      Set.of("v0.1.0-nested-failed-cancelled", "v0.2.0-nested-and-failed", "v0.6.0-contract");
 
   @Test
   void v010GoldenParsesToItsValues() throws IOException {
@@ -448,8 +511,7 @@ class AnalyzerJsonContractTest {
 
   /** Every key in the analyzer's JSON is one the parser maps, or one listed as ignored. */
   @ParameterizedTest
-  @ValueSource(
-      strings = {"v0.1.0-nested-failed-cancelled", "v0.2.0-nested-and-failed", "v0.6.0-contract"})
+  @MethodSource("goldens")
   void everyKeyInTheGoldenIsMappedOrIgnored(String golden) throws IOException {
     var paths = new TreeSet<String>();
     collectKeyPaths(JsonParser.parseString(read(golden)), "", paths);
@@ -465,6 +527,72 @@ class AnalyzerJsonContractTest {
                 assertThat(MAPPED_PATHS.contains(path) || IGNORED_PATHS.containsKey(path))
                     .as("unknown key path %s", path)
                     .isTrue());
+  }
+
+  /** Every value in the analyzer's JSON has the JSON type the table says its path has. */
+  @ParameterizedTest
+  @MethodSource("goldens")
+  void everyValueInTheGoldenHasItsExpectedType(String golden) throws IOException {
+    assertThat(typeViolations(JsonParser.parseString(read(golden)), golden)).isEmpty();
+  }
+
+  /** Every mapped path has a type entry, so a new key cannot skip the type check. */
+  @Test
+  void everyMappedPathHasAnExpectedType() {
+    assertThat(EXPECTED_TYPES.keySet()).containsExactlyInAnyOrderElementsOf(MAPPED_PATHS);
+  }
+
+  /** Gson reads {@code "12"} as 12; the type check must not. */
+  @Test
+  void aLineThatBecomesAStringFailsTheTypeCheck() throws IOException {
+    var doctored = read("v0.6.0-contract").replace("\"line\":12", "\"line\":\"12\"");
+
+    assertThat(doctored).isNotEqualTo(read("v0.6.0-contract"));
+    assertThat(typeViolations(JsonParser.parseString(doctored), "doctored"))
+        .singleElement()
+        .asString()
+        .contains("scopes[].tasks[].callSite.line")
+        .contains("STRING");
+    assertThat(TraceModelJsonParser.parse(doctored)).as("Gson converts it silently").isNotNull();
+  }
+
+  /** Gson reads {@code "3"} as 3; the type check must not. */
+  @Test
+  void aTaskIdThatBecomesAStringFailsTheTypeCheck() throws IOException {
+    var doctored = read("v0.6.0-contract").replace("\"taskId\":3", "\"taskId\":\"3\"");
+
+    assertThat(doctored).isNotEqualTo(read("v0.6.0-contract"));
+    assertThat(typeViolations(JsonParser.parseString(doctored), "doctored"))
+        .isNotEmpty()
+        .allSatisfy(v -> assertThat(v).contains("taskId").contains("STRING"));
+    assertThat(TraceModelJsonParser.parse(doctored)).as("Gson converts it silently").isNotNull();
+  }
+
+  /**
+   * A path the table does not know fails the type check, as an unmapped path fails the key walk.
+   */
+  @Test
+  void aPathWithNoExpectedTypeFailsTheTypeCheck() {
+    var json = JsonParser.parseString("{\"scopes\":[{\"brandNew\":1}]}");
+
+    assertThat(typeViolations(json, "doctored"))
+        .anySatisfy(v -> assertThat(v).contains("scopes[].brandNew").contains("no expected type"));
+  }
+
+  /** A golden added to the directory needs a value test here before it counts as covered. */
+  @Test
+  void everyGoldenHasAValueTest() throws IOException {
+    assertThat(goldens().toList())
+        .as(
+            "golden files in %s with no per-golden value test in AnalyzerJsonContractTest: add"
+                + " one, then list the golden in GOLDENS_WITH_A_VALUE_TEST",
+            System.getProperty(GOLDEN_DIR_PROPERTY))
+        .isNotEmpty()
+        .allSatisfy(
+            golden ->
+                assertThat(GOLDENS_WITH_A_VALUE_TEST)
+                    .as("golden %s.json has no value test", golden)
+                    .contains(golden));
   }
 
   // --- harness ---
@@ -485,6 +613,61 @@ class AnalyzerJsonContractTest {
     } else if (element.isJsonArray()) {
       for (var item : element.getAsJsonArray()) {
         collectKeyPaths(item, path + "[]", paths);
+      }
+    }
+  }
+
+  /** The names (without {@code .json}) of every golden in the golden directory, sorted. */
+  static Stream<String> goldens() throws IOException {
+    String dir = System.getProperty(GOLDEN_DIR_PROPERTY);
+    assertThat(dir)
+        .as("system property %s, set by model/build.gradle.kts", GOLDEN_DIR_PROPERTY)
+        .isNotNull();
+    try (var files = Files.list(Path.of(dir))) {
+      return files
+          .map(f -> f.getFileName().toString())
+          .filter(n -> n.endsWith(".json"))
+          .map(n -> n.substring(0, n.length() - ".json".length()))
+          .sorted()
+          .toList()
+          .stream();
+    }
+  }
+
+  private static Json jsonType(JsonElement element) {
+    if (element.isJsonNull()) return Json.NULL;
+    if (element.isJsonObject()) return Json.OBJECT;
+    if (element.isJsonArray()) return Json.ARRAY;
+    var primitive = element.getAsJsonPrimitive();
+    if (primitive.isNumber()) return Json.NUMBER;
+    return primitive.isBoolean() ? Json.BOOLEAN : Json.STRING;
+  }
+
+  /** One message per value whose JSON type the table does not allow for its path. */
+  private static List<String> typeViolations(JsonElement root, String source) {
+    var violations = new ArrayList<String>();
+    collectTypeViolations(root, "", source, violations);
+    return violations;
+  }
+
+  private static void collectTypeViolations(
+      JsonElement element, String path, String source, List<String> violations) {
+    if (!path.isEmpty() && !path.endsWith("[]")) {
+      var allowed = EXPECTED_TYPES.get(path);
+      if (allowed == null) {
+        violations.add(source + ": " + path + " has no expected type");
+      } else if (!allowed.contains(jsonType(element))) {
+        violations.add(source + ": " + path + " is " + jsonType(element) + ", expected " + allowed);
+      }
+    }
+    if (element.isJsonObject()) {
+      for (var entry : element.getAsJsonObject().entrySet()) {
+        String child = path.isEmpty() ? entry.getKey() : path + "." + entry.getKey();
+        collectTypeViolations(entry.getValue(), child, source, violations);
+      }
+    } else if (element.isJsonArray()) {
+      for (var item : element.getAsJsonArray()) {
+        collectTypeViolations(item, path + "[]", source, violations);
       }
     }
   }
