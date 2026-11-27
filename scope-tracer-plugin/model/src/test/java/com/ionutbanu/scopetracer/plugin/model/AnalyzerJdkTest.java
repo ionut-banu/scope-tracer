@@ -1,11 +1,11 @@
 package com.ionutbanu.scopetracer.plugin.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -94,5 +94,54 @@ class AnalyzerJdkTest {
                     AnalyzerJdk.versionCommand(Children.JAVA), Duration.ofSeconds(20), temp));
 
     assertThat(AnalyzerJdk.parseVersionOutput(output)).isEqualTo(Runtime.version().feature());
+  }
+
+  @Test
+  void theVersionCheckTimeoutIsThirtySeconds() {
+    assertThat(AnalyzerJdk.VERSION_CHECK_TIMEOUT).isEqualTo(Duration.ofSeconds(30));
+  }
+
+  @Test
+  void checkAndTheProbeRunTheVersionCommandWithTheVersionCheckTimeout() {
+    var java = Path.of(JAVA);
+    var seen = new ArrayList<Duration>();
+    AnalyzerJdk.VersionRunner runner =
+        (command, timeout, tempDir) -> {
+          seen.add(timeout);
+          assertThat(command).isEqualTo(AnalyzerJdk.versionCommand(java));
+          assertThat(tempDir).isEqualTo(temp);
+          return TEMURIN_27;
+        };
+
+    assertThat(AnalyzerJdk.check(java, temp, runner)).isEmpty();
+    assertThat(AnalyzerJdk.probe(temp, runner).apply(java)).isEqualTo(TEMURIN_27);
+
+    assertThat(seen)
+        .containsExactly(AnalyzerJdk.VERSION_CHECK_TIMEOUT, AnalyzerJdk.VERSION_CHECK_TIMEOUT);
+  }
+
+  private String versionOutputOf(String stdout, String stderr) {
+    return assertTimeoutPreemptively(
+        Duration.ofSeconds(30),
+        () ->
+            AnalyzerJdk.versionOutput(
+                Children.command("Printer", stdout, stderr), Duration.ofSeconds(20), temp));
+  }
+
+  @Test
+  void aVersionPrintedOnlyOnStdoutIsReturned() {
+    assertThat(versionOutputOf("openjdk version \"27\"", "")).contains("openjdk version \"27\"");
+  }
+
+  @Test
+  void aVersionPrintedOnlyOnStderrIsReturned() {
+    assertThat(versionOutputOf("", "openjdk version \"27\"")).contains("openjdk version \"27\"");
+  }
+
+  @Test
+  void whatIsPrintedOnBothStreamsIsReturnedTogether() {
+    assertThat(versionOutputOf("on stdout", "on stderr"))
+        .contains("on stdout")
+        .contains("on stderr");
   }
 }

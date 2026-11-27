@@ -7,16 +7,23 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import com.ionutbanu.scopetracer.plugin.model.BoundedProcess.Cancelled;
 import com.ionutbanu.scopetracer.plugin.model.BoundedProcess.Capture;
 import com.ionutbanu.scopetracer.plugin.model.BoundedProcess.Exited;
+import com.ionutbanu.scopetracer.plugin.model.BoundedProcess.Result;
 import com.ionutbanu.scopetracer.plugin.model.BoundedProcess.TimedOut;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -69,33 +76,133 @@ class BoundedProcessTest {
   }
 
   @Test
-  void cancellingWhileTheChildRunsReturnsCancelledWithinTwoSecondsWithTheChildDead() {
-    var flippedAt = new AtomicLong();
+  void cancellingWhileTheChildRunsReturnsCancelledWithinTwoSecondsWithTheChildDead()
+      throws Exception {
+    var polls = new AtomicInteger();
+    var childRunning = new CountDownLatch(1);
     var cancelled = new AtomicBoolean();
-    // Flip once the child is running, from the runner's own polling: no sleeping thread needed.
-    var started = System.nanoTime();
-    var result =
-        assertTimeoutPreemptively(
-            Duration.ofSeconds(15),
-            () ->
-                BoundedProcess.run(
-                    Children.command("NeverExits"),
-                    Capture.STDERR,
-                    GENEROUS,
-                    () -> {
-                      if (!cancelled.get()
-                          && System.nanoTime() - started > Duration.ofSeconds(2).toNanos()) {
-                        flippedAt.set(System.nanoTime());
-                        cancelled.set(true);
-                      }
-                      return cancelled.get();
-                    },
-                    temp));
+    var flippedAt = new AtomicLong();
+    // The flag is flipped by another thread, released by the second poll (the first one after the
+    // child started), so the time measured is the runner's own reaction to it, not the test's.
+    var flipper =
+        Thread.ofPlatform()
+            .name("cancel-flipper")
+            .start(
+                () -> {
+                  try {
+                    childRunning.await();
+                  } catch (InterruptedException e) {
+                    return;
+                  }
+                  flippedAt.set(System.nanoTime());
+                  cancelled.set(true);
+                });
+    Result result;
+    try {
+      result =
+          assertTimeoutPreemptively(
+              Duration.ofSeconds(30),
+              () ->
+                  BoundedProcess.run(
+                      Children.command("NeverExits"),
+                      Capture.STDERR,
+                      GENEROUS,
+                      () -> {
+                        if (polls.incrementAndGet() == 2) {
+                          childRunning.countDown();
+                        }
+                        return cancelled.get();
+                      },
+                      temp));
+    } finally {
+      flipper.interrupt();
+      flipper.join();
+    }
     var returnedAt = System.nanoTime();
 
     assertThat(result).isInstanceOf(Cancelled.class);
+    assertThat(flippedAt.get()).as("the flag was flipped").isNotZero();
     assertThat(Duration.ofNanos(returnedAt - flippedAt.get())).isLessThan(Duration.ofSeconds(2));
     assertThat(result.process()).hasValueSatisfying(p -> assertThat(p.isAlive()).isFalse());
+  }
+
+  /**
+   * The check the runner polls: finds the grandchild's pid in {@code pidFile} once the spawner
+   * wrote it and keeps its handle; returns true then when {@code cancelOnceStarted}. No waiting or
+   * sleeping: the runner's own 50 ms poll is the clock.
+   */
+  private static BooleanSupplier watchingPidFile(
+      Path pidFile, AtomicReference<ProcessHandle> grandchild, boolean cancelOnceStarted) {
+    return () -> {
+      if (grandchild.get() == null && Files.exists(pidFile)) {
+        try {
+          ProcessHandle.of(Long.parseLong(Files.readString(pidFile))).ifPresent(grandchild::set);
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);
+        }
+      }
+      return cancelOnceStarted && grandchild.get() != null;
+    };
+  }
+
+  private List<String> spawnerCommand(Path pidFile) {
+    return Children.command(
+        "Spawner",
+        pidFile.toString(),
+        Children.JAVA.toString(),
+        Children.source("NeverExits").toString());
+  }
+
+  /** Waits, without polling, for the grandchild to be gone; kills it first if the test failed. */
+  private static void assertGrandchildDead(AtomicReference<ProcessHandle> grandchild) {
+    var handle = grandchild.get();
+    assertThat(handle).as("the spawner started a grandchild").isNotNull();
+    try {
+      handle.onExit().orTimeout(10, TimeUnit.SECONDS).join();
+      assertThat(handle.isAlive()).as("grandchild %d alive", handle.pid()).isFalse();
+    } finally {
+      handle.destroyForcibly();
+    }
+  }
+
+  @Test
+  void aTimeoutKillsTheGrandchildsToo() {
+    var pidFile = temp.resolve("grandchild.pid");
+    var grandchild = new AtomicReference<ProcessHandle>();
+
+    var result =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(60),
+            () ->
+                BoundedProcess.run(
+                    spawnerCommand(pidFile),
+                    Capture.STDERR,
+                    Duration.ofSeconds(10),
+                    watchingPidFile(pidFile, grandchild, false),
+                    temp));
+
+    assertThat(result).isInstanceOf(TimedOut.class);
+    assertGrandchildDead(grandchild);
+  }
+
+  @Test
+  void aCancelKillsTheGrandchildsToo() {
+    var pidFile = temp.resolve("grandchild.pid");
+    var grandchild = new AtomicReference<ProcessHandle>();
+
+    var result =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(60),
+            () ->
+                BoundedProcess.run(
+                    spawnerCommand(pidFile),
+                    Capture.STDERR,
+                    GENEROUS,
+                    watchingPidFile(pidFile, grandchild, true),
+                    temp));
+
+    assertThat(result).isInstanceOf(Cancelled.class);
+    assertGrandchildDead(grandchild);
   }
 
   @Test
