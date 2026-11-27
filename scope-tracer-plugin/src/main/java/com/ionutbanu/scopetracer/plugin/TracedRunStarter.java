@@ -6,15 +6,18 @@ import com.intellij.execution.ProgramRunnerUtil;
 import com.intellij.execution.RunnerAndConfigurationSettings;
 import com.intellij.execution.application.ApplicationConfiguration;
 import com.intellij.execution.executors.DefaultRunExecutor;
+import com.intellij.execution.configurations.RunProfile;
 import com.intellij.execution.process.ProcessHandler;
 import com.intellij.execution.runners.ExecutionEnvironment;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
+import com.ionutbanu.scopetracer.plugin.model.DelegatedTool;
 import com.ionutbanu.scopetracer.plugin.model.RunActionState;
 import com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,6 +69,14 @@ final class TracedRunStarter {
     start(project, settings);
   }
 
+  private static DelegatedTool toolOf(RunProfile runProfile) {
+    var names = new ArrayList<String>();
+    for (Class<?> type = runProfile.getClass(); type != null; type = type.getSuperclass()) {
+      names.add(type.getName());
+    }
+    return DelegatedTool.of(names);
+  }
+
   private static void start(Project project, RunnerAndConfigurationSettings settings) {
     var profile = settings.getConfiguration();
 
@@ -94,16 +105,34 @@ final class TracedRunStarter {
                 executorId, env.getExecutionId(), env.getRunProfile() == profile);
           }
 
+          /**
+           * The configuration's own launch is claimed; a Run launch of another profile before it
+           * is how a run IntelliJ hands to Gradle or Maven shows up (#196), and ends the request
+           * with a notice. The classes are only named, never loaded.
+           */
+          private void launchSeen(String executorId, ExecutionEnvironment env) {
+            var launch = launch(executorId, env);
+            var lifecycle = active.lifecycle();
+            if (launch.sameConfiguration()) {
+              TracedRuns.apply(profile, active, lifecycle.launchSeen(launch));
+            } else {
+              TracedRuns.apply(
+                  profile,
+                  active,
+                  lifecycle.delegatedLaunchSeen(launch, toolOf(env.getRunProfile())));
+            }
+          }
+
           @Override
           public void processStartScheduled(
               @NotNull String executorId, @NotNull ExecutionEnvironment env) {
-            TracedRuns.apply(profile, active, active.lifecycle().launchSeen(launch(executorId, env)));
+            launchSeen(executorId, env);
           }
 
           @Override
           public void processStarting(
               @NotNull String executorId, @NotNull ExecutionEnvironment env) {
-            TracedRuns.apply(profile, active, active.lifecycle().launchSeen(launch(executorId, env)));
+            launchSeen(executorId, env);
           }
 
           @Override
@@ -111,7 +140,7 @@ final class TracedRunStarter {
               @NotNull String executorId,
               @NotNull ExecutionEnvironment env,
               @NotNull ProcessHandler handler) {
-            TracedRuns.apply(profile, active, active.lifecycle().launchSeen(launch(executorId, env)));
+            launchSeen(executorId, env);
           }
 
           @Override

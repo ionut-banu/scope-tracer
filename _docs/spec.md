@@ -784,7 +784,22 @@ is a failed analysis saying so, not an empty trace.
   `tracedConfigurationKind` extension point, so the plugin loads
   without it. Only test runs the IDE's own JUnit runner starts are
   traced: Gradle-delegated test runs are #193, Maven `mvn test`
-  configurations #194, TestNG #195. The recording is
+  configurations #194, TestNG #195. A run IntelliJ hands to Gradle
+  or Maven (an application in a Gradle project by default, with
+  "Delegate IDE build/run actions to Maven" on in a Maven one, or a
+  test Gradle runs) is not traced and is never patched: the build
+  tool's provider makes its own `JavaParameters`, so the program
+  patcher is not asked (read from the 2026.3 jars; not yet observed
+  in an IDE). `TracedRunLifecycle.delegatedLaunchSeen` takes a Run
+  launch of another run profile, seen before the configuration's own
+  launch and before the patcher, as that case (`DelegatedTool` names
+  the tool from the profile's class names, loading none of them),
+  releases the request at once and shows one warning naming the tool
+  and the setting to change ("Build and run using" IntelliJ IDEA for
+  Gradle, "Delegate IDE build/run actions to Maven" off for Maven).
+  The delegated run itself runs unchanged. Tracing it is #231. A
+  Run launch of an unrelated configuration in that window is taken
+  for it too (#196). The recording is
   `scope-tracer-%p.jfr` in a new temp directory per run, so every JVM
   of the run, a forked test JVM included, writes its own file; JFR
   expands `%p` to the pid. `RunRecordings` decides what happens to
