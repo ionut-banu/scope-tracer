@@ -4,11 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.google.gson.JsonParseException;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class TraceModelJsonParserTest {
 
@@ -24,7 +23,6 @@ class TraceModelJsonParserTest {
   void emptyScopesIsAnEmptyTraceNotAFailure() {
     assertThat(TraceModelJsonParser.parse("{\"scopes\":[]}").scopes()).isEmpty();
   }
-
 
   @Test
   void parsesSuccessFailedAndCancelledOutcomes() {
