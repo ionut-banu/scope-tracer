@@ -104,7 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **"Run with Scope Tracer" says so when IntelliJ hands the run to Gradle or Maven** (#196). A run
   that Gradle or Maven starts is not patched, so it used to run untraced and end with "The run
   finished but wrote no recording" (or nothing). The program still runs; one notice now says it is
-  not traced and names the setting to change ("Build and run using" IntelliJ IDEA for Gradle,
+  not traced and names the setting to change ("Build and run using", and "Run tests using" for tests, IntelliJ IDEA for Gradle,
   "Delegate IDE build/run actions to Maven" off for Maven), and the request releases its recording
   directory and subscription at once. Tracing such runs is #231.
 

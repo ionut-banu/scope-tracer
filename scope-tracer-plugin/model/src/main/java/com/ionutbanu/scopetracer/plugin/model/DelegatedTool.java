@@ -13,7 +13,7 @@ public enum DelegatedTool {
   GRADLE(
       "Gradle",
       "Settings | Build, Execution, Deployment | Build Tools | Gradle: set \"Build and run"
-          + " using\" to \"IntelliJ IDEA\""),
+          + " using\" (and \"Run tests using\" for tests) to \"IntelliJ IDEA\""),
   MAVEN(
       "Maven",
       "Settings | Build, Execution, Deployment | Build Tools | Maven | Runner: turn off"
