@@ -67,6 +67,32 @@ class RunRecordingsTest {
     assertThat(selection.analyze()).containsExactly(rec(1), rec(2), rec(3));
   }
 
+  /** The pids sort the other way from the times, so ordering by name would fail here. */
+  @Test
+  void theOldestRecordingComesFirstEvenWhenItHasTheHighestPid() {
+    var selection =
+        RunRecordings.select(List.of(found(900, 10, 1), found(50, 10, 3), found(400, 10, 2)));
+
+    assertThat(selection.analyze()).containsExactly(rec(900), rec(400), rec(50));
+  }
+
+  @Test
+  void theCapKeepsTheTenOldestWhateverTheirPids() {
+    var found = new ArrayList<Found>();
+    // Oldest file has the highest pid: pid 1011 is modified at 0, pid 1000 at 11.
+    for (int i = 0; i < 12; i++) {
+      found.add(found(1011 - i, 10, i));
+    }
+
+    var selection = RunRecordings.select(found);
+
+    assertThat(selection.analyze())
+        .containsExactly(
+            rec(1011), rec(1010), rec(1009), rec(1008), rec(1007), rec(1006), rec(1005), rec(1004),
+            rec(1003), rec(1002));
+    assertThat(selection.analyze()).doesNotContain(rec(1001), rec(1000));
+  }
+
   @Test
   void recordingsWithTheSameModificationTimeAreOrderedByName() {
     var selection = RunRecordings.select(List.of(found(22, 10, 5), found(11, 10, 5)));
@@ -214,6 +240,23 @@ class RunRecordingsTest {
     assertThat(RunRecordings.pidOf(DIR.resolve("hotspot-pid-1-id-1.jfr"))).isNull();
     assertThat(RunRecordings.pidOf(DIR.resolve("scope-tracer-.jfr"))).isNull();
     assertThat(RunRecordings.pidOf(Path.of("/"))).isNull();
+  }
+
+  /** The whole file name must be ours: a pid inside a longer name is not one. */
+  @Test
+  void aNameThatOnlyContainsTheRecordingNameHasNoPid() {
+    assertThat(RunRecordings.pidOf(DIR.resolve("scope-tracer-7.jfr.tmp"))).isNull();
+    assertThat(RunRecordings.pidOf(DIR.resolve("xscope-tracer-7.jfr"))).isNull();
+    assertThat(RunRecordings.pidOf(DIR.resolve("scope-tracer-7-1.jfr"))).isNull();
+  }
+
+  @Test
+  void aFileNotEndingInJfrIsNotARecording() {
+    var selection =
+        RunRecordings.select(
+            List.of(new Found(DIR.resolve("scope-tracer-7.jfr.tmp"), 10, 1), found(8, 10, 2)));
+
+    assertThat(selection.analyze()).containsExactly(rec(8));
   }
 
   @Test

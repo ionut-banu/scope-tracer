@@ -762,9 +762,11 @@ is a failed analysis saying so, not an empty trace.
   (with `html=false`: the plugin renders the trace itself),
   `--enable-preview` and a JFR recording added to its VM options
   (`TracedLaunch` decides which, and refuses for JDK < 27, an
-  already-attached agent or an existing `-XX:StartFlightRecording`,
-  including one a Maven project's surefire `argLine` adds: the JUnit
-  patchers run before the program patcher), then opens the run's
+  already-attached agent or an existing `-XX:StartFlightRecording`;
+  one a Maven project's surefire `argLine` adds is expected to be
+  refused too, since 2026.3's bytecode applies the JUnit patchers
+  before the program patcher, but that is not yet verified in an
+  IDE), then opens the run's
   recordings when it ends. The same item, "Run '<name>' with Scope
   Tracer", is in the run gutter icon's menu (`RunLineMarkerExtraActions`)
   and the editor's and project view's context menu
@@ -855,7 +857,7 @@ in place, asserts every value, and fails on a key it does not map.
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 207 |
+| plugin `:model` | Gradle | 211 |
 
 `mvn -q verify` runs the first six: 947 tests (surefire plus
 failsafe, measured on 2026-11-27 on the branch of #64 from `main` at 338dbd3, on Temurin 27; the
