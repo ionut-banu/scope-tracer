@@ -254,6 +254,12 @@ T's. Thread names are not used: unnamed virtual threads have none.
 `HtmlRenderer.render(TraceModel)` produces the report: per scope, a
 metadata line, a task table and an SVG Gantt timeline; child scopes
 indented under their parent task; repeated root scopes grouped.
+**Task identity:** every task's bar (its outer `<svg>`) and its table
+row (`<tr>`) carry `data-scope-id` and `data-task-id`, the task's
+`scopeId` and `taskId` as plain numbers, in root scopes, child scopes
+and grouped scopes alike; nothing else carries them (#190). The page
+itself does nothing with them; they are what the plugin's Timeline
+click reads.
 **Themes:** the stylesheet has a light and a dark palette as CSS custom
 properties (the same set in both). The dark one applies under
 `@media (prefers-color-scheme: dark)` on `:root:not([data-theme="light"])`
@@ -749,7 +755,32 @@ is a failed analysis saying so, not an empty trace.
   report, the plugin carries no colours) and sets the browser's page
   background to the IDE's. The file is never rewritten, so "Open in
   Browser" follows the OS, not the IDE. A scripting failure is logged
-  at WARN only. Its bars do not navigate to source (#190). The table
+  at WARN only. A single click on a task's bar or table row in
+  "Timeline" goes to its `fork` call site, exactly as double-clicking
+  its row in "Tasks" does (#190): in the same `onLoadEnd`,
+  `TimelineView` runs `TaskClick.script`, which installs a click
+  handler on the page that sends the element's
+  `"<scopeId>:<taskId>"` through a `JBCefJSQuery` (made with the
+  browser, disposed with its client). The file on disk carries no
+  bridge code, so "Open in Browser" is unaffected. A click inside a
+  link, a button, a form control, a group heading or a failed task's
+  stack trace, a click that ends a text selection, and a click on
+  anything without both attributes (the scope bar, the axis, the
+  overview) are left to the page; the second click of a double click
+  (`detail > 1`) is ignored, so it navigates once. A click that
+  arrives after its tab or the project closed does nothing.
+  `TaskClick.parse` accepts only two non-negative `long`s in ASCII
+  digits; anything else is ignored and logged at INFO. On the EDT the
+  panel looks the pair up in its own recording (`TaskCallSites`, from
+  the parsed JSON and `CallSiteParser.forTask`, so each JVM tab uses
+  its own model and a stale click for unknown ids does nothing but log
+  at INFO) and hands the call site to the table's
+  `TaskSourceNavigator`, the chooser anchored on the browser. A task
+  with neither a structured call site nor a parseable `taskName`
+  shows one information notification, "Task #N (name) has no call
+  site to go to."; the table's double-click on such a row stays
+  silent. A bridge failure is logged at WARN and loses the click only.
+  The table
   has click-to-source on call sites via Java PSI
   (a structured `callSite` is exact: its binary class name is looked
   up with `JavaPsiFacade.findClass`, a nested class exactly, an
@@ -863,19 +894,19 @@ in place, asserts every value, and fails on a key it does not map.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-27, #196 on main b8fa58e, JDK 27) |
+| Suite | Runner | Count (2026-11-27, #190 on main f7fff76, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
-| analyzer unit | surefire | 180 |
+| analyzer unit | surefire | 181 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
 | agent unit | surefire | 250 |
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
-| demos unit | surefire | 66 |
+| demos unit | surefire | 67 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 233 |
+| plugin `:model` | Gradle | 251 |
 
-`mvn -q verify` runs the first six: 947 tests (surefire plus
-failsafe, measured on 2026-11-27 on the branch of #196 from `main` at b8fa58e, on Temurin 27; the
+`mvn -q verify` runs the first six: 949 tests (surefire plus
+failsafe, measured on 2026-11-27 on the branch of #190 from `main` at f7fff76, on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

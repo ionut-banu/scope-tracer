@@ -92,8 +92,8 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <span class="legend-item"><span class="legend-swatch" style="background:#9e9e9e"></span>incomplete</span>
 <span class="legend-item"><span class="legend-swatch" style="background:#4caf50;box-shadow:0 0 0 2px #d97706"></span>critical path</span>
 </div>
-<script type="application/json" id="trace-data">{"scopes":[{"scopeId":31,"name":"all-successful","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-27T14:53:40.402106333Z","closeTime":"2026-11-27T14:53:40.806690167Z","parent":null,"tasks":[{"taskId":1,"taskName":"product","threadName":"","threadId":125,"forkTime":"2026-11-27T14:53:40.402221375Z","completionTime":"2026-11-27T14:53:40.557514583Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"allSuccessful","line":72}},{"taskId":2,"taskName":"pricing","threadName":"","threadId":126,"forkTime":"2026-11-27T14:53:40.402338083Z","completionTime":"2026-11-27T14:53:40.653966542Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"allSuccessful","line":73}},{"taskId":3,"taskName":"shipping","threadName":"","threadId":127,"forkTime":"2026-11-27T14:53:40.402398042Z","completionTime":"2026-11-27T14:53:40.806582250Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"allSuccessful","line":74}}]}]}</script>
-<p class="summary">1 scope(s) &nbsp;|&nbsp; <span class="count-success">1 success</span> &nbsp;|&nbsp; median: 404.58ms &nbsp;|&nbsp; wall: 404.58ms</p>
+<script type="application/json" id="trace-data">{"scopes":[{"scopeId":31,"name":"all-successful","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-27T18:59:10.892393375Z","closeTime":"2026-11-27T18:59:11.296596Z","parent":null,"tasks":[{"taskId":1,"taskName":"product","threadName":"","threadId":125,"forkTime":"2026-11-27T18:59:10.892518417Z","completionTime":"2026-11-27T18:59:11.046340958Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"allSuccessful","line":72}},{"taskId":2,"taskName":"pricing","threadName":"","threadId":126,"forkTime":"2026-11-27T18:59:10.892636958Z","completionTime":"2026-11-27T18:59:11.147892958Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"allSuccessful","line":73}},{"taskId":3,"taskName":"shipping","threadName":"","threadId":127,"forkTime":"2026-11-27T18:59:10.892700417Z","completionTime":"2026-11-27T18:59:11.296416583Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"allSuccessful","line":74}}]}]}</script>
+<p class="summary">1 scope(s) &nbsp;|&nbsp; <span class="count-success">1 success</span> &nbsp;|&nbsp; median: 404.20ms &nbsp;|&nbsp; wall: 404.20ms</p>
 <div class="filter-bar">
 <input type="text" id="search" placeholder="filter by name…" autocomplete="off"/>
 <span class="filter-sep">|</span>
@@ -110,57 +110,57 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <rect x="0" y="8" width="800" height="18" class="track" rx="2"/>
 <a href="#scope-0" style="text-decoration:none">
 <rect x="0.00" y="8" width="800.00" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
-<title>all-successful | 404.58ms</title>
+<title>all-successful | 404.20ms</title>
 </rect>
 </a>
-<text x="0" y="40" class="tick-label" font-size="8" font-family="monospace">14:53:40.402</text>
-<text x="800" y="40" class="tick-label" font-size="8" font-family="monospace" text-anchor="end">14:53:40.806</text>
+<text x="0" y="40" class="tick-label" font-size="8" font-family="monospace">18:59:10.892</text>
+<text x="800" y="40" class="tick-label" font-size="8" font-family="monospace" text-anchor="end">18:59:11.296</text>
 </svg>
 </div>
 <section id="scope-0" data-scope="all-successful" data-outcome="success">
 <h2>all-successful <a class="anchor-link" href="#scope-0" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 14:53:40.402 &nbsp;|&nbsp; duration: 404.58ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 18:59:10.892 &nbsp;|&nbsp; duration: 404.20ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>product</td><td>vt-125</td><td>+115.04µs</td><td>155.29ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>pricing</td><td>vt-126</td><td>+231.75µs</td><td>251.63ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>3</td><td>shipping</td><td>vt-127</td><td>+291.71µs</td><td>404.18ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +404.48ms</span></td></tr>
+<tr data-scope-id="31" data-task-id="1"><td>1</td><td>product</td><td>vt-125</td><td>+125.04µs</td><td>153.82ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr data-scope-id="31" data-task-id="2"><td>2</td><td>pricing</td><td>vt-126</td><td>+243.58µs</td><td>255.26ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr data-scope-id="31" data-task-id="3"><td>3</td><td>shipping</td><td>vt-127</td><td>+307.04µs</td><td>403.72ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +404.02ms</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>all-successful | 404.58ms</title>
+<title>all-successful | 404.20ms</title>
 </rect>
-<svg x="0.23" y="32" width="307.07" height="18" overflow="hidden">
-<rect x="0" y="0" width="307.07" height="18" fill="#4caf50" rx="2">
+<svg data-scope-id="31" data-task-id="1" x="0.25" y="32" width="304.45" height="18" overflow="hidden">
+<rect x="0" y="0" width="304.45" height="18" fill="#4caf50" rx="2">
 <title>task 1 | product | vt-125 | success</title>
 </rect>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#1 product</text>
 </svg>
-<svg x="0.46" y="58" width="497.56" height="18" overflow="hidden">
-<rect x="0" y="0" width="497.56" height="18" fill="#4caf50" rx="2">
+<svg data-scope-id="31" data-task-id="2" x="0.48" y="58" width="505.20" height="18" overflow="hidden">
+<rect x="0" y="0" width="505.20" height="18" fill="#4caf50" rx="2">
 <title>task 2 | pricing | vt-126 | success</title>
 </rect>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#2 pricing</text>
 </svg>
-<svg x="0.58" y="84" width="799.21" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.21" height="18" fill="#4caf50" rx="2">
-<title>task 3 | shipping | vt-127 | success · critical path +404.48ms</title>
+<svg data-scope-id="31" data-task-id="3" x="0.61" y="84" width="799.04" height="18" overflow="hidden">
+<rect x="0" y="0" width="799.04" height="18" fill="#4caf50" rx="2">
+<title>task 3 | shipping | vt-127 | success · critical path +404.02ms</title>
 </rect>
-<rect x="0" y="0" width="799.21" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<rect x="0" y="0" width="799.04" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#3 shipping</text>
 </svg>
 <line x1="0" y1="116" x2="800" y2="116" class="tick"/>
 <line x1="0.00" y1="113" x2="0.00" y2="119" class="tick"/>
 <text x="2.00" y="128" class="tick-label" font-size="8" font-family="monospace">0</text>
-<line x1="197.73" y1="113" x2="197.73" y2="119" class="tick"/>
-<text x="199.73" y="128" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
-<line x1="395.47" y1="113" x2="395.47" y2="119" class="tick"/>
-<text x="397.47" y="128" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
-<line x1="593.20" y1="113" x2="593.20" y2="119" class="tick"/>
-<text x="595.20" y="128" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
-<line x1="790.94" y1="113" x2="790.94" y2="119" class="tick"/>
-<text x="792.94" y="128" class="tick-label" font-size="8" font-family="monospace">+400ms</text>
+<line x1="197.92" y1="113" x2="197.92" y2="119" class="tick"/>
+<text x="199.92" y="128" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
+<line x1="395.84" y1="113" x2="395.84" y2="119" class="tick"/>
+<text x="397.84" y="128" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
+<line x1="593.76" y1="113" x2="593.76" y2="119" class="tick"/>
+<text x="595.76" y="128" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
+<line x1="791.68" y1="113" x2="791.68" y2="119" class="tick"/>
+<text x="793.68" y="128" class="tick-label" font-size="8" font-family="monospace">+400ms</text>
 </svg>
 </div>
 </section>

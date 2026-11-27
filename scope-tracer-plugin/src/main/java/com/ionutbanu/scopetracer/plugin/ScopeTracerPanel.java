@@ -10,6 +10,7 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.components.JBTabbedPane;
 import com.intellij.ui.table.JBTable;
@@ -25,6 +26,9 @@ import com.ionutbanu.scopetracer.plugin.model.ReportAnalysis;
 import com.ionutbanu.scopetracer.plugin.model.ReportViews;
 import com.ionutbanu.scopetracer.plugin.model.ReportViews.Display;
 import com.ionutbanu.scopetracer.plugin.model.ShownReport;
+import com.ionutbanu.scopetracer.plugin.model.TaskCallSites;
+import com.ionutbanu.scopetracer.plugin.model.TaskCallSites.Lookup;
+import com.ionutbanu.scopetracer.plugin.model.TaskClick;
 import java.awt.BorderLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -49,10 +53,12 @@ import org.jetbrains.annotations.Nullable;
  * The Scope Tracer tool window's content: two views of one recording (#62). "Timeline" is the
  * analyzer's own HTML report in an embedded browser ({@link TimelineView}), shown first; "Tasks" is
  * the flat task table, one row per scope header and indented rows per task, with double-click to
- * source. Without JCEF only "Tasks" is shown. "Open in Browser" opens the same HTML file in the
- * system browser either way. What is shown is decided by {@link ReportViews}; the temp HTML file
- * is owned by {@link ShownReport} and deleted when the next recording replaces it or this panel is
- * disposed with its content (the project closes).
+ * source. A single click on a task in "Timeline" goes to the same call site (#190), looked up in
+ * this panel's own recording by its {@code (scopeId, taskId)}. Without JCEF only "Tasks" is shown.
+ * "Open in Browser" opens the same HTML file in the system browser either way. What is shown is
+ * decided by {@link ReportViews}; the temp HTML file is owned by {@link ShownReport} and deleted
+ * when the next recording replaces it or this panel is disposed with its content (the project
+ * closes).
  */
 final class ScopeTracerPanel extends JPanel implements Disposable {
 
@@ -82,6 +88,11 @@ final class ScopeTracerPanel extends JPanel implements Disposable {
   // resolve via CallSiteParser.forTask, which prefers the structured call site captured at fork
   // time and falls back to parsing the legacy taskName convention for older recordings.
   private final List<CallSite> rowCallSites = new ArrayList<>();
+
+  // The same call sites by (scopeId, taskId), for a click in "Timeline" (#190). Replaced with the
+  // recording shown, on the EDT, so a click is always looked up in this panel's own model.
+  private TaskCallSites taskCallSites = TaskCallSites.EMPTY;
+  private volatile boolean disposed;
 
   ScopeTracerPanel(Project project) {
     super(new BorderLayout());
@@ -122,7 +133,7 @@ final class ScopeTracerPanel extends JPanel implements Disposable {
     // Asked before any JCEF object exists; without JCEF the panel is the table alone, as before.
     jcefSupported = JcefSupport.isSupported();
     if (jcefSupported) {
-      timeline = new TimelineView(this);
+      timeline = new TimelineView(this, this::timelineTaskClicked);
       var tabs = new JBTabbedPane();
       tabs.addTab("Timeline", timeline.component());
       tabs.addTab("Tasks", tasks);
@@ -134,10 +145,38 @@ final class ScopeTracerPanel extends JPanel implements Disposable {
     }
   }
 
-  /** The content is disposed (the project closes): delete the temp HTML file shown. */
+  /** The content is disposed (its tab or the project closes): delete the temp HTML file shown. */
   @Override
   public void dispose() {
+    disposed = true;
     shown.dispose();
+  }
+
+  /** A task bar or row clicked in "Timeline" (#190). On the EDT. */
+  private void timelineTaskClicked(TaskClick click) {
+    // A click queued just before this tab or the project closed goes nowhere.
+    if (disposed || project.isDisposed()) {
+      return;
+    }
+    switch (taskCallSites.find(click)) {
+      case Lookup.Found found -> {
+        LOG.info("Scope Tracer: timeline click " + click + " -> " + found.callSite());
+        TaskSourceNavigator.navigate(project, timeline.component(), found.callSite());
+      }
+      case Lookup.NoCallSite none ->
+          ScopeTracerNotifier.notify(
+              project,
+              "Scope Tracer",
+              "Task #"
+                  + none.taskId()
+                  + (none.taskName() == null || none.taskName().isBlank()
+                      ? ""
+                      : " (" + StringUtil.escapeXmlEntities(none.taskName()) + ")")
+                  + " has no call site to go to.",
+              NotificationType.INFORMATION);
+      case Lookup.Unknown unknown ->
+          LOG.info("Scope Tracer: timeline click " + click + " is not a task of this recording");
+    }
   }
 
   private void openInBrowser() {
@@ -312,6 +351,7 @@ final class ScopeTracerPanel extends JPanel implements Disposable {
   private void populate(PluginTraceModel model) {
     tableModel.setRowCount(0);
     rowCallSites.clear();
+    taskCallSites = TaskCallSites.of(model);
     for (PluginScopeRecord scope : model.scopes()) {
       tableModel.addRow(new Object[] {scope.name(), scope.ownerThreadName(), "", "", ""});
       rowCallSites.add(null);

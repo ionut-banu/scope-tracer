@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Clicking a task in the plugin's timeline goes to its source** (#190). In the Scope Tracer
+  tool window's "Timeline" view, a single click on a task's bar or on its row in the report's
+  table opens the editor at the `fork` call that created it, the same place double-clicking the
+  task in "Tasks" goes. A task with no call site to go to (an explicit lowercase label in a
+  recording without structured call sites) says so in a notification. The HTML report, from the
+  CLI as well, gains `data-scope-id` and `data-task-id` attributes on each task bar and row; the
+  file has no script for the click, which the plugin adds in the IDE only.
+
 - **Reports follow the OS dark mode, and the plugin's timeline follows the IDE theme** (#191).
   The HTML report has a light and a dark palette; a browser set to dark shows the dark one, and the
   outcome colours keep their meaning on both. In the IDE the embedded timeline switches with the

@@ -1481,3 +1481,37 @@ details below are the engineer's, within those decisions.
   `tracedConfigurationKind` extension point, never a class name.
 - **Rerun is not traced.** A rerun after the traced run finds no
   registered request, as an ordinary Run does.
+
+## 2026-11-27 - A click in the embedded Timeline goes to the fork call site
+
+Decided by the maintainer on #190 (2026-11-27); the details below are
+the engineer's, within those decisions. #217's `ReportNavigation` tests
+are folded in.
+
+- **The page carries identity, nothing else.** `HtmlRenderer` writes
+  `data-scope-id` and `data-task-id` on each task bar's `<svg>` and
+  each task `<tr>`, so the CLI's report gains them too and the gallery,
+  the example and the README image were regenerated. Matching bars by
+  DOM order, title text or scope name was rejected: scope names repeat,
+  and order and text are presentation. Tagging the elements from a
+  plugin script instead was rejected for the same reason: it would have
+  to re-derive identity from presentation.
+- **The handler is injected, not shipped.** The plugin runs
+  `TaskClick.script` on the loaded page (in the same `onLoadEnd` as the
+  theme) and receives the click through a `JBCefJSQuery`. The file on
+  disk has no bridge code, so the CLI's report and "Open in Browser"
+  behave as before. A `JBCefJSQuery` call is not a navigation, so
+  `ReportNavigation` is unchanged.
+- **Call sites stay in the plugin's JSON.** The page sends only
+  `"<scopeId>:<taskId>"`; the plugin joins it to its own parsed model
+  (`TaskCallSites`, `CallSiteParser.forTask`) and navigates through
+  the table's `TaskSourceNavigator`. The page is never trusted with a
+  class name, a path or a line, and the plugin never reads the
+  `trace-data` block.
+- **Gesture.** A single click on a bar or a row of the report's table,
+  since both are in the Timeline tab; the "Tasks" table keeps its
+  double-click.
+- **No call site is said out loud.** A dead click in a page reads as
+  broken, so a task with neither a structured call site nor a parseable
+  `taskName` shows one information notification ("no call site to go
+  to"). The table's double-click stays silent, as before.

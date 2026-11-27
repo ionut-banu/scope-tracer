@@ -91,6 +91,32 @@ class ReportNavigationTest {
     assertThat(ReportNavigation.allowed(null, report)).isFalse();
   }
 
+  /** The report's own path under {@code http:} is not the report (#217). */
+  @Test
+  void theReportsOwnPathOverHttpIsRefused() throws IOException {
+    var report = report();
+
+    assertThat(ReportNavigation.allowed("http://" + report.toUri().getRawPath(), report)).isFalse();
+  }
+
+  /** The report's own path under {@code ftp:} is not the report (#217). */
+  @Test
+  void theReportsOwnPathOverFtpIsRefused() throws IOException {
+    var report = report();
+
+    assertThat(ReportNavigation.allowed("ftp://" + report.toUri().getRawPath(), report)).isFalse();
+  }
+
+  /** A query on the report's own file URL is refused, a fragment is not (#217). */
+  @Test
+  void theReportsOwnFileUrlWithAQueryIsRefused() throws IOException {
+    var report = report();
+    var path = report.toUri().getRawPath();
+
+    assertThat(ReportNavigation.allowed("file://" + path, report)).isTrue();
+    assertThat(ReportNavigation.allowed("file://" + path + "?q", report)).isFalse();
+  }
+
   @Test
   void withNoReportNothingIsAllowed() throws IOException {
     var report = report();

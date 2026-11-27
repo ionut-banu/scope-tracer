@@ -52,6 +52,18 @@ class ReportSkeletonTest {
     assertThat(sameSkeleton(a, b)).isTrue();
   }
 
+  /** A row's thread is masked whatever its name, not only its digits (#190). */
+  @Test
+  void aRowsThreadRenamedToAnotherNameIsIgnored() {
+    var a = render(TestModels.simple(0, 10, 100));
+    var b =
+        a.replaceFirst(
+            "(<tr[^>]*><td>\\d+</td><td>[^<]*</td><td>)[^<]*(</td>)", "$1ForkJoinPool-worker-Z$2");
+
+    assertThat(b).isNotEqualTo(a).contains("ForkJoinPool-worker-Z");
+    assertThat(sameSkeleton(a, b)).isTrue();
+  }
+
   @Test
   void aJdkFrameInAStackTraceIsIgnored() {
     var withFrames =
@@ -144,7 +156,7 @@ class ReportSkeletonTest {
   @Test
   void aDeletedRowIsDetected() {
     var original = render(TestModels.simple(0, 10, 100));
-    int row = original.indexOf("<tr><td>2</td>");
+    int row = original.lastIndexOf("<tr", original.indexOf("><td>2</td>"));
     var withoutRow =
         original.substring(0, row) + original.substring(original.indexOf("</tr>", row) + 6);
 

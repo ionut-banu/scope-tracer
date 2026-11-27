@@ -92,8 +92,8 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <span class="legend-item"><span class="legend-swatch" style="background:#9e9e9e"></span>incomplete</span>
 <span class="legend-item"><span class="legend-swatch" style="background:#4caf50;box-shadow:0 0 0 2px #d97706"></span>critical path</span>
 </div>
-<script type="application/json" id="trace-data">{"scopes":[{"scopeId":36,"name":"request","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-27T14:53:42.673123750Z","closeTime":"2026-11-27T14:53:42.979705708Z","parent":null,"tasks":[{"taskId":1,"taskName":"handle-checkout","threadName":"","threadId":141,"forkTime":"2026-11-27T14:53:42.673224833Z","completionTime":"2026-11-27T14:53:42.979596458Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":163}},{"taskId":2,"taskName":"load-session","threadName":"","threadId":142,"forkTime":"2026-11-27T14:53:42.673312Z","completionTime":"2026-11-27T14:53:42.778502625Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":182}}]},{"scopeId":37,"name":"checkout","ownerThreadName":"","ownerThreadId":141,"openTime":"2026-11-27T14:53:42.673369917Z","closeTime":"2026-11-27T14:53:42.979590667Z","parent":{"parentScopeId":36,"scopeName":"request","taskId":1},"tasks":[{"taskId":1,"taskName":"take-payment","threadName":"","threadId":143,"forkTime":"2026-11-27T14:53:42.673463917Z","completionTime":"2026-11-27T14:53:42.979567208Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":167}},{"taskId":2,"taskName":"reserve-stock","threadName":"","threadId":144,"forkTime":"2026-11-27T14:53:42.673521208Z","completionTime":"2026-11-27T14:53:42.828707875Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":177}}]},{"scopeId":38,"name":"payment","ownerThreadName":"","ownerThreadId":143,"openTime":"2026-11-27T14:53:42.673534667Z","closeTime":"2026-11-27T14:53:42.979557667Z","parent":{"parentScopeId":37,"scopeName":"checkout","taskId":1},"tasks":[{"taskId":1,"taskName":"fraud-check","threadName":"","threadId":145,"forkTime":"2026-11-27T14:53:42.673667042Z","completionTime":"2026-11-27T14:53:42.828714042Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":171}},{"taskId":2,"taskName":"card-auth","threadName":"","threadId":146,"forkTime":"2026-11-27T14:53:42.673763792Z","completionTime":"2026-11-27T14:53:42.979474292Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":172}}]}]}</script>
-<p class="summary">1 scope(s) &nbsp;|&nbsp; <span class="count-success">1 success</span> &nbsp;|&nbsp; median: 306.58ms &nbsp;|&nbsp; wall: 306.58ms</p>
+<script type="application/json" id="trace-data">{"scopes":[{"scopeId":36,"name":"request","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-27T18:59:13.217131666Z","closeTime":"2026-11-27T18:59:13.523464750Z","parent":null,"tasks":[{"taskId":1,"taskName":"handle-checkout","threadName":"","threadId":141,"forkTime":"2026-11-27T18:59:13.217327333Z","completionTime":"2026-11-27T18:59:13.523369750Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":163}},{"taskId":2,"taskName":"load-session","threadName":"","threadId":142,"forkTime":"2026-11-27T18:59:13.217476583Z","completionTime":"2026-11-27T18:59:13.317754791Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":182}}]},{"scopeId":37,"name":"checkout","ownerThreadName":"","ownerThreadId":141,"openTime":"2026-11-27T18:59:13.217491833Z","closeTime":"2026-11-27T18:59:13.523363666Z","parent":{"parentScopeId":36,"scopeName":"request","taskId":1},"tasks":[{"taskId":1,"taskName":"take-payment","threadName":"","threadId":143,"forkTime":"2026-11-27T18:59:13.217574958Z","completionTime":"2026-11-27T18:59:13.523335166Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":167}},{"taskId":2,"taskName":"reserve-stock","threadName":"","threadId":144,"forkTime":"2026-11-27T18:59:13.217660291Z","completionTime":"2026-11-27T18:59:13.371641375Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":177}}]},{"scopeId":38,"name":"payment","ownerThreadName":"","ownerThreadId":143,"openTime":"2026-11-27T18:59:13.217642250Z","closeTime":"2026-11-27T18:59:13.523322291Z","parent":{"parentScopeId":37,"scopeName":"checkout","taskId":1},"tasks":[{"taskId":1,"taskName":"fraud-check","threadName":"","threadId":145,"forkTime":"2026-11-27T18:59:13.217739333Z","completionTime":"2026-11-27T18:59:13.371641416Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":171}},{"taskId":2,"taskName":"card-auth","threadName":"","threadId":146,"forkTime":"2026-11-27T18:59:13.217811875Z","completionTime":"2026-11-27T18:59:13.523104125Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"nested","line":172}}]}]}</script>
+<p class="summary">1 scope(s) &nbsp;|&nbsp; <span class="count-success">1 success</span> &nbsp;|&nbsp; median: 306.33ms &nbsp;|&nbsp; wall: 306.33ms</p>
 <div class="filter-bar">
 <input type="text" id="search" placeholder="filter by name…" autocomplete="off"/>
 <span class="filter-sep">|</span>
@@ -110,35 +110,35 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <rect x="0" y="8" width="800" height="18" class="track" rx="2"/>
 <a href="#scope-0" style="text-decoration:none">
 <rect x="0.00" y="8" width="800.00" height="18" rx="1" style="fill:#4caf50;opacity:0.85">
-<title>request | 306.58ms</title>
+<title>request | 306.33ms</title>
 </rect>
 </a>
-<text x="0" y="40" class="tick-label" font-size="8" font-family="monospace">14:53:42.673</text>
-<text x="800" y="40" class="tick-label" font-size="8" font-family="monospace" text-anchor="end">14:53:42.979</text>
+<text x="0" y="40" class="tick-label" font-size="8" font-family="monospace">18:59:13.217</text>
+<text x="800" y="40" class="tick-label" font-size="8" font-family="monospace" text-anchor="end">18:59:13.523</text>
 </svg>
 </div>
 <section id="scope-0" data-scope="request" data-outcome="success">
 <h2>request <a class="anchor-link" href="#scope-0" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 14:53:42.673 &nbsp;|&nbsp; duration: 306.58ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 18:59:13.217 &nbsp;|&nbsp; duration: 306.33ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>handle-checkout</td><td>vt-141</td><td>+101.08µs</td><td>306.37ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +306.47ms</span> <span class="nested-scope-ref">↳ checkout</span></td></tr>
-<tr><td>2</td><td>load-session</td><td>vt-142</td><td>+188.25µs</td><td>105.19ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr data-scope-id="36" data-task-id="1"><td>1</td><td>handle-checkout</td><td>vt-141</td><td>+195.67µs</td><td>306.04ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +306.24ms</span> <span class="nested-scope-ref">↳ checkout</span></td></tr>
+<tr data-scope-id="36" data-task-id="2"><td>2</td><td>load-session</td><td>vt-142</td><td>+344.92µs</td><td>100.28ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>request | 306.58ms</title>
+<title>request | 306.33ms</title>
 </rect>
-<svg x="0.26" y="32" width="799.45" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.45" height="18" fill="#4caf50" rx="2">
-<title>task 1 | handle-checkout | vt-141 | success · critical path +306.47ms</title>
+<svg data-scope-id="36" data-task-id="1" x="0.51" y="32" width="799.24" height="18" overflow="hidden">
+<rect x="0" y="0" width="799.24" height="18" fill="#4caf50" rx="2">
+<title>task 1 | handle-checkout | vt-141 | success · critical path +306.24ms</title>
 </rect>
-<rect x="0" y="0" width="799.45" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<rect x="0" y="0" width="799.24" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#1 handle-checkout</text>
 </svg>
-<svg x="0.49" y="58" width="274.49" height="18" overflow="hidden">
-<rect x="0" y="0" width="274.49" height="18" fill="#4caf50" rx="2">
+<svg data-scope-id="36" data-task-id="2" x="0.90" y="58" width="261.88" height="18" overflow="hidden">
+<rect x="0" y="0" width="261.88" height="18" fill="#4caf50" rx="2">
 <title>task 2 | load-session | vt-142 | success</title>
 </rect>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#2 load-session</text>
@@ -146,44 +146,44 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <line x1="0" y1="90" x2="800" y2="90" class="tick"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" class="tick"/>
 <text x="2.00" y="102" class="tick-label" font-size="8" font-family="monospace">0</text>
-<line x1="130.47" y1="87" x2="130.47" y2="93" class="tick"/>
-<text x="132.47" y="102" class="tick-label" font-size="8" font-family="monospace">+50ms</text>
-<line x1="260.94" y1="87" x2="260.94" y2="93" class="tick"/>
-<text x="262.94" y="102" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
-<line x1="391.41" y1="87" x2="391.41" y2="93" class="tick"/>
-<text x="393.41" y="102" class="tick-label" font-size="8" font-family="monospace">+150ms</text>
-<line x1="521.88" y1="87" x2="521.88" y2="93" class="tick"/>
-<text x="523.88" y="102" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
-<line x1="652.35" y1="87" x2="652.35" y2="93" class="tick"/>
-<text x="654.35" y="102" class="tick-label" font-size="8" font-family="monospace">+250ms</text>
-<line x1="782.82" y1="87" x2="782.82" y2="93" class="tick"/>
-<text x="784.82" y="102" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
+<line x1="130.58" y1="87" x2="130.58" y2="93" class="tick"/>
+<text x="132.58" y="102" class="tick-label" font-size="8" font-family="monospace">+50ms</text>
+<line x1="261.15" y1="87" x2="261.15" y2="93" class="tick"/>
+<text x="263.15" y="102" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
+<line x1="391.73" y1="87" x2="391.73" y2="93" class="tick"/>
+<text x="393.73" y="102" class="tick-label" font-size="8" font-family="monospace">+150ms</text>
+<line x1="522.31" y1="87" x2="522.31" y2="93" class="tick"/>
+<text x="524.31" y="102" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
+<line x1="652.88" y1="87" x2="652.88" y2="93" class="tick"/>
+<text x="654.88" y="102" class="tick-label" font-size="8" font-family="monospace">+250ms</text>
+<line x1="783.46" y1="87" x2="783.46" y2="93" class="tick"/>
+<text x="785.46" y="102" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
 </svg>
 </div>
 </section>
 <div class="child-scope">
 <section>
 <h2>checkout <span class="parent-ref">↳ task 1 of request</span></h2>
-<div class="scope-meta">thread: vt-141 &nbsp;|&nbsp; opened: 14:53:42.673 &nbsp;|&nbsp; duration: 306.22ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-141 &nbsp;|&nbsp; opened: 18:59:13.217 &nbsp;|&nbsp; duration: 305.87ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>take-payment</td><td>vt-143</td><td>+94.00µs</td><td>306.10ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +306.20ms</span> <span class="nested-scope-ref">↳ payment</span></td></tr>
-<tr><td>2</td><td>reserve-stock</td><td>vt-144</td><td>+151.29µs</td><td>155.19ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr data-scope-id="37" data-task-id="1"><td>1</td><td>take-payment</td><td>vt-143</td><td>+83.13µs</td><td>305.76ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +305.84ms</span> <span class="nested-scope-ref">↳ payment</span></td></tr>
+<tr data-scope-id="37" data-task-id="2"><td>2</td><td>reserve-stock</td><td>vt-144</td><td>+168.46µs</td><td>153.98ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>checkout | 306.22ms</title>
+<title>checkout | 305.87ms</title>
 </rect>
-<svg x="0.25" y="32" width="799.69" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.69" height="18" fill="#4caf50" rx="2">
-<title>task 1 | take-payment | vt-143 | success · critical path +306.20ms</title>
+<svg data-scope-id="37" data-task-id="1" x="0.22" y="32" width="799.71" height="18" overflow="hidden">
+<rect x="0" y="0" width="799.71" height="18" fill="#4caf50" rx="2">
+<title>task 1 | take-payment | vt-143 | success · critical path +305.84ms</title>
 </rect>
-<rect x="0" y="0" width="799.69" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<rect x="0" y="0" width="799.71" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#1 take-payment</text>
 </svg>
-<svg x="0.40" y="58" width="405.42" height="18" overflow="hidden">
-<rect x="0" y="0" width="405.42" height="18" fill="#4caf50" rx="2">
+<svg data-scope-id="37" data-task-id="2" x="0.44" y="58" width="402.73" height="18" overflow="hidden">
+<rect x="0" y="0" width="402.73" height="18" fill="#4caf50" rx="2">
 <title>task 2 | reserve-stock | vt-144 | success</title>
 </rect>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#2 reserve-stock</text>
@@ -191,63 +191,63 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <line x1="0" y1="90" x2="800" y2="90" class="tick"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" class="tick"/>
 <text x="2.00" y="102" class="tick-label" font-size="8" font-family="monospace">0</text>
-<line x1="130.62" y1="87" x2="130.62" y2="93" class="tick"/>
-<text x="132.62" y="102" class="tick-label" font-size="8" font-family="monospace">+50ms</text>
-<line x1="261.25" y1="87" x2="261.25" y2="93" class="tick"/>
-<text x="263.25" y="102" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
-<line x1="391.87" y1="87" x2="391.87" y2="93" class="tick"/>
-<text x="393.87" y="102" class="tick-label" font-size="8" font-family="monospace">+150ms</text>
-<line x1="522.50" y1="87" x2="522.50" y2="93" class="tick"/>
-<text x="524.50" y="102" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
-<line x1="653.12" y1="87" x2="653.12" y2="93" class="tick"/>
-<text x="655.12" y="102" class="tick-label" font-size="8" font-family="monospace">+250ms</text>
-<line x1="783.75" y1="87" x2="783.75" y2="93" class="tick"/>
-<text x="785.75" y="102" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
+<line x1="130.77" y1="87" x2="130.77" y2="93" class="tick"/>
+<text x="132.77" y="102" class="tick-label" font-size="8" font-family="monospace">+50ms</text>
+<line x1="261.55" y1="87" x2="261.55" y2="93" class="tick"/>
+<text x="263.55" y="102" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
+<line x1="392.32" y1="87" x2="392.32" y2="93" class="tick"/>
+<text x="394.32" y="102" class="tick-label" font-size="8" font-family="monospace">+150ms</text>
+<line x1="523.09" y1="87" x2="523.09" y2="93" class="tick"/>
+<text x="525.09" y="102" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
+<line x1="653.87" y1="87" x2="653.87" y2="93" class="tick"/>
+<text x="655.87" y="102" class="tick-label" font-size="8" font-family="monospace">+250ms</text>
+<line x1="784.64" y1="87" x2="784.64" y2="93" class="tick"/>
+<text x="786.64" y="102" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
 </svg>
 </div>
 </section>
 <div class="child-scope">
 <section>
 <h2>payment <span class="parent-ref">↳ task 1 of checkout</span></h2>
-<div class="scope-meta">thread: vt-143 &nbsp;|&nbsp; opened: 14:53:42.673 &nbsp;|&nbsp; duration: 306.02ms &nbsp;|&nbsp; tasks: 2</div>
+<div class="scope-meta">thread: vt-143 &nbsp;|&nbsp; opened: 18:59:13.217 &nbsp;|&nbsp; duration: 305.68ms &nbsp;|&nbsp; tasks: 2</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>fraud-check</td><td>vt-145</td><td>+132.38µs</td><td>155.05ms</td><td><span class="outcome-success">success</span></td></tr>
-<tr><td>2</td><td>card-auth</td><td>vt-146</td><td>+229.13µs</td><td>305.71ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +305.94ms</span></td></tr>
+<tr data-scope-id="38" data-task-id="1"><td>1</td><td>fraud-check</td><td>vt-145</td><td>+97.08µs</td><td>153.90ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr data-scope-id="38" data-task-id="2"><td>2</td><td>card-auth</td><td>vt-146</td><td>+169.63µs</td><td>305.29ms</td><td><span class="outcome-success">success</span> <span class="critical-path-note">← critical path +305.46ms</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 112" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>payment | 306.02ms</title>
+<title>payment | 305.68ms</title>
 </rect>
-<svg x="0.35" y="32" width="405.32" height="18" overflow="hidden">
-<rect x="0" y="0" width="405.32" height="18" fill="#4caf50" rx="2">
+<svg data-scope-id="38" data-task-id="1" x="0.25" y="32" width="402.78" height="18" overflow="hidden">
+<rect x="0" y="0" width="402.78" height="18" fill="#4caf50" rx="2">
 <title>task 1 | fraud-check | vt-145 | success</title>
 </rect>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#1 fraud-check</text>
 </svg>
-<svg x="0.60" y="58" width="799.18" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.18" height="18" fill="#4caf50" rx="2">
-<title>task 2 | card-auth | vt-146 | success · critical path +305.94ms</title>
+<svg data-scope-id="38" data-task-id="2" x="0.44" y="58" width="798.99" height="18" overflow="hidden">
+<rect x="0" y="0" width="798.99" height="18" fill="#4caf50" rx="2">
+<title>task 2 | card-auth | vt-146 | success · critical path +305.46ms</title>
 </rect>
-<rect x="0" y="0" width="799.18" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
+<rect x="0" y="0" width="798.99" height="18" fill="none" stroke="#d97706" stroke-width="2" rx="2"/>
 <text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#2 card-auth</text>
 </svg>
 <line x1="0" y1="90" x2="800" y2="90" class="tick"/>
 <line x1="0.00" y1="87" x2="0.00" y2="93" class="tick"/>
 <text x="2.00" y="102" class="tick-label" font-size="8" font-family="monospace">0</text>
-<line x1="130.71" y1="87" x2="130.71" y2="93" class="tick"/>
-<text x="132.71" y="102" class="tick-label" font-size="8" font-family="monospace">+50ms</text>
-<line x1="261.42" y1="87" x2="261.42" y2="93" class="tick"/>
-<text x="263.42" y="102" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
-<line x1="392.13" y1="87" x2="392.13" y2="93" class="tick"/>
-<text x="394.13" y="102" class="tick-label" font-size="8" font-family="monospace">+150ms</text>
-<line x1="522.84" y1="87" x2="522.84" y2="93" class="tick"/>
-<text x="524.84" y="102" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
-<line x1="653.55" y1="87" x2="653.55" y2="93" class="tick"/>
-<text x="655.55" y="102" class="tick-label" font-size="8" font-family="monospace">+250ms</text>
-<line x1="784.25" y1="87" x2="784.25" y2="93" class="tick"/>
-<text x="786.25" y="102" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
+<line x1="130.86" y1="87" x2="130.86" y2="93" class="tick"/>
+<text x="132.86" y="102" class="tick-label" font-size="8" font-family="monospace">+50ms</text>
+<line x1="261.71" y1="87" x2="261.71" y2="93" class="tick"/>
+<text x="263.71" y="102" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
+<line x1="392.57" y1="87" x2="392.57" y2="93" class="tick"/>
+<text x="394.57" y="102" class="tick-label" font-size="8" font-family="monospace">+150ms</text>
+<line x1="523.42" y1="87" x2="523.42" y2="93" class="tick"/>
+<text x="525.42" y="102" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
+<line x1="654.28" y1="87" x2="654.28" y2="93" class="tick"/>
+<text x="656.28" y="102" class="tick-label" font-size="8" font-family="monospace">+250ms</text>
+<line x1="785.13" y1="87" x2="785.13" y2="93" class="tick"/>
+<text x="787.13" y="102" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
 </svg>
 </div>
 </section>

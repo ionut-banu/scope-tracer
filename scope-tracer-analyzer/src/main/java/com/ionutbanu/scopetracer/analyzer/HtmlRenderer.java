@@ -512,7 +512,11 @@ public final class HtmlRenderer {
           isCritical && task.completionTime() != null
               ? formatDuration(Duration.between(openTime, task.completionTime()))
               : null;
-      sb.append("<tr>")
+      sb.append("<tr data-scope-id=\"")
+          .append(scope.scopeId())
+          .append("\" data-task-id=\"")
+          .append(task.taskId())
+          .append("\">")
           .append("<td>")
           .append(task.taskId())
           .append("</td>")
@@ -583,7 +587,11 @@ public final class HtmlRenderer {
           (task.taskName() != null && !task.taskName().isBlank())
               ? " | " + escape(task.taskName())
               : "";
-      sb.append("<svg x=\"")
+      sb.append("<svg data-scope-id=\"")
+          .append(scope.scopeId())
+          .append("\" data-task-id=\"")
+          .append(task.taskId())
+          .append("\" x=\"")
           .append(f(taskX))
           .append("\" y=\"")
           .append(y)
