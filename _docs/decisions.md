@@ -1515,3 +1515,68 @@ are folded in.
   broken, so a task with neither a structured call site nor a parseable
   `taskName` shows one information notification ("no call site to go
   to"). The table's double-click stays silent, as before.
+
+## 2026-11-27 - The Plugin Verifier runs on plugin pull requests; the cache is the verifier's downloads (#215)
+
+Decided by the maintainer on #215 (2026-11-27): `actions/cache` is
+approved; the workflow runs on plugin pull requests, on pushes to
+`main` and weekly; it is advisory, not required; the EAP IDE is
+included; the warm run has to finish in 15 minutes, or it runs on
+`main` and the schedule only. The details are the engineer's.
+
+- **What it is.** `.github/workflows/plugin-verifier.yml`, a separate
+  workflow because `paths:` work per workflow. It builds as
+  `release.yml`'s `check` job does and runs one `verifyPlugin`.
+  `release.yml` is unchanged: the release stays the gate.
+- **The premise about `~/.pluginVerifier/ides` was wrong.** The
+  groomed issue assumed the IDEs are downloaded into
+  `~/.pluginVerifier/ides`. With the IntelliJ Platform Gradle Plugin
+  2.20.1 (verifier 1.411) that directory stays empty: the IDEs are
+  Gradle dependencies, in the Gradle user home, which `setup-gradle`
+  already caches. What the verifier itself downloads is
+  `~/.pluginVerifier/loaded-plugins`, 58 plugin and dependency zips
+  (the biggest are 522 and 342 MB), and `extracted-plugins`, which it
+  empties on every start. So the workflow caches `loaded-plugins`.
+- **Measurements, all local** (macOS, arm64, one home network, Gradle
+  9.6.1, JDK 21 for Gradle and 27 as toolchain; nothing here was run
+  on a GitHub runner, so the CI figures are still to be measured, see
+  below). IDEs verified: IU-263.7307.200 (2026.3) and IU-263.8311.30
+  (2026.3.1 Preview).
+  - Each IDE, as the Gradle dependency: 1.5 GB (the macOS `.dmg`; the
+    Linux archive on a runner will differ). The IDE part of a fresh
+    Gradle user home was 2.9 GB.
+  - Verifier downloads (`loaded-plugins`): 2.23 GB, the same for a
+    cold run and a warm one.
+  - Cold run, nothing cached (fresh Gradle user home, fresh verifier
+    home), `verifyPlugin` alone: 18 min 6 s. The verifier spent 6 min
+    on its downloads and 6 min 38 s verifying.
+  - IDEs already in the Gradle cache, verifier home empty: 6 min 6 s,
+    of which 5 min 19 s downloading plugins.
+  - Warm (IDEs and `loaded-plugins` present), `--rerun-tasks
+    verifyPlugin`, so it also recompiled: 1 min 44 s, of which the
+    verification was 1 min 11 s and the downloads 0 B.
+- **Cache entry.** About 2.3 GB per entry (zips do not compress
+  further; to be confirmed from `gh cache list` on `main`). The key is
+  the plugin's build files plus the ISO week, so `main` saves at most
+  one entry a week, an exact hit saves nothing, and an entry nobody
+  restored is evicted after seven days: two or three entries at most,
+  4.6 to 6.9 GB, against the 10 GB repository limit shared with the
+  Maven and Gradle caches (and the Gradle cache holds the two IDEs
+  too). That is tight. The decision is to keep the cache; if
+  `gh cache list` shows the repository over its limit, drop this
+  entry first, since a warm run saves about 5 minutes and a cold one
+  fits the 30-minute limit.
+- **Warm ceiling.** A warm run is 1 min 44 s locally, and a cold one
+  18 min locally, so pull requests are expected to be under 15
+  minutes warm. Whether a runner meets it is for the first runs to
+  show; if not, the fallback is `main` and the schedule only.
+- **Not measured, for the maintainer**: the cache entry size on a
+  runner, cold and warm times on a runner, how many entries a week of
+  runs leaves, and that the job fails for the right reason. See the
+  pull request.
+- **`DirectoryNotEmptyException`.** It comes from `extracted-plugins`
+  (the verifier clears it at start), not from `ides`: a second
+  `verifyPlugin` on the same machine deletes the directory the first
+  is reading. The cleanup is deleting `extracted-plugins`, not `ides`.
+  `-Dplugin.verifier.home.dir=<dir>`, passed to the verifier's JVM
+  (`JAVA_TOOL_OPTIONS` works), points one run at its own home.

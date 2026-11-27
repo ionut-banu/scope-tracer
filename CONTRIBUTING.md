@@ -105,6 +105,10 @@ The installable zip is `scope-tracer-plugin/build/distributions/scope-tracer-plu
 
 `build` and `buildPlugin` also run `checkClassFileVersions`, which fails when a plugin class is newer than the lowest supported IDE's JBR can load (`pluginMaxClassJava` in `gradle.properties`).
 
+The Plugin Verifier also runs on every pull request that touches `scope-tracer-plugin/` (the "Plugin Verifier" workflow, `plugin-verifier.yml`), on pushes to `main` and weekly. It is advisory, not a required check. Its second IDE is the newest 263+ build, EAP included, resolved when the job runs, so a run can turn red with no commit of ours: read the compatibility problem it names, and if it is a new EAP, it is a finding about the plugin, not about your change. A run that fails in the Gradle step with a network or HTTP error is a download failure: re-run the job, do not debug it (there is no retry loop). What the verifier downloads is cached from a run on `main`, so a pull request restores it instead of downloading it.
+
+Two `verifyPlugin` runs on one machine (two worktrees) share `~/.pluginVerifier`, and one can crash with `DirectoryNotEmptyException` or `NoSuchFileException` while the other downloads or extracts an IDE. Run one at a time; after such a crash, `rm -rf ~/.pluginVerifier/extracted-plugins` (and `~/.pluginVerifier/loaded-plugins` if it keeps failing) and run again.
+
 ### Formatting
 
 The project uses Spotless with google-java-format 1.36.1 and sortPom. CI
