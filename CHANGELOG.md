@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The HTML report has a light and a dark palette; a browser set to dark shows the dark one, and the
   outcome colours keep their meaning on both. In the IDE the embedded timeline switches with the
   UI theme, without reloading, and "Open in Browser" follows the operating system.
+
+- **"Run with Scope Tracer" runs JUnit tests** (#64). The Tools menu entry now runs a
+  selected JUnit run configuration (a class, a method, a package, a directory or a pattern) as
+  it runs a Java application, and a new `Run '<name>' with Scope Tracer` item in the run gutter
+  icon's menu and the editor's context menu on a test class or method runs exactly what that
+  gutter's Run would, traced. The test results appear in the Run tool window as usual. Every JVM
+  of a traced run writes its own recording into a new temp directory (`scope-tracer-%p.jfr`), so
+  tests that fork JVMs give one trace per JVM: one recording is shown in the tool window as
+  before, several with scopes each get a closable tab named `<configuration> (pid <pid>)`, which
+  the next run of the same configuration replaces. A run that leaves more than 10 recordings
+  opens the first 10 and keeps them all on disk, naming the directory. Recordings of different
+  JVMs are never merged (#197). Only test runs the IDE's own JUnit runner starts are traced:
+  Gradle-delegated test runs are #193, Maven `mvn test` configurations #194. The plugin gains an
+  optional dependency on the bundled JUnit plugin.
+
 - **The plugin's tool window shows the report's timeline** (#62). After a recording is
   analyzed, the Scope Tracer tool window has two views: "Timeline", the analyzer's own HTML
   report for that recording (per-scope Gantt bars, nested scopes under their parent task, the
@@ -42,6 +57,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every class in the plugin jar and `model.jar` and fails, naming each offender, when one is
   newer than the Java feature version in `pluginMaxClassJava` (25, the JBR of IntelliJ IDEA
   2026.3). Before, dropping `--release 25` left `build` and `verifyPlugin` green.
+
+- **"Run with Scope Tracer"'s notice for a configuration it does not run reads correctly for
+  every type** (#212). It used to say, for example, "is a Ant Target run configuration"; it now
+  says `"<name>" has run configuration type "<type>".` and that the action runs Java Application
+  and JUnit configurations. The notice for no selected configuration says "Java Application or
+  JUnit".
+- The JFR recording of an application run with Scope Tracer is now a file under a temp
+  directory, as for tests, instead of a single temp file (#64); only the path in the run's
+  command line shows it.
 
 - **The IntelliJ plugin finds a JDK for the analyzer instead of asking for a path** (#63).
   Neither action shows a path dialog any more. The analyzer runs on the JDK chosen on the new

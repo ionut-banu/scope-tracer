@@ -8,11 +8,13 @@
     actually ran: the tree of scopes and forked tasks, how long each task lived, which one failed
     and which siblings were cancelled. It reads JFR recordings made by
     <a href="https://github.com/ionut-banu/scope-tracer">scope-tracer</a>.</p>
-    <p>Two actions, both in the Tools menu:</p>
+    <p>Two actions in the Tools menu:</p>
     <ul>
-      <li><b>Run with Scope Tracer</b> runs the selected Java application run configuration with
-      the scope-tracer agent, <code>--enable-preview</code> and a JFR recording, and opens the
-      trace in the Scope Tracer tool window when the process exits.</li>
+      <li><b>Run with Scope Tracer</b> runs the selected Java application or JUnit run
+      configuration with the scope-tracer agent, <code>--enable-preview</code> and a JFR recording,
+      and opens the trace in the Scope Tracer tool window when the run ends: one trace per JVM, so
+      tests that fork JVMs give one tab each. For tests it is also in the run gutter icon's menu
+      and the editor's context menu.</li>
       <li><b>Open .jfr Recording (Scope Tracer)...</b> opens a recording you made elsewhere in the
       same tool window. Clicking a task jumps to the <code>fork</code> call that created it.</li>
     </ul>
@@ -29,6 +31,17 @@
   <!-- The embedded browser for the "Timeline" view (#62); optional, as the task table works
        without it. In 2026.3 JCEF is the bundled plugin "Web Browser (JCEF)". -->
   <depends optional="true" config-file="scope-tracer-jcef.xml">com.intellij.modules.jcef</depends>
+  <!-- JUnit run configurations and the gutter / context-menu entry for tests (#64); optional, so
+       the plugin still loads in an IDE without the bundled JUnit plugin. -->
+  <depends optional="true" config-file="scope-tracer-junit.xml">JUnit</depends>
+
+  <extensionPoints>
+    <!-- A run configuration kind "Run with Scope Tracer" runs besides Java Application, registered
+         by an optional config file (JUnit). -->
+    <extensionPoint qualifiedName="com.ionutbanu.scopetracer.plugin.tracedConfigurationKind"
+                    interface="com.ionutbanu.scopetracer.plugin.TracedConfigurationKind"
+                    dynamic="true"/>
+  </extensionPoints>
 
   <extensions defaultExtensionNs="com.intellij">
     <toolWindow id="Scope Tracer" anchor="bottom"
@@ -52,7 +65,7 @@
     <action id="ScopeTracer.RunWithScopeTracer"
             class="com.ionutbanu.scopetracer.plugin.RunWithScopeTracerAction"
             text="Run with Scope Tracer"
-            description="Run the selected Java application with the scope-tracer agent and open the trace when it exits">
+            description="Run the selected Java application or JUnit configuration with the scope-tracer agent and open the trace when it ends">
       <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>
   </actions>

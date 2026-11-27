@@ -190,26 +190,16 @@ final class ScopeTracerPanel extends JPanel implements Disposable {
             return;
           }
           indicator.setText("Analyzing scope-tracer recording");
-          var result =
-              ReportAnalysis.run(
-                  () -> AnalyzerProcessRunner.analyze(jfrPath, javaPath, indicator::isCanceled),
-                  () -> Files.createTempFile("scope-tracer-report-", ".html"),
-                  html -> {
-                    indicator.setText("Rendering the scope-tracer timeline");
-                    AnalyzerProcessRunner.writeHtml(jfrPath, javaPath, html, indicator::isCanceled);
-                  },
-                  () -> {
-                    if (deleteAfter) {
-                      deleteQuietly(jfrPath);
-                    }
-                  });
-          var model = result.trace();
-          var display =
-              ReportViews.decide(
-                  jcefSupported,
-                  new ReportViews.Json.Parsed(model.scopes().isEmpty()),
-                  result.html());
-          SwingUtilities.invokeLater(() -> apply(model, display));
+          show(
+              () -> AnalyzerProcessRunner.analyze(jfrPath, javaPath, indicator::isCanceled),
+              jfrPath,
+              javaPath,
+              indicator,
+              () -> {
+                if (deleteAfter) {
+                  deleteQuietly(jfrPath);
+                }
+              });
         } catch (CancellationException e) {
           // Cancelled from the progress bar, or the project closed: the analyzer is already
           // dead. Not a failure, so no error balloon; the tool window keeps what it showed.
@@ -224,6 +214,42 @@ final class ScopeTracerPanel extends JPanel implements Disposable {
         }
       }
     }.queue();
+  }
+
+  /**
+   * Shows a recording whose JSON run has already been done ("Run with Scope Tracer", which reads
+   * every recording of a run before deciding which to show, #64): the HTML run, then both views
+   * replaced on the EDT. Called on a background thread, inside the caller's task.
+   *
+   * @throws CancellationException when the HTML run was cancelled.
+   */
+  void showAnalyzed(
+      PluginTraceModel model, Path jfrPath, Path javaPath, ProgressIndicator indicator)
+      throws IOException {
+    show(() -> model, jfrPath, javaPath, indicator, () -> {});
+  }
+
+  private void show(
+      ReportAnalysis.JsonRun<PluginTraceModel> json,
+      Path jfrPath,
+      Path javaPath,
+      ProgressIndicator indicator,
+      Runnable afterRuns)
+      throws IOException {
+    var result =
+        ReportAnalysis.run(
+            json,
+            () -> Files.createTempFile("scope-tracer-report-", ".html"),
+            html -> {
+              indicator.setText("Rendering the scope-tracer timeline");
+              AnalyzerProcessRunner.writeHtml(jfrPath, javaPath, html, indicator::isCanceled);
+            },
+            afterRuns);
+    var model = result.trace();
+    var display =
+        ReportViews.decide(
+            jcefSupported, new ReportViews.Json.Parsed(model.scopes().isEmpty()), result.html());
+    SwingUtilities.invokeLater(() -> apply(model, display));
   }
 
   /** Carries out {@link ReportViews}'s decision. On the EDT. */

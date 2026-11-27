@@ -20,7 +20,7 @@ class RunActionStateTest {
   @Test
   void noProjectOpenHidesTheActionWhateverTheSelection() {
     assertThat(RunActionState.decide(false, new Selection.Application()).visible()).isFalse();
-    assertThat(RunActionState.decide(false, new Selection.Other("Tests", "JUnit")).visible())
+    assertThat(RunActionState.decide(false, new Selection.Other("Tests", "Gradle")).visible())
         .isFalse();
   }
 
@@ -33,12 +33,72 @@ class RunActionStateTest {
     assertThat(d.runs()).isFalse();
     assertThat(d.explanation())
         .isEqualTo(
-            "No run configuration is selected. Select or create a Java Application run configuration, then choose \"Run with Scope Tracer\" again.");
+            "No run configuration is selected. Select or create a Java Application or JUnit run configuration, then choose \"Run with Scope Tracer\" again.");
+  }
+
+  /** Until #64 a JUnit configuration was explained; now it runs, like an application. */
+  @Test
+  void aJUnitConfigurationRuns() {
+    Decision d = RunActionState.decide(true, new Selection.JUnit());
+
+    assertThat(d.visible()).isTrue();
+    assertThat(d.enabled()).isTrue();
+    assertThat(d.runs()).isTrue();
+    assertThat(d.explanation()).isNull();
   }
 
   @Test
-  void aJUnitConfigurationIsVisibleAndNamedInTheExplanation() {
-    assertExplainsOther("MyServiceTest", "JUnit");
+  void noProjectOpenHidesTheActionForAJUnitConfigurationToo() {
+    assertThat(RunActionState.decide(false, new Selection.JUnit()).visible()).isFalse();
+  }
+
+  // #212: no article before the type name. One case per type that starts with a vowel and one per
+  // type that starts with a consonant, so that neither "a" nor "an" can come back unnoticed.
+
+  @Test
+  void anAntTargetConfigurationIsExplainedWithoutAnArticle() {
+    assertExplainsOther("build.xml jar", "Ant Target");
+  }
+
+  @Test
+  void anAndroidAppConfigurationIsExplainedWithoutAnArticle() {
+    assertExplainsOther("app", "Android App");
+  }
+
+  @Test
+  void aKotlinConfigurationIsExplainedWithoutAnArticle() {
+    assertExplainsOther("MainKt", "Kotlin");
+  }
+
+  @Test
+  void aTestNgConfigurationIsExplainedWithoutAnArticle() {
+    assertExplainsOther("Suite", "TestNG");
+  }
+
+  @Test
+  void noTypeNameIsPrecededByAnArticle() {
+    for (var type :
+        new String[] {
+          "Ant Target", "Android App", "Gradle", "Remote JVM Debug", "Kotlin", "TestNG"
+        }) {
+      var explanation = RunActionState.decide(true, new Selection.Other("x", type)).explanation();
+
+      assertThat(explanation)
+          .as(type)
+          .contains("has run configuration type \"" + type + "\".")
+          .doesNotContain(" a " + type)
+          .doesNotContain(" an " + type)
+          .doesNotContain(" a \"" + type)
+          .doesNotContain(" an \"" + type);
+    }
+  }
+
+  @Test
+  void aNameAndTypeWithMarkupCharactersArePassedOnUnchangedForTheGlueToEscape() {
+    var explanation =
+        RunActionState.decide(true, new Selection.Other("a<b>&c", "T<&>")).explanation();
+
+    assertThat(explanation).startsWith("\"a<b>&c\" has run configuration type \"T<&>\".");
   }
 
   @Test
@@ -71,8 +131,8 @@ class RunActionStateTest {
         .isEqualTo(
             "\""
                 + name
-                + "\" is a "
+                + "\" has run configuration type \""
                 + typeName
-                + " run configuration. \"Run with Scope Tracer\" runs Java Application configurations: select or create one, then choose it again.");
+                + "\". \"Run with Scope Tracer\" runs Java Application and JUnit configurations: select or create one, then choose it again.");
   }
 }

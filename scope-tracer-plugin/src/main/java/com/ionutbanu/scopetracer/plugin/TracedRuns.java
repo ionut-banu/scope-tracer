@@ -6,8 +6,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.util.messages.MessageBusConnection;
 import com.ionutbanu.scopetracer.plugin.model.AnalyzerJdkChooser;
 import com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,14 +22,27 @@ final class TracedRuns {
   static final class Active {
     private final TracedRunLifecycle lifecycle = new TracedRunLifecycle();
     private final Project project;
-    private final Path jfrFile;
+    private final Path recordingDirectory;
+    private final String configurationName;
+    private final String configurationKey;
     private volatile MessageBusConnection connection;
     private volatile Path agentJar;
     private volatile AnalyzerJdkChooser.Candidate tracedRunJdk;
 
-    Active(Project project, Path jfrFile) {
+    /**
+     * @param recordingDirectory the run's own new temp directory, which every JVM of the run
+     *     writes its recording into.
+     * @param configurationName the configuration's name, for the tabs of a run that leaves several
+     *     recordings.
+     * @param configurationKey identifies the configuration across runs, so a new run's tabs
+     *     replace the previous run's.
+     */
+    Active(
+        Project project, Path recordingDirectory, String configurationName, String configurationKey) {
       this.project = project;
-      this.jfrFile = jfrFile;
+      this.recordingDirectory = recordingDirectory;
+      this.configurationName = configurationName;
+      this.configurationKey = configurationKey;
     }
 
     TracedRunLifecycle lifecycle() {
@@ -42,8 +53,8 @@ final class TracedRuns {
       return project;
     }
 
-    Path jfrFile() {
-      return jfrFile;
+    Path recordingDirectory() {
+      return recordingDirectory;
     }
 
     void connection(MessageBusConnection connection) {
@@ -90,7 +101,7 @@ final class TracedRuns {
             connection.disconnect();
           }
         }
-        case JFR_FILE -> deleteQuietly(active.jfrFile);
+        case RECORDING_DIRECTORY -> TracedRunDirectories.delete(active.project, active.recordingDirectory);
         case AGENT_JAR -> {
           var agentJar = active.agentJar;
           if (agentJar != null) {
@@ -104,15 +115,12 @@ final class TracedRuns {
           active.project, "Scope Tracer", release.notice(), NotificationType.WARNING);
     }
     if (release.openRecording()) {
-      RunWithScopeTracerAction.openRecording(active.project, active.jfrFile, active.tracedRunJdk);
-    }
-  }
-
-  static void deleteQuietly(Path file) {
-    try {
-      Files.deleteIfExists(file);
-    } catch (IOException ignored) {
-      // temp file
+      TracedRunRecordings.open(
+          active.project,
+          active.recordingDirectory,
+          active.tracedRunJdk,
+          active.configurationName,
+          active.configurationKey);
     }
   }
 }

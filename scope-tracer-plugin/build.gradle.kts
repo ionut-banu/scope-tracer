@@ -62,6 +62,9 @@ dependencies {
     // platform, so it is declared. plugin.xml depends on it optionally: without it, as without
     // JBCefApp.isSupported(), the tool window shows the task table alone.
     bundledPlugin("com.intellij.modules.jcef")
+    // JUnit run configurations and the test gutter / context-menu entry (#64, approved by the
+    // maintainer on that issue). plugin.xml depends on it optionally (scope-tracer-junit.xml).
+    bundledPlugin("JUnit")
     pluginVerifier()
   }
 }

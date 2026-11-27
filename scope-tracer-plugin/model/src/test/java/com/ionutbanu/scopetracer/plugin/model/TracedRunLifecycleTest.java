@@ -1,7 +1,7 @@
 package com.ionutbanu.scopetracer.plugin.model;
 
 import static com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle.Resource.AGENT_JAR;
-import static com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle.Resource.JFR_FILE;
+import static com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle.Resource.RECORDING_DIRECTORY;
 import static com.ionutbanu.scopetracer.plugin.model.TracedRunLifecycle.Resource.SUBSCRIPTION;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -66,7 +66,7 @@ class TracedRunLifecycleTest {
     var release = run.notStarted(TRACED);
 
     assertThat(release.openRecording()).isFalse();
-    assertThat(release.resources()).containsExactly(SUBSCRIPTION, JFR_FILE);
+    assertThat(release.resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY);
   }
 
   @Test
@@ -76,7 +76,7 @@ class TracedRunLifecycleTest {
     var release = run.notStarted(TRACED);
 
     assertThat(release.openRecording()).isFalse();
-    assertThat(release.resources()).containsExactly(SUBSCRIPTION, JFR_FILE, AGENT_JAR);
+    assertThat(release.resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY, AGENT_JAR);
   }
 
   @Test
@@ -94,7 +94,7 @@ class TracedRunLifecycleTest {
   @Test
   void notStartedWithoutAnyEarlierCallbackStillReleases() {
     // processNotStarted may be the only callback the action's subscription ever gets.
-    assertThat(run.notStarted(TRACED).resources()).containsExactly(SUBSCRIPTION, JFR_FILE);
+    assertThat(run.notStarted(TRACED).resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY);
   }
 
   @Test
@@ -131,7 +131,7 @@ class TracedRunLifecycleTest {
     }
     // Still registered: the traced launch is patched and released as usual.
     assertThat(run.shouldPatch("Run")).isTrue();
-    assertThat(run.notStarted(TRACED).resources()).containsExactly(SUBSCRIPTION, JFR_FILE);
+    assertThat(run.notStarted(TRACED).resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY);
   }
 
   @Test
@@ -152,7 +152,7 @@ class TracedRunLifecycleTest {
     var release = run.launchSeen(ORDINARY_RUN);
 
     assertThat(release.openRecording()).isFalse();
-    assertThat(release.resources()).containsExactly(SUBSCRIPTION, JFR_FILE);
+    assertThat(release.resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY);
     assertThat(release.notice()).isNotBlank();
     assertThat(run.shouldPatch("Run")).isFalse();
     assertThat(run.terminated(TRACED).isNothing()).isTrue();
@@ -165,7 +165,7 @@ class TracedRunLifecycleTest {
     var release = run.terminated(TRACED);
 
     assertThat(release.openRecording()).isFalse();
-    assertThat(release.resources()).containsExactly(SUBSCRIPTION, JFR_FILE);
+    assertThat(release.resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY);
   }
 
   @Test
@@ -177,7 +177,7 @@ class TracedRunLifecycleTest {
     var release = run.patchRefused();
 
     assertThat(release.openRecording()).isFalse();
-    assertThat(release.resources()).containsExactly(SUBSCRIPTION, JFR_FILE, AGENT_JAR);
+    assertThat(release.resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY, AGENT_JAR);
     assertThat(run.terminated(TRACED).isNothing()).isTrue();
     assertThat(run.notStarted(TRACED).isNothing()).isTrue();
   }
@@ -186,7 +186,7 @@ class TracedRunLifecycleTest {
   void failedPatchingBeforeTheJarWasExtractedReleasesOnlyWhatExists() {
     run.shouldPatch("Run");
 
-    assertThat(run.patchRefused().resources()).containsExactly(SUBSCRIPTION, JFR_FILE);
+    assertThat(run.patchRefused().resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY);
   }
 
   @Test
@@ -207,13 +207,13 @@ class TracedRunLifecycleTest {
     var release = run.abandon();
 
     assertThat(release.openRecording()).isFalse();
-    assertThat(release.resources()).containsExactly(SUBSCRIPTION, JFR_FILE, AGENT_JAR);
+    assertThat(release.resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY, AGENT_JAR);
     assertThat(run.terminated(TRACED).isNothing()).isTrue();
   }
 
   @Test
   void abandoningARequestThatNeverGotPatchedReleasesSubscriptionAndFile() {
-    assertThat(run.abandon().resources()).containsExactly(SUBSCRIPTION, JFR_FILE);
+    assertThat(run.abandon().resources()).containsExactly(SUBSCRIPTION, RECORDING_DIRECTORY);
     assertThat(run.shouldPatch("Run")).isFalse();
   }
 
@@ -225,6 +225,35 @@ class TracedRunLifecycleTest {
     assertThat(run.launchSeen(TRACED).isNothing()).isTrue();
 
     assertThat(run.terminated(TRACED).openRecording()).isTrue();
+  }
+
+  /** The recordings of a run that is opened belong to the opening, never to this release. */
+  @Test
+  void aTracedRunsTerminationHandsTheWholeRecordingDirectoryToTheOpening() {
+    startAndPatch();
+
+    var release = run.terminated(TRACED);
+
+    assertThat(release.openRecording()).isTrue();
+    assertThat(release.resources()).doesNotContain(RECORDING_DIRECTORY);
+  }
+
+  /** Whatever the run wrote, one file or one per forked JVM, goes with the directory. */
+  @Test
+  void everyReleaseThatOpensNothingDeletesTheRecordingDirectory() {
+    var refused = new TracedRunLifecycle();
+    refused.shouldPatch("Run");
+    var notStarted = new TracedRunLifecycle();
+    var abandoned = new TracedRunLifecycle();
+    abandoned.shouldPatch("Run");
+    abandoned.patchApplied();
+    var untraced = new TracedRunLifecycle();
+    untraced.launchSeen(TRACED);
+
+    assertThat(refused.patchRefused().resources()).contains(RECORDING_DIRECTORY);
+    assertThat(notStarted.notStarted(TRACED).resources()).contains(RECORDING_DIRECTORY);
+    assertThat(abandoned.abandon().resources()).contains(RECORDING_DIRECTORY);
+    assertThat(untraced.terminated(TRACED).resources()).contains(RECORDING_DIRECTORY);
   }
 
   @Test

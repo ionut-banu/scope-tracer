@@ -16,6 +16,13 @@ public final class TracedLaunch {
   /** The oldest JDK the agent supports (spec §1: no JDK before 27). */
   public static final int MIN_JDK_MAJOR = 27;
 
+  /**
+   * The recording's file name inside the run's recording directory. JFR expands {@code %p} to the
+   * JVM's pid, so a run whose tests fork several JVMs leaves one recording per JVM (#64); {@link
+   * RunRecordings#pidOf} reads it back.
+   */
+  public static final String RECORDING_FILE_NAME = "scope-tracer-%p.jfr";
+
   private TracedLaunch() {}
 
   /** Outcome of {@link #plan}: arguments to append, or a reason tracing cannot start. */
@@ -34,10 +41,11 @@ public final class TracedLaunch {
    * @param jdkMajor the major version of the JDK the run configuration uses, or {@code -1} if it
    *     could not be determined.
    * @param agentJar the agent jar bundled with the plugin.
-   * @param jfrFile where the recording should be written.
+   * @param recordingDirectory the run's own new temp directory; every JVM of the run writes its
+   *     recording there, as {@link #RECORDING_FILE_NAME}.
    */
   public static Plan plan(
-      List<String> existingVmArgs, int jdkMajor, Path agentJar, Path jfrFile) {
+      List<String> existingVmArgs, int jdkMajor, Path agentJar, Path recordingDirectory) {
     if (jdkMajor < MIN_JDK_MAJOR) {
       return new Plan.Refuse(
           jdkMajor < 0
@@ -67,7 +75,11 @@ public final class TracedLaunch {
     if (!existingVmArgs.contains("--enable-preview")) {
       extra.add("--enable-preview");
     }
-    extra.add("-XX:StartFlightRecording=filename=" + jfrFile + ",dumponexit=true");
+    // One list element is one argument, so a directory with spaces stays one argument.
+    extra.add(
+        "-XX:StartFlightRecording=filename="
+            + recordingDirectory.resolve(RECORDING_FILE_NAME)
+            + ",dumponexit=true");
     return new Plan.Apply(List.copyOf(extra));
   }
 
