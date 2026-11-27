@@ -7,7 +7,8 @@ import java.util.concurrent.CountDownLatch;
  * JSON, {@code <in.jfr> <out.html>} (no option, the CLI's default) writes HTML. The "recording"
  * holds one word saying what to do: {@code ok} writes the output and exits 0, {@code fail} writes
  * a line on stderr and exits 2, {@code hang} never exits, and {@code htmlfail} behaves as {@code
- * ok} for JSON and fails with exit 3 for HTML.
+ * ok} for JSON and fails with exit 3 for HTML. {@code empty} exits 0 and leaves an empty output
+ * file, as an analyzer that wrote nothing would.
  */
 public class FakeAnalyzer {
   public static void main(String[] args) throws Exception {
@@ -19,6 +20,7 @@ public class FakeAnalyzer {
     var out = Path.of(args[1]);
     switch (Files.readString(Path.of(args[0])).trim()) {
       case "ok" -> write(out, json);
+      case "empty" -> Files.writeString(out, "");
       case "htmlfail" -> {
         if (json) {
           write(out, true);

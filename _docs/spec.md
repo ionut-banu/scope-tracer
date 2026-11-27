@@ -699,7 +699,11 @@ for the analyzer, `AnalyzerInvocation.TIMEOUT`, until #92; 30 s for
 `java -version`) or when the background task is cancelled (which is
 also what closing the project does), killing and reaping the child
 first and deleting its temp files; a cancel is not reported as a
-failure.
+failure. A failure to delete a temp file never replaces how the call
+ended (a cancel, a timeout or an exit stays what it was; an exception
+already propagating gets it as a suppressed exception). An analyzer
+that exits 0 but writes no usable JSON (empty, `null`, no `scopes`)
+is a failed analysis saying so, not an empty trace.
 
 - `:model` - plain Java (`--release 25`), no IntelliJ dependency, so
   its tests run as ordinary JUnit. Gson is `compileOnly` (the IDE ships it).
@@ -778,7 +782,7 @@ in place, asserts every value, and fails on a key it does not map.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-25, #63 on #222, JDK 27) |
+| Suite | Runner | Count (2026-11-27, #204 on 3dce857, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
 | analyzer unit | surefire | 172 |
@@ -787,10 +791,10 @@ in place, asserts every value, and fails on a key it does not map.
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 156 |
+| plugin `:model` | Gradle | 174 |
 
 `mvn -q verify` runs the first six: 939 tests (surefire plus
-failsafe, measured on 2026-11-25 on the branch of #63 from `main` at 6db2c4a, on Temurin 27; the
+failsafe, measured on 2026-11-27 on the branch of #204 from `main` at 3dce857, on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

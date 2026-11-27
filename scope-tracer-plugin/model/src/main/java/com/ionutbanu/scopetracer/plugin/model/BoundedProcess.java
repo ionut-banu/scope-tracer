@@ -3,6 +3,9 @@ package com.ionutbanu.scopetracer.plugin.model;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ProcessBuilder.Redirect;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,6 +23,7 @@ import java.util.function.BooleanSupplier;
  *
  * <p>The child can never block on a full pipe: stdout is discarded (or merged into the capture),
  * and the captured stream goes to a temp file in {@code tempDir}, deleted before the call returns.
+ * A delete that fails never replaces what the call returns or what it is throwing.
  * Nothing reads from the child while it runs. Of the capture, the first {@link
  * #OUTPUT_LIMIT_BYTES} are kept for the caller's message.
  *
@@ -81,11 +85,29 @@ public final class BoundedProcess {
       BooleanSupplier cancelled,
       Path tempDir)
       throws IOException {
+    return run(command, capture, timeout, cancelled, tempDir, Files::deleteIfExists);
+  }
+
+  /** Deletes the capture file; a seam so a test can make the delete fail on every platform. */
+  @FunctionalInterface
+  interface Deleter {
+    void delete(Path file) throws IOException;
+  }
+
+  static Result run(
+      List<String> command,
+      Capture capture,
+      Duration timeout,
+      BooleanSupplier cancelled,
+      Path tempDir,
+      Deleter deleter)
+      throws IOException {
     if (cancelled.getAsBoolean()) {
       return new Cancelled(Optional.empty());
     }
     var captureFile = Files.createTempFile(tempDir, "scope-tracer-output-", ".txt");
     Process process = null;
+    Throwable pending = null;
     try {
       var builder = new ProcessBuilder(command);
       if (capture == Capture.STDOUT_AND_STDERR) {
@@ -118,12 +140,22 @@ public final class BoundedProcess {
           return new Exited(process.exitValue(), readHead(captureFile), handle);
         }
       }
+    } catch (Throwable t) {
+      pending = t;
+      throw t;
     } finally {
       // Covers anything thrown above (a cancellation check that throws, say): never leave it.
       if (process != null && process.isAlive()) {
         kill(process);
       }
-      Files.deleteIfExists(captureFile);
+      try {
+        deleter.delete(captureFile);
+      } catch (IOException | RuntimeException e) {
+        // A temp file left behind is the worst case; never replace the outcome or the exception.
+        if (pending != null) {
+          pending.addSuppressed(e);
+        }
+      }
     }
   }
 
@@ -137,8 +169,28 @@ public final class BoundedProcess {
   private static String readHead(Path file) throws IOException {
     try (InputStream in = Files.newInputStream(file)) {
       var head = in.readNBytes(OUTPUT_LIMIT_BYTES);
-      var text = new String(head, StandardCharsets.UTF_8);
-      return in.read() < 0 ? text : text + "\n[... output truncated after 8 KiB]";
+      boolean truncated = in.read() >= 0;
+      var text = decode(head, !truncated);
+      return truncated ? text + "\n[... output truncated after 8 KiB]" : text;
     }
+  }
+
+  /**
+   * Decodes UTF-8, replacing invalid bytes. With {@code complete} false the bytes are a cut, so a
+   * character the cut split is dropped instead of becoming a replacement character.
+   */
+  private static String decode(byte[] bytes, boolean complete) {
+    var decoder =
+        StandardCharsets.UTF_8
+            .newDecoder()
+            .onMalformedInput(CodingErrorAction.REPLACE)
+            .onUnmappableCharacter(CodingErrorAction.REPLACE);
+    var in = ByteBuffer.wrap(bytes);
+    var out = CharBuffer.allocate(bytes.length + 1);
+    decoder.decode(in, out, complete);
+    if (complete) {
+      decoder.flush(out);
+    }
+    return out.flip().toString();
   }
 }
