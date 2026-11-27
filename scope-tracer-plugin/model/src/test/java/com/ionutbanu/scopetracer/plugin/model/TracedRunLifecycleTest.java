@@ -323,7 +323,8 @@ class TracedRunLifecycleTest {
   @Test
   void theNoticeNamesTheToolAndTheSettingToChange() {
     assertThat(DelegatedTool.GRADLE.notice())
-        .contains("Gradle", "not traced", "Build and run using", "Run tests using", "IntelliJ IDEA");
+        .contains(
+            "Gradle", "not traced", "Build and run using", "Run tests using", "IntelliJ IDEA");
     assertThat(DelegatedTool.MAVEN.notice())
         .contains("Maven", "not traced", "Delegate IDE build/run actions to Maven");
     assertThat(DelegatedTool.OTHER.notice()).contains("not traced");
