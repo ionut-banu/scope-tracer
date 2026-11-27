@@ -16,6 +16,8 @@ public final class ReportTheme {
 
   /** The script that sets {@code data-theme} to {@code dark} or {@code light} on the page. */
   public static String script(boolean dark) {
-    return "document.documentElement.setAttribute('data-theme','" + (dark ? "dark" : "light") + "');";
+    return "document.documentElement.setAttribute('data-theme','"
+        + (dark ? "dark" : "light")
+        + "');";
   }
 }

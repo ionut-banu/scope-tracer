@@ -22,6 +22,7 @@ class ReportThemeTest {
 
   @Test
   void theTwoScriptsDifferOnlyInTheValue() {
-    assertThat(ReportTheme.script(true).replace("dark", "light")).isEqualTo(ReportTheme.script(false));
+    assertThat(ReportTheme.script(true).replace("dark", "light"))
+        .isEqualTo(ReportTheme.script(false));
   }
 }

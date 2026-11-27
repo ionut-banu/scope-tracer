@@ -2,6 +2,7 @@ package com.ionutbanu.scopetracer.plugin;
 
 import com.intellij.ide.ui.LafManagerListener;
 import com.intellij.openapi.Disposable;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.ui.ColorUtil;
@@ -9,7 +10,6 @@ import com.intellij.ui.JBColor;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.util.ui.UIUtil;
-import com.intellij.openapi.application.ApplicationManager;
 import com.ionutbanu.scopetracer.plugin.model.ReportNavigation;
 import com.ionutbanu.scopetracer.plugin.model.ReportTheme;
 import com.ionutbanu.scopetracer.plugin.model.ReportViews.Timeline;
@@ -78,6 +78,7 @@ final class TimelineView {
     try {
       var b = browser();
       report = file;
+      applyPageBackground(b);
       b.loadURL(file.toUri().toString());
       cards.show(root, BROWSER_CARD);
     } catch (RuntimeException e) {
