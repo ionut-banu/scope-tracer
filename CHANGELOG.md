@@ -67,6 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The plugin says so when the analyzer writes no trace** (#204). An analyzer that exited 0 but
+  left an empty or unusable JSON file ended in an "analysis failed" balloon carrying a Java
+  null-pointer message. It now says the analyzer wrote no trace. A temp file that cannot be
+  deleted no longer turns a cancelled or timed-out analyzer run into a failure, and an analyzer
+  error message no longer ends in half a character.
 - **Tools → "Run with Scope Tracer" is shown whenever a project is open** (#187). It was hidden
   unless a Java Application run configuration was selected, so a new user saw no such item and
   no reason. Now, with no configuration selected, clicking it says to select or create a Java

@@ -258,6 +258,35 @@ class AnalyzerInvocationTest {
   }
 
   @Test
+  void anAnalyzerThatExitsZeroAndWritesNoJsonFailsTheAnalysisBeforeTheHtmlRun()
+      throws IOException {
+    var jfr = recording("empty");
+    var calls = new java.util.ArrayList<String>();
+
+    assertTimeoutPreemptively(
+        GENEROUS,
+        () ->
+            assertThatThrownBy(
+                    () ->
+                        ReportAnalysis.run(
+                            () -> TraceModelJsonParser.parse(run(jfr, GENEROUS, () -> false)),
+                            () -> {
+                              calls.add("html file");
+                              return Files.createTempFile(inputs, "scope-tracer-report-", ".html");
+                            },
+                            html -> calls.add("html run"),
+                            () -> calls.add("after runs")))
+                .isInstanceOf(com.google.gson.JsonParseException.class)
+                .hasMessageContaining("analyzer wrote no trace"));
+
+    assertThat(calls).containsExactly("after runs");
+    try (var left = Files.list(inputs)) {
+      assertThat(left.filter(p -> p.getFileName().toString().startsWith("scope-tracer-")))
+          .isEmpty();
+    }
+  }
+
+  @Test
   void theHtmlCommandLineIsTheAnalyzersDefaultOutputWithNoFormatOption() {
     var java = Path.of("/jdk27/bin/java");
     var jar = Path.of("/tmp/scope-tracer-analyzer-1.jar");

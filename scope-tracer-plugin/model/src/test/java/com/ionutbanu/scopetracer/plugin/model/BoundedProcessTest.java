@@ -1,21 +1,27 @@
 package com.ionutbanu.scopetracer.plugin.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import com.ionutbanu.scopetracer.plugin.model.BoundedProcess.Cancelled;
 import com.ionutbanu.scopetracer.plugin.model.BoundedProcess.Capture;
 import com.ionutbanu.scopetracer.plugin.model.BoundedProcess.Exited;
 import com.ionutbanu.scopetracer.plugin.model.BoundedProcess.TimedOut;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class BoundedProcessTest {
 
@@ -197,5 +203,148 @@ class BoundedProcessTest {
     try (var files = Files.list(temp)) {
       assertThat(files).isEmpty();
     }
+  }
+
+  private static void failingDelete(Path file) throws IOException {
+    throw new java.nio.file.FileSystemException(file.toString(), null, "cannot delete");
+  }
+
+  @Test
+  void aFailedDeleteDoesNotReplaceAnExit() {
+    var result =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(30),
+            () ->
+                BoundedProcess.run(
+                    Children.command("Fails", "3", "error: x", "0"),
+                    Capture.STDERR,
+                    GENEROUS,
+                    () -> false,
+                    temp,
+                    BoundedProcessTest::failingDelete));
+
+    assertThat(result)
+        .isInstanceOfSatisfying(
+            Exited.class,
+            e -> {
+              assertThat(e.exitCode()).isEqualTo(3);
+              assertThat(e.output()).contains("error: x");
+            });
+  }
+
+  @Test
+  void aFailedDeleteDoesNotReplaceATimeout() {
+    var result =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(10),
+            () ->
+                BoundedProcess.run(
+                    Children.command("NeverExits"),
+                    Capture.STDERR,
+                    Duration.ofSeconds(1),
+                    () -> false,
+                    temp,
+                    BoundedProcessTest::failingDelete));
+
+    assertThat(result).isInstanceOf(TimedOut.class);
+    assertThat(result.process()).hasValueSatisfying(p -> assertThat(p.isAlive()).isFalse());
+  }
+
+  @Test
+  void aFailedDeleteDoesNotReplaceACancel() {
+    var polls = new AtomicInteger();
+    var result =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(10),
+            () ->
+                BoundedProcess.run(
+                    Children.command("NeverExits"),
+                    Capture.STDERR,
+                    GENEROUS,
+                    () -> polls.incrementAndGet() > 2,
+                    temp,
+                    BoundedProcessTest::failingDelete));
+
+    assertThat(result).isInstanceOf(Cancelled.class);
+    assertThat(result.process()).hasValueSatisfying(p -> assertThat(p.isAlive()).isFalse());
+  }
+
+  @Test
+  void aFailedDeleteDoesNotReplaceAnExceptionAlreadyPropagatingAndIsSuppressedOnIt() {
+    var polls = new AtomicInteger();
+
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(10),
+        () ->
+            assertThatThrownBy(
+                    () ->
+                        BoundedProcess.run(
+                            Children.command("NeverExits"),
+                            Capture.STDERR,
+                            GENEROUS,
+                            () -> {
+                              if (polls.incrementAndGet() > 2) {
+                                throw new IllegalStateException("check broke");
+                              }
+                              return false;
+                            },
+                            temp,
+                            BoundedProcessTest::failingDelete))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("check broke")
+                .satisfies(
+                    e ->
+                        assertThat(e.getSuppressed())
+                            .singleElement()
+                            .isInstanceOf(java.nio.file.FileSystemException.class)));
+  }
+
+  private static final int LIMIT = BoundedProcess.OUTPUT_LIMIT_BYTES;
+  private static final String NOTE = "\n[... output truncated after 8 KiB]";
+
+  private Exited stderrOf(int pad, String hex, int tail) {
+    var result =
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(30),
+            () ->
+                BoundedProcess.run(
+                    Children.command("Utf8Edge", String.valueOf(pad), hex, String.valueOf(tail)),
+                    Capture.STDERR,
+                    GENEROUS,
+                    () -> false,
+                    temp));
+    return (Exited) result;
+  }
+
+  @ParameterizedTest
+  @CsvSource({"c3a9,2", "e282ac,3", "f09f9880,4"})
+  void aCharacterCutByTheLimitIsDroppedNotKeptAsAReplacementCharacter(String hex, int length) {
+    var out = stderrOf(LIMIT - (length - 1), hex, 100).output();
+
+    assertThat(out).isEqualTo("x".repeat(LIMIT - (length - 1)) + NOTE);
+    assertThat(out).doesNotContain("\uFFFD");
+  }
+
+  @ParameterizedTest
+  @CsvSource({"c3a9,2", "e282ac,3", "f09f9880,4"})
+  void aCharacterEndingExactlyAtTheLimitIsKept(String hex, int length) {
+    var kept = new String(HexFormat.of().parseHex(hex), java.nio.charset.StandardCharsets.UTF_8);
+    var out = stderrOf(LIMIT - length, hex, 100).output();
+
+    assertThat(out).isEqualTo("x".repeat(LIMIT - length) + kept + NOTE);
+  }
+
+  @Test
+  void exactlyTheLimitEndingOnACharacterBoundaryIsReturnedWholeWithNoNote() {
+    var out = stderrOf(LIMIT - 3, "e282ac", 0).output();
+
+    assertThat(out).isEqualTo("x".repeat(LIMIT - 3) + "\u20ac");
+  }
+
+  @Test
+  void invalidUtf8InsideTheKeptHeadStillDecodesToReplacementCharacters() {
+    var out = stderrOf(10, "ff", 10).output();
+
+    assertThat(out).isEqualTo("x".repeat(10) + "\uFFFD" + "z".repeat(10));
   }
 }

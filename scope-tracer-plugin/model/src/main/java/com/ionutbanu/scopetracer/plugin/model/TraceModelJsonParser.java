@@ -33,8 +33,18 @@ public final class TraceModelJsonParser {
 
   private TraceModelJsonParser() {}
 
+  /**
+   * @throws JsonParseException when the text is not the analyzer's trace JSON, including when it
+   *     is empty, blank, {@code null} or an object without {@code scopes}: an analyzer that exits
+   *     0 but writes no trace is a failure, not an empty trace ({@code {"scopes":[]}} is that).
+   */
   public static PluginTraceModel parse(String json) {
-    return GSON.fromJson(json, PluginTraceModel.class);
+    var model = GSON.fromJson(json, PluginTraceModel.class);
+    if (model == null || model.scopes() == null) {
+      throw new JsonParseException(
+          "The analyzer wrote no trace: its JSON output was empty or had no \"scopes\".");
+    }
+    return model;
   }
 
   private static Instant parseInstant(JsonElement json, Type type, JsonDeserializationContext ctx) {
