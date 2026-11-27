@@ -1431,3 +1431,21 @@ Decided by the maintainer.
 - **Unchanged.** The milestone reviewer's findings still become issues:
   the reviewer reads merged code, so there is no open pull request to
   fix them in.
+
+## 2026-11-27 - The report has two palettes; the plugin sets an explicit theme attribute (#191)
+
+- **Decision.** `HtmlRenderer`'s stylesheet owns a light and a dark
+  palette as CSS custom properties. The dark one follows the OS through
+  `prefers-color-scheme` and an explicit `data-theme` attribute on
+  `<html>` beats it. The plugin only sets that attribute, always to an
+  explicit `dark` or `light` from `JBColor.isBright()`, because it is not
+  known that JCEF's media query follows the IDE theme and a light IDE on a
+  dark OS must stay light.
+- **Bar fills are identical in both themes**, so a bar means the same on
+  either background; only text, borders, tracks, ticks and links change.
+- **Byte-identity.** The plugin still runs the same jar with the same
+  arguments and never rewrites the file, so the file is byte for byte the
+  CLI's. What changed is that the rendering now differs by the one
+  attribute set in the live DOM. "Open in Browser" opens the same bytes
+  and shows the OS theme, not the IDE's: accepted.
+- **Cost.** Every committed report and the README image changed.

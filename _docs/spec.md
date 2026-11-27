@@ -254,9 +254,21 @@ T's. Thread names are not used: unnamed virtual threads have none.
 `HtmlRenderer.render(TraceModel)` produces the report: per scope, a
 metadata line, a task table and an SVG Gantt timeline; child scopes
 indented under their parent task; repeated root scopes grouped.
+**Themes:** the stylesheet has a light and a dark palette as CSS custom
+properties (the same set in both). The dark one applies under
+`@media (prefers-color-scheme: dark)` on `:root:not([data-theme="light"])`
+and under `:root[data-theme="dark"]`; an explicit `data-theme` on `<html>`
+always beats the media query. The outcome fills (success, failed,
+cancelled, incomplete, scope bar) and the critical-path stroke are the
+same literal colours in both themes; everything drawn on the page
+background (text, borders, tracks, ticks, links) uses the palette, and
+text meets WCAG AA (4.5:1). Bars and strokes reach 3:1 against the page
+in the dark palette; in the light palette only failed, the scope bar and
+the critical stroke do, and the light fills stay unchanged by decision
+(success, cancelled and incomplete measure 2.66, 2.27 and 2.57; #191).
 **Critical path:** in a scope where every task succeeded and has a
-completion time, the latest-completing task is amber (`#f59e0b`) and
-its row reads `← critical path +Xms`. Any failure, cancellation or
+completion time, the latest-completing task is outlined amber (`#d97706`)
+and its row reads `← critical path +Xms`. Any failure, cancellation or
 missing data turns highlighting off for that scope.
 
 `TraceModelJson.toJson` is the JSON wire format consumed by the
@@ -727,8 +739,16 @@ is a failed analysis saying so, not an empty trace.
   and `ReportViews` in `:model`). The temp HTML file is deleted when
   the next recording replaces it and when the project closes
   (`ShownReport`), and a temp recording of "Run with Scope Tracer" only
-  after both runs. The embedded report does not follow a dark theme
-  (#191) and its bars do not navigate to source (#190). The table
+  after both runs. The embedded report follows the IDE's UI theme
+  (#191): once a page has loaded and whenever the theme changes
+  (`LafManagerListener`), `TimelineView` runs the one line from
+  `ReportTheme.script` that sets `data-theme` to `dark` or `light` on
+  `<html>` (from `JBColor.isBright()`, never removing the attribute;
+  the attribute name and its two values are the whole contract with the
+  report, the plugin carries no colours) and sets the browser's page
+  background to the IDE's. The file is never rewritten, so "Open in
+  Browser" follows the OS, not the IDE. A scripting failure is logged
+  at WARN only. Its bars do not navigate to source (#190). The table
   has click-to-source on call sites via Java PSI
   (a structured `callSite` is exact: its binary class name is looked
   up with `JavaPsiFacade.findClass`, a nested class exactly, an
@@ -782,19 +802,19 @@ in place, asserts every value, and fails on a key it does not map.
 
 `scope-tracer-{module}/src/test/java/com/ionutbanu/scopetracer/{module}/`.
 
-| Suite | Runner | Count (2026-11-27, #204 on 3dce857, JDK 27) |
+| Suite | Runner | Count (2026-11-27, #191 on main a00aa53, JDK 27) |
 | --- | --- | --- |
 | core unit | surefire | 106 |
-| analyzer unit | surefire | 172 |
+| analyzer unit | surefire | 180 |
 | analyzer integration (`*IT`) | failsafe, needs the `-executable` jar | 28 |
 | agent unit | surefire | 250 |
 | agent integration (`*IT`) | failsafe, needs the fat-jar | 317 |
 | demos unit | surefire | 66 |
 | stress (`-Pstress`) | failsafe | 3 |
-| plugin `:model` | Gradle | 174 |
+| plugin `:model` | Gradle | 177 |
 
-`mvn -q verify` runs the first six: 939 tests (surefire plus
-failsafe, measured on 2026-11-27 on the branch of #204 from `main` at 3dce857, on Temurin 27; the
+`mvn -q verify` runs the first six: 947 tests (surefire plus
+failsafe, measured on 2026-11-27 on the branch of #191 from `main` at a00aa53, on Temurin 27; the
 `:model` row from `./gradlew build` in `scope-tracer-plugin`). The
 figures are a snapshot, not a target; the stress row is the number of
 test methods, as that profile needs an `install` to run. A change must leave the

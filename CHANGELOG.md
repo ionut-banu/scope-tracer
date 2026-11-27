@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Reports follow the OS dark mode, and the plugin's timeline follows the IDE theme** (#191).
+  The HTML report has a light and a dark palette; a browser set to dark shows the dark one, and the
+  outcome colours keep their meaning on both. In the IDE the embedded timeline switches with the
+  UI theme, without reloading, and "Open in Browser" follows the operating system.
 - **The plugin's tool window shows the report's timeline** (#62). After a recording is
   analyzed, the Scope Tracer tool window has two views: "Timeline", the analyzer's own HTML
   report for that recording (per-scope Gantt bars, nested scopes under their parent task, the
