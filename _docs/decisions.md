@@ -1449,3 +1449,35 @@ Decided by the maintainer.
   attribute set in the live DOM. "Open in Browser" opens the same bytes
   and shows the OS theme, not the IDE's: accepted.
 - **Cost.** Every committed report and the README image changed.
+
+## 2026-11-27 - "Run with Scope Tracer" for JUnit: one trace per JVM
+
+Decided by the maintainer on #64 (2026-11-24 and 2026-11-27); the
+details below are the engineer's, within those decisions.
+
+- **What.** The action runs JUnit run configurations started by the
+  IDE's own JUnit runner, through the same `java.programPatcher` and
+  `TracedRunLifecycle` as applications. No custom `Executor`: §3's
+  "Run executor, once" stays. Gradle delegation is #193, Maven
+  `mvn test` #194.
+- **One trace per JVM, never merged.** The recording is
+  `scope-tracer-%p.jfr` in a temp directory per run; JFR expands `%p`
+  to the pid, so forked test JVMs write their own files. Merging is
+  wrong while `scopeId` restarts per JVM (#197). Applications use the
+  same directory, so there is one code path.
+- **A cap of 10.** A `forkEvery`-style run could otherwise start
+  hundreds of analyzer runs. Past the cap, every recording is kept on
+  disk, the analyzed ones included, so the named directory holds them
+  all.
+- **Where the item is.** The gutter menu's `RunLineMarkerExtraActions`
+  and `RunContextGroupInner` after `RunContextExecutorsGroup` (the
+  editor's and project view's Run and Debug), checked in 2026.3's
+  `ExecutionActions.xml`. The action is a `BaseRunConfigurationAction`,
+  registered as a `<group>` as the platform's `CreateRunConfiguration`
+  is, so the context's configurations, Run's chooser and Run's
+  temporary configuration come from the platform, not a copy of them.
+- **JUnit stays optional.** Everything that names a JUnit class is in
+  `scope-tracer-junit.xml`; the main code asks a
+  `tracedConfigurationKind` extension point, never a class name.
+- **Rerun is not traced.** A rerun after the traced run finds no
+  registered request, as an ordinary Run does.

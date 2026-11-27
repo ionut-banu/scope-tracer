@@ -739,7 +739,8 @@ is a failed analysis saying so, not an empty trace.
   and `ReportViews` in `:model`). The temp HTML file is deleted when
   the next recording replaces it and when the project closes
   (`ShownReport`), and a temp recording of "Run with Scope Tracer" only
-  after both runs. The embedded report follows the IDE's UI theme
+  after both runs (a tab of its own is disposed with its file when
+  closed). The embedded report follows the IDE's UI theme
   (#191): once a page has loaded and whenever the theme changes
   (`LafManagerListener`), `TimelineView` runs the one line from
   `ReportTheme.script` that sets `data-theme` to `dark` or `light` on
@@ -756,25 +757,68 @@ is a failed analysis saying so, not an empty trace.
   chooser; a recording without the fields falls back to parsing
   `taskName` and a short-name lookup with a chooser),
   and Tools → "Run with Scope Tracer", which runs the selected Java
-  application configuration with the bundled agent jar (with
-  `html=false`: the plugin renders the trace itself), `--enable-preview`
-  and a JFR recording added to its VM options (`TracedLaunch` decides
-  which, and refuses for JDK < 27, an already-attached agent or an
-  existing `-XX:StartFlightRecording`), then opens the recording when
-  the process exits. The agent jar is bundled like the analyzer's and
-  extracted under its own file name, because its manifest's
-  `Boot-Class-Path` names that file. Only the launch started by the
-  action is traced (Run executor, once); an ordinary Run or Debug of
-  the same configuration is not, and everything the action set up is
-  released when that launch terminates or fails to start
-  (`TracedRunLifecycle` decides). The action is shown whenever a
-  project is open, whatever is selected (`RunActionState` decides).
-  When no configuration is selected, clicking it shows an information
-  notification saying to select or create a Java Application run
-  configuration; when the selected one is of another type (JUnit,
-  Gradle, Remote JVM Debug, ...), the notification names it and its
-  type and says that "Run with Scope Tracer" runs Java Application
-  configurations. Neither starts a run.
+  Application or JUnit run configuration (a class, a method, a
+  package, a directory or a pattern; #64) with the bundled agent jar
+  (with `html=false`: the plugin renders the trace itself),
+  `--enable-preview` and a JFR recording added to its VM options
+  (`TracedLaunch` decides which, and refuses for JDK < 27, an
+  already-attached agent or an existing `-XX:StartFlightRecording`,
+  including one a Maven project's surefire `argLine` adds: the JUnit
+  patchers run before the program patcher), then opens the run's
+  recordings when it ends. The same item, "Run '<name>' with Scope
+  Tracer", is in the run gutter icon's menu (`RunLineMarkerExtraActions`)
+  and the editor's and project view's context menu
+  (`RunContextGroupInner`, after Run and Debug) on a test class,
+  method, package or directory. It is a `BaseRunConfigurationAction`
+  restricted to `JUnitConfiguration`, so it offers exactly what the
+  context's Run offers (an existing configuration, or a temporary one
+  created as Run creates it, with Run's chooser when there are
+  several) and is not shown on a plain `main` class or where nothing
+  can be run; it takes the configuration from the context
+  (`ConfigurationContext`), the Tools entry the selected one, and both
+  ask `RunActionState`. The JUnit code is in an optional config file
+  (`scope-tracer-junit.xml`, depending on the bundled plugin `JUnit`)
+  and registers JUnit through the plugin's own
+  `tracedConfigurationKind` extension point, so the plugin loads
+  without it. Only test runs the IDE's own JUnit runner starts are
+  traced: Gradle-delegated test runs are #193, Maven `mvn test`
+  configurations #194, TestNG #195. The recording is
+  `scope-tracer-%p.jfr` in a new temp directory per run, so every JVM
+  of the run, a forked test JVM included, writes its own file; JFR
+  expands `%p` to the pid. `RunRecordings` decides what happens to
+  them: missing and empty files are ignored; at most 10, the oldest
+  first, are analyzed, each once, in one background task with the
+  analyzer JDK chosen as above, a failure being one error naming its
+  file; one recording is shown in the main content as before, and of
+  several the ones holding scopes are shown, one in the main content
+  or each in a closable tab of its own named `<configuration name>
+  (pid <pid>)` with the same two views, leaving the main content as it
+  was. The next run of the same configuration closes those tabs.
+  Several recordings without scopes give the "no StructuredTaskScope
+  activity" notice once; no recording at all the "wrote no recording"
+  warning once. Recordings of different JVMs are never merged
+  (`scopeId` restarts in each JVM, #197). The directory is deleted
+  once its recordings are analyzed or failed, and when the project
+  closes; a run that left more than 10 keeps them all, and a
+  notification names the directory. The agent jar is bundled like the
+  analyzer's and extracted under its own file name, because its
+  manifest's `Boot-Class-Path` names that file. Only the launch
+  started by the action is traced (Run executor, once); an ordinary
+  Run or Debug of the same configuration is not, nor is "Rerun" or
+  "Rerun Failed Tests" from a traced run's test tree, and everything
+  the action set up is released when that launch terminates or fails
+  to start (`TracedRunLifecycle` decides). The plugin attaches only
+  the agent, never `TracedScope`; code that uses `TracedScope` and is
+  run this way records every event twice, which is not detected. The
+  Tools entry is shown whenever a project is open, whatever is
+  selected (`RunActionState` decides). When no configuration is
+  selected, clicking it shows an information notification saying to
+  select or create a Java Application or JUnit run configuration; when
+  the selected one is of another type (Gradle, Remote JVM Debug,
+  Kotlin, TestNG, ...), the notification says `"<name>" has run
+  configuration type "<type>".`, with no article before the type
+  (#212), and that "Run with Scope Tracer" runs Java Application and
+  JUnit configurations. Neither starts a run.
 - `build.gradle.kts` reads `analyzerVersion` from the parent POM, so
   the bundled jar always matches the Maven project version.
 - The plugin's version is that same version: `version` and
