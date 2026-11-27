@@ -4,46 +4,82 @@
 <meta charset="UTF-8"/>
 <title>scope-tracer report</title>
 <style>
-body { font-family: monospace; background: #fafafa; color: #212121; margin: 2rem; max-width: 1200px; }
+:root {
+  color-scheme: light dark;
+  --bg: #fafafa; --fg: #212121; --muted: #616161; --subtle: #707070; --strong: #424242;
+  --border: #e0e0e0; --th-bg: #f5f5f5; --track: #f0f0f0; --tick: #bdbdbd; --bar-text: #ffffff;
+  --success-text: #2e7d32; --failed-text: #c62828; --cancelled-text: #b34700; --unknown-text: #6e6e6e;
+  --critical-text: #b45309; --link: #1565c0; --scope-edge: #1565c0;
+  --input-bg: #ffffff; --input-border: #bdbdbd; --hover-bg: #f5f5f5;
+  --code-fg: #374151; --code-bg: #f9fafb;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --fg: #e8e8e8; --muted: #a0a6ad; --subtle: #9aa0a6; --strong: #d0d4d8;
+    --border: #3a3f46; --th-bg: #23262b; --track: #2a2e34; --tick: #5a6068; --bar-text: #ffffff;
+    --success-text: #81c784; --failed-text: #ff8a80; --cancelled-text: #ffb74d; --unknown-text: #9aa0a6;
+    --critical-text: #fbbf24; --link: #6ea8fe; --scope-edge: #6ea8fe;
+    --input-bg: #1e2126; --input-border: #5a6068; --hover-bg: #2c3036;
+    --code-fg: #d0d4d8; --code-bg: #1e2126;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14161a; --fg: #e8e8e8; --muted: #a0a6ad; --subtle: #9aa0a6; --strong: #d0d4d8;
+  --border: #3a3f46; --th-bg: #23262b; --track: #2a2e34; --tick: #5a6068; --bar-text: #ffffff;
+  --success-text: #81c784; --failed-text: #ff8a80; --cancelled-text: #ffb74d; --unknown-text: #9aa0a6;
+  --critical-text: #fbbf24; --link: #6ea8fe; --scope-edge: #6ea8fe;
+  --input-bg: #1e2126; --input-border: #5a6068; --hover-bg: #2c3036;
+  --code-fg: #d0d4d8; --code-bg: #1e2126;
+}
+:root[data-theme="light"] { color-scheme: light; }
+body { font-family: monospace; background: var(--bg); color: var(--fg); margin: 2rem; max-width: 1200px; }
 h1   { font-size: 1.2rem; margin-bottom: 0.25rem; }
-.summary { color: #616161; font-size: 0.85rem; margin-bottom: 1rem; }
+.summary { color: var(--muted); font-size: 0.85rem; margin-bottom: 1rem; }
+.count-success { color: var(--success-text); }
+.count-failed { color: var(--failed-text); }
+.count-cancelled { color: var(--cancelled-text); }
 section  { margin-bottom: 2rem; }
-h2   { font-size: 1rem; margin-bottom: 0.5rem; border-bottom: 1px solid #e0e0e0; padding-bottom: 0.25rem; }
-.scope-meta { color: #616161; font-size: 0.8rem; margin-bottom: 0.75rem; }
+h2   { font-size: 1rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+.scope-meta { color: var(--muted); font-size: 0.8rem; margin-bottom: 0.75rem; }
 table { border-collapse: collapse; font-size: 0.82rem; margin-bottom: 0.75rem; width: 100%; }
-th,td { text-align: left; padding: 3px 8px; border-bottom: 1px solid #e0e0e0; }
-th { background: #f5f5f5; }
-.outcome-success   { color: #2e7d32; font-weight: bold; }
-.outcome-failed    { color: #c62828; font-weight: bold; }
-.outcome-cancelled { color: #e65100; font-weight: bold; }
-.outcome-unknown   { color: #757575; }
+th,td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border); }
+th { background: var(--th-bg); }
+.outcome-success   { color: var(--success-text); font-weight: bold; }
+.outcome-failed    { color: var(--failed-text); font-weight: bold; }
+.outcome-cancelled { color: var(--cancelled-text); font-weight: bold; }
+.outcome-unknown   { color: var(--unknown-text); }
 .timeline-wrap { overflow-x: auto; margin-bottom: 0.5rem; }
 svg.timeline { display: block; width: 100%; height: auto; }
-.child-scope { margin-left: 2rem; border-left: 3px solid #1565c0; padding-left: 1rem; }
-.parent-ref  { font-size: 0.75rem; color: #616161; font-weight: normal; margin-left: 0.5rem; }
-.nested-scope-ref { font-size: 0.75rem; color: #1565c0; margin-left: 0.5rem; }
-.critical-path-note { color: #d97706; font-size: 0.75rem; margin-left: 0.3rem; }
-.legend { display: flex; gap: 1.2rem; font-size: 0.8rem; margin-bottom: 1rem; color: #616161; flex-wrap: wrap; }
+svg .track { fill: var(--track); }
+svg .tick { stroke: var(--tick); stroke-width: 1; }
+svg .tick-label { fill: var(--subtle); }
+svg .bar-label { fill: var(--bar-text); }
+.child-scope { margin-left: 2rem; border-left: 3px solid var(--scope-edge); padding-left: 1rem; }
+.parent-ref  { font-size: 0.75rem; color: var(--muted); font-weight: normal; margin-left: 0.5rem; }
+.nested-scope-ref { font-size: 0.75rem; color: var(--link); margin-left: 0.5rem; }
+.critical-path-note { color: var(--critical-text); font-size: 0.75rem; margin-left: 0.3rem; }
+.legend { display: flex; gap: 1.2rem; font-size: 0.8rem; margin-bottom: 1rem; color: var(--muted); flex-wrap: wrap; }
 .legend-item { display: flex; align-items: center; gap: 0.3rem; }
 .legend-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
-.filter-bar { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; color: #616161; }
-.filter-bar input[type="text"] { font-family: monospace; font-size: 0.85rem; padding: 0.3rem 0.6rem; border: 1px solid #bdbdbd; border-radius: 3px; width: 200px; background: #fff; }
+.filter-bar { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); }
+.filter-bar input[type="text"] { font-family: monospace; font-size: 0.85rem; padding: 0.3rem 0.6rem; border: 1px solid var(--input-border); border-radius: 3px; width: 200px; background: var(--input-bg); color: var(--fg); }
 .filter-bar label { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
-.filter-bar button { font-family: monospace; font-size: 0.8rem; padding: 0.3rem 0.6rem; border: 1px solid #bdbdbd; border-radius: 3px; background: #fff; cursor: pointer; color: #424242; }
-.filter-bar button:hover { background: #f5f5f5; }
-.filter-sep { color: #bdbdbd; }
-.anchor-link { font-size: 0.75rem; color: #bdbdbd; text-decoration: none; margin-left: 0.4rem; font-weight: normal; }
-.anchor-link:hover { color: #1565c0; }
-.overview-label { font-size: 0.75rem; color: #9e9e9e; margin-bottom: 0.2rem; }
+.filter-bar button { font-family: monospace; font-size: 0.8rem; padding: 0.3rem 0.6rem; border: 1px solid var(--input-border); border-radius: 3px; background: var(--input-bg); cursor: pointer; color: var(--strong); }
+.filter-bar button:hover { background: var(--hover-bg); }
+.filter-sep { color: var(--subtle); }
+.anchor-link { font-size: 0.75rem; color: var(--subtle); text-decoration: none; margin-left: 0.4rem; font-weight: normal; }
+.anchor-link:hover { color: var(--link); }
+.overview-label { font-size: 0.75rem; color: var(--subtle); margin-bottom: 0.2rem; }
 details.scope-group { margin-bottom: 1.5rem; }
-details.scope-group > summary { cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 0.4rem 0; list-style: none; border-bottom: 2px solid #e0e0e0; margin-bottom: 1rem; color: #424242; }
+details.scope-group > summary { cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 0.4rem 0; list-style: none; border-bottom: 2px solid var(--border); margin-bottom: 1rem; color: var(--strong); }
 details.scope-group > summary::marker, details.scope-group > summary::-webkit-details-marker { display: none; }
-details.scope-group > summary::before { content: "▶ "; font-size: 0.65rem; color: #9e9e9e; }
+details.scope-group > summary::before { content: "▶ "; font-size: 0.65rem; color: var(--subtle); }
 details.scope-group[open] > summary::before { content: "▼ "; }
-.group-stats { font-size: 0.75rem; font-weight: normal; color: #757575; margin-left: 0.5rem; }
+.group-stats { font-size: 0.75rem; font-weight: normal; color: var(--muted); margin-left: 0.5rem; }
 details.stack-trace { margin-top: 0.25rem; }
-details.stack-trace > summary { cursor: pointer; color: #6b7280; font-size: 0.75rem; }
-pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto; white-space: pre; color: #374151; background: #f9fafb; padding: 0.4rem; border-radius: 3px; }
+details.stack-trace > summary { cursor: pointer; color: var(--subtle); font-size: 0.75rem; }
+pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto; white-space: pre; color: var(--code-fg); background: var(--code-bg); padding: 0.4rem; border-radius: 3px; }
 </style>
 </head>
 <body>
@@ -56,8 +92,8 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <span class="legend-item"><span class="legend-swatch" style="background:#9e9e9e"></span>incomplete</span>
 <span class="legend-item"><span class="legend-swatch" style="background:#4caf50;box-shadow:0 0 0 2px #d97706"></span>critical path</span>
 </div>
-<script type="application/json" id="trace-data">{"scopes":[{"scopeId":39,"name":"ignores-interrupt","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-18T21:44:34.041576125Z","closeTime":"2026-11-18T21:44:34.754208375Z","parent":null,"tasks":[{"taskId":1,"taskName":"reserve-stock","threadName":"","threadId":148,"forkTime":"2026-11-18T21:44:34.041659083Z","completionTime":"2026-11-18T21:44:34.102560292Z","outcome":{"type":"failed","exceptionType":"java.lang.IllegalStateException","exceptionMessage":"out of stock","stackTrace":"java.lang.IllegalStateException: out of stock\n\tat com.ionutbanu.scopetracer.demos.GalleryScenarios.lambda$ignoresInterrupt$0(GalleryScenarios.java:191)\n\tat com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)\n\tat java.base\/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)\n\tat java.base\/java.lang.VirtualThread.run(VirtualThread.java:470)\n"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":191}},{"taskId":2,"taskName":"price-lookup","threadName":"","threadId":149,"forkTime":"2026-11-18T21:44:34.041732917Z","completionTime":"2026-11-18T21:44:34.102738292Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":192}},{"taskId":3,"taskName":"stubborn","threadName":"","threadId":150,"forkTime":"2026-11-18T21:44:34.041773333Z","completionTime":"2026-11-18T21:44:34.754126375Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":193}}]}]}</script>
-<p class="summary">1 scope(s) &nbsp;|&nbsp; <span style="color:#2e7d32">0 success</span> &nbsp;·&nbsp; <span style="color:#c62828">1 failed</span> &nbsp;|&nbsp; median: 712.63ms &nbsp;|&nbsp; wall: 712.63ms</p>
+<script type="application/json" id="trace-data">{"scopes":[{"scopeId":39,"name":"ignores-interrupt","ownerThreadName":"main","ownerThreadId":3,"openTime":"2026-11-27T14:53:43.002234792Z","closeTime":"2026-11-27T14:53:43.710231667Z","parent":null,"tasks":[{"taskId":1,"taskName":"reserve-stock","threadName":"","threadId":147,"forkTime":"2026-11-27T14:53:43.002336625Z","completionTime":"2026-11-27T14:53:43.065321834Z","outcome":{"type":"failed","exceptionType":"java.lang.IllegalStateException","exceptionMessage":"out of stock","stackTrace":"java.lang.IllegalStateException: out of stock\n\tat com.ionutbanu.scopetracer.demos.GalleryScenarios.lambda$ignoresInterrupt$0(GalleryScenarios.java:191)\n\tat com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)\n\tat java.base\/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)\n\tat java.base\/java.lang.VirtualThread.run(VirtualThread.java:470)\n"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":191}},{"taskId":2,"taskName":"price-lookup","threadName":"","threadId":148,"forkTime":"2026-11-27T14:53:43.002428625Z","completionTime":"2026-11-27T14:53:43.065465709Z","outcome":{"type":"cancelled"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":192}},{"taskId":3,"taskName":"stubborn","threadName":"","threadId":149,"forkTime":"2026-11-27T14:53:43.002484500Z","completionTime":"2026-11-27T14:53:43.710128875Z","outcome":{"type":"success"},"callSite":{"className":"com.ionutbanu.scopetracer.demos.GalleryScenarios","methodName":"ignoresInterrupt","line":193}}]}]}</script>
+<p class="summary">1 scope(s) &nbsp;|&nbsp; <span class="count-success">0 success</span> &nbsp;·&nbsp; <span class="count-failed">1 failed</span> &nbsp;|&nbsp; median: 708.00ms &nbsp;|&nbsp; wall: 708.00ms</p>
 <div class="filter-bar">
 <input type="text" id="search" placeholder="filter by name…" autocomplete="off"/>
 <span class="filter-sep">|</span>
@@ -71,70 +107,70 @@ pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto;
 <p class="overview-label">recording timeline — click a scope to jump</p>
 <div class="timeline-wrap" style="margin-bottom:1.5rem">
 <svg class="timeline" viewBox="0 0 800 44" xmlns="http://www.w3.org/2000/svg">
-<rect x="0" y="8" width="800" height="18" fill="#f0f0f0" rx="2"/>
+<rect x="0" y="8" width="800" height="18" class="track" rx="2"/>
 <a href="#scope-0" style="text-decoration:none">
 <rect x="0.00" y="8" width="800.00" height="18" rx="1" style="fill:#e53935;opacity:0.85">
-<title>ignores-interrupt | 712.63ms</title>
+<title>ignores-interrupt | 708.00ms</title>
 </rect>
 </a>
-<text x="0" y="40" font-size="8" fill="#9e9e9e" font-family="monospace">21:44:34.041</text>
-<text x="800" y="40" font-size="8" fill="#9e9e9e" font-family="monospace" text-anchor="end">21:44:34.754</text>
+<text x="0" y="40" class="tick-label" font-size="8" font-family="monospace">14:53:43.002</text>
+<text x="800" y="40" class="tick-label" font-size="8" font-family="monospace" text-anchor="end">14:53:43.710</text>
 </svg>
 </div>
 <section id="scope-0" data-scope="ignores-interrupt" data-outcome="failed">
 <h2>ignores-interrupt <a class="anchor-link" href="#scope-0" title="copy link to this scope">#</a></h2>
-<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 21:44:34.041 &nbsp;|&nbsp; duration: 712.63ms &nbsp;|&nbsp; tasks: 3</div>
+<div class="scope-meta">thread: main &nbsp;|&nbsp; opened: 14:53:43.002 &nbsp;|&nbsp; duration: 708.00ms &nbsp;|&nbsp; tasks: 3</div>
 <table>
 <tr><th>#</th><th>name</th><th>thread</th><th>fork offset</th><th>duration</th><th>outcome</th></tr>
-<tr><td>1</td><td>reserve-stock</td><td>vt-148</td><td>+82.96µs</td><td>60.90ms</td><td><span class="outcome-failed">failed: java.lang.IllegalStateException: out of stock</span><details class="stack-trace"><summary>stack trace</summary><pre class="stack-trace-body">java.lang.IllegalStateException: out of stock
+<tr><td>1</td><td>reserve-stock</td><td>vt-147</td><td>+101.83µs</td><td>62.99ms</td><td><span class="outcome-failed">failed: java.lang.IllegalStateException: out of stock</span><details class="stack-trace"><summary>stack trace</summary><pre class="stack-trace-body">java.lang.IllegalStateException: out of stock
 	at com.ionutbanu.scopetracer.demos.GalleryScenarios.lambda$ignoresInterrupt$0(GalleryScenarios.java:191)
 	at com.ionutbanu.scopetracer.core.TracedScope.lambda$doFork$0(TracedScope.java:420)
 	at java.base/java.util.concurrent.StructuredTaskScopeImpl$SubtaskImpl.run(StructuredTaskScopeImpl.java:345)
 	at java.base/java.lang.VirtualThread.run(VirtualThread.java:470)
 </pre></details></td></tr>
-<tr><td>2</td><td>price-lookup</td><td>vt-149</td><td>+156.79µs</td><td>61.01ms</td><td><span class="outcome-cancelled">cancelled ← #1</span></td></tr>
-<tr><td>3</td><td>stubborn</td><td>vt-150</td><td>+197.21µs</td><td>712.35ms</td><td><span class="outcome-success">success</span></td></tr>
+<tr><td>2</td><td>price-lookup</td><td>vt-148</td><td>+193.83µs</td><td>63.04ms</td><td><span class="outcome-cancelled">cancelled ← #1</span></td></tr>
+<tr><td>3</td><td>stubborn</td><td>vt-149</td><td>+249.71µs</td><td>707.64ms</td><td><span class="outcome-success">success</span></td></tr>
 </table>
 <div class="timeline-wrap">
 <svg class="timeline" viewBox="0 0 800 138" xmlns="http://www.w3.org/2000/svg">
 <rect x="0" y="2" width="800" height="18" fill="#1565c0" rx="2">
-<title>ignores-interrupt | 712.63ms</title>
+<title>ignores-interrupt | 708.00ms</title>
 </rect>
-<svg x="0.09" y="32" width="68.37" height="18" overflow="hidden">
-<rect x="0" y="0" width="68.37" height="18" fill="#e53935" rx="2">
-<title>task 1 | reserve-stock | vt-148 | failed: java.lang.IllegalStateException: out of stock</title>
+<svg x="0.12" y="32" width="71.17" height="18" overflow="hidden">
+<rect x="0" y="0" width="71.17" height="18" fill="#e53935" rx="2">
+<title>task 1 | reserve-stock | vt-147 | failed: java.lang.IllegalStateException: out of stock</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#1 rese…</text>
+<text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#1 reser…</text>
 </svg>
-<svg x="0.18" y="58" width="68.48" height="18" overflow="hidden">
-<rect x="0" y="0" width="68.48" height="18" fill="#fb8c00" rx="2">
-<title>task 2 | price-lookup | vt-149 | cancelled ← #1</title>
+<svg x="0.22" y="58" width="71.23" height="18" overflow="hidden">
+<rect x="0" y="0" width="71.23" height="18" fill="#fb8c00" rx="2">
+<title>task 2 | price-lookup | vt-148 | cancelled ← #1</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#2 pric…</text>
+<text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#2 price…</text>
 </svg>
-<svg x="0.22" y="84" width="799.69" height="18" overflow="hidden">
-<rect x="0" y="0" width="799.69" height="18" fill="#4caf50" rx="2">
-<title>task 3 | stubborn | vt-150 | success</title>
+<svg x="0.28" y="84" width="799.60" height="18" overflow="hidden">
+<rect x="0" y="0" width="799.60" height="18" fill="#4caf50" rx="2">
+<title>task 3 | stubborn | vt-149 | success</title>
 </rect>
-<text x="4" y="13" fill="white" font-size="11" font-family="monospace" pointer-events="none">#3 stubborn</text>
+<text x="4" y="13" class="bar-label" font-size="11" font-family="monospace" pointer-events="none">#3 stubborn</text>
 </svg>
-<line x1="0" y1="116" x2="800" y2="116" stroke="#bdbdbd" stroke-width="1"/>
-<line x1="0.00" y1="113" x2="0.00" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="2.00" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">0</text>
-<line x1="112.26" y1="113" x2="112.26" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="114.26" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+100ms</text>
-<line x1="224.52" y1="113" x2="224.52" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="226.52" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+200ms</text>
-<line x1="336.78" y1="113" x2="336.78" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="338.78" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+300ms</text>
-<line x1="449.04" y1="113" x2="449.04" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="451.04" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+400ms</text>
-<line x1="561.30" y1="113" x2="561.30" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="563.30" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+500ms</text>
-<line x1="673.56" y1="113" x2="673.56" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="675.56" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+600ms</text>
-<line x1="785.82" y1="113" x2="785.82" y2="119" stroke="#bdbdbd" stroke-width="1"/>
-<text x="787.82" y="128" font-size="8" fill="#9e9e9e" font-family="monospace">+700ms</text>
+<line x1="0" y1="116" x2="800" y2="116" class="tick"/>
+<line x1="0.00" y1="113" x2="0.00" y2="119" class="tick"/>
+<text x="2.00" y="128" class="tick-label" font-size="8" font-family="monospace">0</text>
+<line x1="112.99" y1="113" x2="112.99" y2="119" class="tick"/>
+<text x="114.99" y="128" class="tick-label" font-size="8" font-family="monospace">+100ms</text>
+<line x1="225.99" y1="113" x2="225.99" y2="119" class="tick"/>
+<text x="227.99" y="128" class="tick-label" font-size="8" font-family="monospace">+200ms</text>
+<line x1="338.98" y1="113" x2="338.98" y2="119" class="tick"/>
+<text x="340.98" y="128" class="tick-label" font-size="8" font-family="monospace">+300ms</text>
+<line x1="451.98" y1="113" x2="451.98" y2="119" class="tick"/>
+<text x="453.98" y="128" class="tick-label" font-size="8" font-family="monospace">+400ms</text>
+<line x1="564.97" y1="113" x2="564.97" y2="119" class="tick"/>
+<text x="566.97" y="128" class="tick-label" font-size="8" font-family="monospace">+500ms</text>
+<line x1="677.97" y1="113" x2="677.97" y2="119" class="tick"/>
+<text x="679.97" y="128" class="tick-label" font-size="8" font-family="monospace">+600ms</text>
+<line x1="790.96" y1="113" x2="790.96" y2="119" class="tick"/>
+<text x="792.96" y="128" class="tick-label" font-size="8" font-family="monospace">+700ms</text>
 </svg>
 </div>
 </section>

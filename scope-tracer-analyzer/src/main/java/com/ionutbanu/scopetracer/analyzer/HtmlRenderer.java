@@ -70,46 +70,82 @@ public final class HtmlRenderer {
         <meta charset="UTF-8"/>
         <title>scope-tracer report</title>
         <style>
-        body { font-family: monospace; background: #fafafa; color: #212121; margin: 2rem; max-width: 1200px; }
+        :root {
+          color-scheme: light dark;
+          --bg: #fafafa; --fg: #212121; --muted: #616161; --subtle: #707070; --strong: #424242;
+          --border: #e0e0e0; --th-bg: #f5f5f5; --track: #f0f0f0; --tick: #bdbdbd; --bar-text: #ffffff;
+          --success-text: #2e7d32; --failed-text: #c62828; --cancelled-text: #b34700; --unknown-text: #6e6e6e;
+          --critical-text: #b45309; --link: #1565c0; --scope-edge: #1565c0;
+          --input-bg: #ffffff; --input-border: #bdbdbd; --hover-bg: #f5f5f5;
+          --code-fg: #374151; --code-bg: #f9fafb;
+        }
+        @media (prefers-color-scheme: dark) {
+          :root:not([data-theme="light"]) {
+            --bg: #14161a; --fg: #e8e8e8; --muted: #a0a6ad; --subtle: #9aa0a6; --strong: #d0d4d8;
+            --border: #3a3f46; --th-bg: #23262b; --track: #2a2e34; --tick: #5a6068; --bar-text: #ffffff;
+            --success-text: #81c784; --failed-text: #ff8a80; --cancelled-text: #ffb74d; --unknown-text: #9aa0a6;
+            --critical-text: #fbbf24; --link: #6ea8fe; --scope-edge: #6ea8fe;
+            --input-bg: #1e2126; --input-border: #5a6068; --hover-bg: #2c3036;
+            --code-fg: #d0d4d8; --code-bg: #1e2126;
+          }
+        }
+        :root[data-theme="dark"] {
+          color-scheme: dark;
+          --bg: #14161a; --fg: #e8e8e8; --muted: #a0a6ad; --subtle: #9aa0a6; --strong: #d0d4d8;
+          --border: #3a3f46; --th-bg: #23262b; --track: #2a2e34; --tick: #5a6068; --bar-text: #ffffff;
+          --success-text: #81c784; --failed-text: #ff8a80; --cancelled-text: #ffb74d; --unknown-text: #9aa0a6;
+          --critical-text: #fbbf24; --link: #6ea8fe; --scope-edge: #6ea8fe;
+          --input-bg: #1e2126; --input-border: #5a6068; --hover-bg: #2c3036;
+          --code-fg: #d0d4d8; --code-bg: #1e2126;
+        }
+        :root[data-theme="light"] { color-scheme: light; }
+        body { font-family: monospace; background: var(--bg); color: var(--fg); margin: 2rem; max-width: 1200px; }
         h1   { font-size: 1.2rem; margin-bottom: 0.25rem; }
-        .summary { color: #616161; font-size: 0.85rem; margin-bottom: 1rem; }
+        .summary { color: var(--muted); font-size: 0.85rem; margin-bottom: 1rem; }
+        .count-success { color: var(--success-text); }
+        .count-failed { color: var(--failed-text); }
+        .count-cancelled { color: var(--cancelled-text); }
         section  { margin-bottom: 2rem; }
-        h2   { font-size: 1rem; margin-bottom: 0.5rem; border-bottom: 1px solid #e0e0e0; padding-bottom: 0.25rem; }
-        .scope-meta { color: #616161; font-size: 0.8rem; margin-bottom: 0.75rem; }
+        h2   { font-size: 1rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+        .scope-meta { color: var(--muted); font-size: 0.8rem; margin-bottom: 0.75rem; }
         table { border-collapse: collapse; font-size: 0.82rem; margin-bottom: 0.75rem; width: 100%; }
-        th,td { text-align: left; padding: 3px 8px; border-bottom: 1px solid #e0e0e0; }
-        th { background: #f5f5f5; }
-        .outcome-success   { color: #2e7d32; font-weight: bold; }
-        .outcome-failed    { color: #c62828; font-weight: bold; }
-        .outcome-cancelled { color: #e65100; font-weight: bold; }
-        .outcome-unknown   { color: #757575; }
+        th,td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border); }
+        th { background: var(--th-bg); }
+        .outcome-success   { color: var(--success-text); font-weight: bold; }
+        .outcome-failed    { color: var(--failed-text); font-weight: bold; }
+        .outcome-cancelled { color: var(--cancelled-text); font-weight: bold; }
+        .outcome-unknown   { color: var(--unknown-text); }
         .timeline-wrap { overflow-x: auto; margin-bottom: 0.5rem; }
         svg.timeline { display: block; width: 100%; height: auto; }
-        .child-scope { margin-left: 2rem; border-left: 3px solid #1565c0; padding-left: 1rem; }
-        .parent-ref  { font-size: 0.75rem; color: #616161; font-weight: normal; margin-left: 0.5rem; }
-        .nested-scope-ref { font-size: 0.75rem; color: #1565c0; margin-left: 0.5rem; }
-        .critical-path-note { color: #d97706; font-size: 0.75rem; margin-left: 0.3rem; }
-        .legend { display: flex; gap: 1.2rem; font-size: 0.8rem; margin-bottom: 1rem; color: #616161; flex-wrap: wrap; }
+        svg .track { fill: var(--track); }
+        svg .tick { stroke: var(--tick); stroke-width: 1; }
+        svg .tick-label { fill: var(--subtle); }
+        svg .bar-label { fill: var(--bar-text); }
+        .child-scope { margin-left: 2rem; border-left: 3px solid var(--scope-edge); padding-left: 1rem; }
+        .parent-ref  { font-size: 0.75rem; color: var(--muted); font-weight: normal; margin-left: 0.5rem; }
+        .nested-scope-ref { font-size: 0.75rem; color: var(--link); margin-left: 0.5rem; }
+        .critical-path-note { color: var(--critical-text); font-size: 0.75rem; margin-left: 0.3rem; }
+        .legend { display: flex; gap: 1.2rem; font-size: 0.8rem; margin-bottom: 1rem; color: var(--muted); flex-wrap: wrap; }
         .legend-item { display: flex; align-items: center; gap: 0.3rem; }
         .legend-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
-        .filter-bar { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; color: #616161; }
-        .filter-bar input[type="text"] { font-family: monospace; font-size: 0.85rem; padding: 0.3rem 0.6rem; border: 1px solid #bdbdbd; border-radius: 3px; width: 200px; background: #fff; }
+        .filter-bar { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); }
+        .filter-bar input[type="text"] { font-family: monospace; font-size: 0.85rem; padding: 0.3rem 0.6rem; border: 1px solid var(--input-border); border-radius: 3px; width: 200px; background: var(--input-bg); color: var(--fg); }
         .filter-bar label { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
-        .filter-bar button { font-family: monospace; font-size: 0.8rem; padding: 0.3rem 0.6rem; border: 1px solid #bdbdbd; border-radius: 3px; background: #fff; cursor: pointer; color: #424242; }
-        .filter-bar button:hover { background: #f5f5f5; }
-        .filter-sep { color: #bdbdbd; }
-        .anchor-link { font-size: 0.75rem; color: #bdbdbd; text-decoration: none; margin-left: 0.4rem; font-weight: normal; }
-        .anchor-link:hover { color: #1565c0; }
-        .overview-label { font-size: 0.75rem; color: #9e9e9e; margin-bottom: 0.2rem; }
+        .filter-bar button { font-family: monospace; font-size: 0.8rem; padding: 0.3rem 0.6rem; border: 1px solid var(--input-border); border-radius: 3px; background: var(--input-bg); cursor: pointer; color: var(--strong); }
+        .filter-bar button:hover { background: var(--hover-bg); }
+        .filter-sep { color: var(--subtle); }
+        .anchor-link { font-size: 0.75rem; color: var(--subtle); text-decoration: none; margin-left: 0.4rem; font-weight: normal; }
+        .anchor-link:hover { color: var(--link); }
+        .overview-label { font-size: 0.75rem; color: var(--subtle); margin-bottom: 0.2rem; }
         details.scope-group { margin-bottom: 1.5rem; }
-        details.scope-group > summary { cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 0.4rem 0; list-style: none; border-bottom: 2px solid #e0e0e0; margin-bottom: 1rem; color: #424242; }
+        details.scope-group > summary { cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 0.4rem 0; list-style: none; border-bottom: 2px solid var(--border); margin-bottom: 1rem; color: var(--strong); }
         details.scope-group > summary::marker, details.scope-group > summary::-webkit-details-marker { display: none; }
-        details.scope-group > summary::before { content: "▶ "; font-size: 0.65rem; color: #9e9e9e; }
+        details.scope-group > summary::before { content: "▶ "; font-size: 0.65rem; color: var(--subtle); }
         details.scope-group[open] > summary::before { content: "▼ "; }
-        .group-stats { font-size: 0.75rem; font-weight: normal; color: #757575; margin-left: 0.5rem; }
+        .group-stats { font-size: 0.75rem; font-weight: normal; color: var(--muted); margin-left: 0.5rem; }
         details.stack-trace { margin-top: 0.25rem; }
-        details.stack-trace > summary { cursor: pointer; color: #6b7280; font-size: 0.75rem; }
-        pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto; white-space: pre; color: #374151; background: #f9fafb; padding: 0.4rem; border-radius: 3px; }
+        details.stack-trace > summary { cursor: pointer; color: var(--subtle); font-size: 0.75rem; }
+        pre.stack-trace-body { font-size: 0.7rem; margin: 0.25rem 0 0; overflow-x: auto; white-space: pre; color: var(--code-fg); background: var(--code-bg); padding: 0.4rem; border-radius: 3px; }
         </style>
         </head>
         <body>
@@ -301,15 +337,15 @@ public final class HtmlRenderer {
     sb.append("<p class=\"summary\">")
         .append(rootScopes.size())
         .append(" scope(s) &nbsp;|&nbsp;")
-        .append(" <span style=\"color:#2e7d32\">")
+        .append(" <span class=\"count-success\">")
         .append(succeeded)
         .append(" success</span>");
     if (failed > 0)
-      sb.append(" &nbsp;·&nbsp; <span style=\"color:#c62828\">")
+      sb.append(" &nbsp;·&nbsp; <span class=\"count-failed\">")
           .append(failed)
           .append(" failed</span>");
     if (cancelled > 0)
-      sb.append(" &nbsp;·&nbsp; <span style=\"color:#e65100\">")
+      sb.append(" &nbsp;·&nbsp; <span class=\"count-cancelled\">")
           .append(cancelled)
           .append(" cancelled</span>");
     if (!durations.isEmpty()) {
@@ -344,7 +380,7 @@ public final class HtmlRenderer {
     sb.append(
         "<svg class=\"timeline\" viewBox=\"0 0 800 44\" xmlns=\"http://www.w3.org/2000/svg\">\n");
     // background track
-    sb.append("<rect x=\"0\" y=\"8\" width=\"800\" height=\"18\" fill=\"#f0f0f0\" rx=\"2\"/>\n");
+    sb.append("<rect x=\"0\" y=\"8\" width=\"800\" height=\"18\" class=\"track\" rx=\"2\"/>\n");
 
     int i = 0;
     for (var scope : rootScopes) {
@@ -374,11 +410,12 @@ public final class HtmlRenderer {
     }
 
     // Start / end timestamp labels
-    sb.append("<text x=\"0\" y=\"40\" font-size=\"8\" fill=\"#9e9e9e\" font-family=\"monospace\">")
+    sb.append(
+            "<text x=\"0\" y=\"40\" class=\"tick-label\" font-size=\"8\" font-family=\"monospace\">")
         .append(escape(TIMESTAMP_FMT.format(globalMin)))
         .append("</text>\n");
     sb.append(
-            "<text x=\"800\" y=\"40\" font-size=\"8\" fill=\"#9e9e9e\""
+            "<text x=\"800\" y=\"40\" class=\"tick-label\" font-size=\"8\""
                 + " font-family=\"monospace\" text-anchor=\"end\">")
         .append(escape(TIMESTAMP_FMT.format(globalMin.plusNanos(totalNs))))
         .append("</text>\n");
@@ -579,7 +616,7 @@ public final class HtmlRenderer {
       // (for Class#method:line names), then ellipsis-truncate, then "#N" alone.
       // The SVG's overflow="hidden" still acts as a final clipping safety net.
       String barLabel = fitBarLabel(task.taskId(), task.taskName(), taskW);
-      sb.append("<text x=\"4\" y=\"13\" fill=\"white\" font-size=\"11\" ")
+      sb.append("<text x=\"4\" y=\"13\" class=\"bar-label\" font-size=\"11\" ")
           .append("font-family=\"monospace\" pointer-events=\"none\">")
           .append(escape(barLabel))
           .append("</text>\n</svg>\n");
@@ -595,7 +632,7 @@ public final class HtmlRenderer {
         .append((int) TIMELINE_W)
         .append("\" y2=\"")
         .append(axisY)
-        .append("\" stroke=\"#bdbdbd\" stroke-width=\"1\"/>\n");
+        .append("\" class=\"tick\"/>\n");
     long tickIntervalNs = niceTickIntervalNs(scopeDurationNs, 8);
     for (long tickNs = 0; tickNs <= scopeDurationNs; tickNs += tickIntervalNs) {
       double tickX = (double) tickNs / scopeDurationNs * TIMELINE_W;
@@ -607,13 +644,13 @@ public final class HtmlRenderer {
           .append(f(tickX))
           .append("\" y2=\"")
           .append(axisY + 3)
-          .append("\" stroke=\"#bdbdbd\" stroke-width=\"1\"/>\n");
+          .append("\" class=\"tick\"/>\n");
       String label = tickNs == 0 ? "0" : "+" + formatAxisLabel(tickNs);
       sb.append("<text x=\"")
           .append(f(tickX + 2))
           .append("\" y=\"")
           .append(labelY)
-          .append("\" font-size=\"8\" fill=\"#9e9e9e\" font-family=\"monospace\">")
+          .append("\" class=\"tick-label\" font-size=\"8\" font-family=\"monospace\">")
           .append(escape(label))
           .append("</text>\n");
     }
