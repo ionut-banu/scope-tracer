@@ -98,7 +98,10 @@ installed JDKs (it does not download one). Build the jars it bundles first:
 mvn -q -DskipTests package
 cd scope-tracer-plugin && JAVA_HOME=/path/to/jdk-21 ./gradlew build
 ./gradlew verifyPlugin   # Plugin Verifier against 2026.3 and the newest 263+ build
+./gradlew buildPlugin    # the installable zip
 ```
+
+The installable zip is `scope-tracer-plugin/build/distributions/scope-tracer-plugin-<version>.zip`, made by `buildPlugin`; `build` does not rebuild it. To try a change by hand, run `buildPlugin` and install that zip (Settings, Plugins, Install Plugin from Disk). The file name carries the version, so zips from older versions stay in `build/distributions/` and `*.zip` matches all of them. To be sure the zip is fresh, run `./gradlew clean buildPlugin` (or delete `build/distributions/*.zip` first), or take the one with the newest modification time.
 
 `build` and `buildPlugin` also run `checkClassFileVersions`, which fails when a plugin class is newer than the lowest supported IDE's JBR can load (`pluginMaxClassJava` in `gradle.properties`).
 

@@ -69,6 +69,11 @@ without `-am` you are testing sibling jars from some other checkout -
 see "One worktree per subagent" in `_docs/process.md`. Your verdict's
 test line comes from a full `mvn -q verify` in the worktree.
 
+A by-hand check that installs the plugin builds the zip first with
+`./gradlew clean buildPlugin` (`build` does not make it), and quotes
+the zip's name and `ls -l` timestamp in the verdict, so a stale zip
+is visible.
+
 Break it and watch it fail
 
 A test that passes proves nothing on its own - it might pass because
