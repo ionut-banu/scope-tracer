@@ -85,3 +85,25 @@ jobs:
           JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew
           -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64
           javaToolchains build
+
+      # Proves the class-file guard (#200) can fail: with the limit lowered to Java 21 the task
+      # must fail, and its output must name a major-69 class, so a Gradle failure for another
+      # reason does not pass this step.
+      - name: Check the class-file guard fails when the limit is lowered
+        working-directory: scope-tracer-plugin
+        run: |
+          set +e
+          JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew \
+            -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64 \
+            checkClassFileVersions -PpluginMaxClassJava=21 > guard.log 2>&1
+          status=$?
+          set -e
+          cat guard.log
+          if [ "$status" -eq 0 ]; then
+            echo "checkClassFileVersions passed with the limit at Java 21; it should fail" >&2
+            exit 1
+          fi
+          grep -q 'is class-file major 69, above 65' guard.log || {
+            echo "the task failed, but not by naming a major-69 class" >&2
+            exit 1
+          }

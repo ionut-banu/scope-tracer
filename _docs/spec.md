@@ -648,6 +648,11 @@ Gradle modules compile with `--release 25` (class-file major 69) on a
 JDK 27 toolchain, because 2026.3's own jars are Java 25 class files;
 Gradle itself runs on JDK 21. `verifyPlugin` checks 2026.3 and the
 newest IntelliJ IDEA build from 263 on, EAP included.
+The build fails on any class in the plugin jar or `model.jar` above
+the class-file major of the lowest supported IDE's JBR
+(`pluginMaxClassJava`, 25 for 2026.3, major 69; `checkClassFileVersions`,
+run by `check` and `buildPlugin`); nested jars such as the analyzer
+are not scanned.
 
 The IDE runs on JBR 25 (2026.3 bundles 25.0.4.1) and cannot load
 classes compiled with `--release 27` (class-file major version 71),
