@@ -561,9 +561,12 @@ service. Each recording captures only the orders that ran during that window.
 
 ```bash
 mvn -q -DskipTests package                 # builds the analyzer's -executable jar
-cd scope-tracer-plugin && ./gradlew build  # bundles that jar and builds the plugin
+cd scope-tracer-plugin && ./gradlew build  # compiles and tests the plugin; does not make the zip
+./gradlew buildPlugin                      # the installable zip, for Install Plugin from Disk
 ./gradlew runIde                           # try it in a sandbox IDE
 ```
+
+To install by hand (Settings, Plugins, Install Plugin from Disk), use `scope-tracer-plugin/build/distributions/scope-tracer-plugin-<version>.zip`. Run `./gradlew clean buildPlugin` first so no zip from an older version is left beside it.
 
 Gradle runs on JDK 21; the plugin compiles with `--release 25` on a JDK 27 toolchain, which Gradle finds among the installed JDKs (it does not download one).
 
