@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The plugin build fails on classes the lowest supported IDE cannot load** (#200). The new
+  `checkClassFileVersions` task, run by `check` and `buildPlugin`, reads the class-file version of
+  every class in the plugin jar and `model.jar` and fails, naming each offender, when one is
+  newer than the Java feature version in `pluginMaxClassJava` (25, the JBR of IntelliJ IDEA
+  2026.3). Before, dropping `--release 25` left `build` and `verifyPlugin` green.
+
 - **The IntelliJ plugin finds a JDK for the analyzer instead of asking for a path** (#63).
   Neither action shows a path dialog any more. The analyzer runs on the JDK chosen on the new
   Settings → Tools → Scope Tracer page, or, on "Automatic" (the default), on the traced run's own

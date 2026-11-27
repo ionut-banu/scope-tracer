@@ -100,6 +100,8 @@ cd scope-tracer-plugin && JAVA_HOME=/path/to/jdk-21 ./gradlew build
 ./gradlew verifyPlugin   # Plugin Verifier against 2026.3 and the newest 263+ build
 ```
 
+`build` and `buildPlugin` also run `checkClassFileVersions`, which fails when a plugin class is newer than the lowest supported IDE's JBR can load (`pluginMaxClassJava` in `gradle.properties`).
+
 ### Formatting
 
 The project uses Spotless with google-java-format 1.36.1 and sortPom. CI

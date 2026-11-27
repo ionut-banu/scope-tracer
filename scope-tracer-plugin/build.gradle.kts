@@ -1,4 +1,5 @@
 import java.util.Base64
+import java.util.zip.ZipFile
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.models.ProductRelease
 import org.jetbrains.intellij.platform.gradle.tasks.PublishPluginTask
@@ -101,6 +102,90 @@ intellijPlatform {
     }
   }
 }
+
+// --- Class-file guard (#200) ---
+//
+// The IDE runs on the JBR of the lowest supported IDE (Java 25 for 2026.3) and rejects a newer
+// class file, so a plugin whose classes are newer cannot load in any supported IDE, and nothing
+// else in this build notices (verifyPlugin and CI stayed green with options.release removed).
+// This reads the version bytes of the header of every .class entry in the plugin jar and in
+// :model's jar with java.util.zip only (no IDE, no network, no JDK 27 at check time).
+// Nested jars are not scanned: the plugin jar carries analyzer/analyzer.jar and agent/*.jar as
+// resources, and the analyzer is deliberately Java 27 (major 71); only entries that are
+// themselves .class files are read, and a nested jar's entries are never opened.
+// The limit is its own property, pluginMaxClassJava, not options.release.
+// It checks the `jar` task's output (the -base jar), not the instrumented/composed jar the zip
+// ships: instrumentedJar and composedJar repackage those same class files (instrumentation does
+// not change the version bytes), so the classes and majors are the same. Do not "fix" this to
+// another jar.
+evaluationDependsOn(":model")
+
+val checkClassFileVersions =
+    tasks.register("checkClassFileVersions") {
+      group = "verification"
+      description =
+          "Fails when a class in the plugin jar or model.jar is newer than the lowest supported " +
+              "JBR can load."
+      val jars =
+          listOf(tasks.named<Jar>("jar"), project(":model").tasks.named<Jar>("jar")).map {
+            it.flatMap { jar -> jar.archiveFile }
+          }
+      val maxJava =
+          providers.gradleProperty("pluginMaxClassJava").map {
+            it.trim().toIntOrNull()
+                ?: throw GradleException(
+                    "pluginMaxClassJava must be a Java feature version such as 25, " +
+                        "but is \"$it\"")
+          }
+      inputs.files(jars)
+      inputs.property("pluginMaxClassJava", maxJava)
+      doLast {
+        val maxMajor = maxJava.get() + 44
+        val problems = mutableListOf<String>()
+        for (jarProvider in jars) {
+          val file = jarProvider.get().asFile
+          var classes = 0
+          ZipFile(file).use { zip ->
+            for (entry in zip.entries().asSequence().filter { it.name.endsWith(".class") }) {
+              classes++
+              val header: ByteArray = zip.getInputStream(entry).use { stream -> stream.readNBytes(8) }
+              val magic =
+                  header.size >= 4 &&
+                      header[0] == 0xCA.toByte() &&
+                      header[1] == 0xFE.toByte() &&
+                      header[2] == 0xBA.toByte() &&
+                      header[3] == 0xBE.toByte()
+              if (header.size < 8 || !magic) {
+                problems +=
+                    "${file.name}: ${entry.name} is not a class file (shorter than 8 bytes or " +
+                        "no CAFEBABE magic)"
+                continue
+              }
+              val major = ((header[6].toInt() and 0xFF) shl 8) or (header[7].toInt() and 0xFF)
+              if (major > maxMajor) {
+                problems += "${file.name}: ${entry.name} is class-file major $major, above $maxMajor"
+              }
+            }
+          }
+          if (classes == 0) {
+            problems += "${file.name}: no .class entries, so nothing was checked"
+          }
+          logger.lifecycle(
+              "checkClassFileVersions: ${file.name}: $classes classes, limit major $maxMajor")
+        }
+        if (problems.isNotEmpty()) {
+          throw GradleException(
+              "Classes the lowest supported IDE's JBR (Java ${maxJava.get()}, major $maxMajor) " +
+                  "cannot load:\n" +
+                  problems.joinToString("\n") { "  $it" } +
+                  "\nCheck options.release in both build.gradle.kts files.")
+        }
+      }
+    }
+
+tasks.named("check") { dependsOn(checkClassFileVersions) }
+
+tasks.named("buildPlugin") { dependsOn(checkClassFileVersions) }
 
 // --- Signing and publishing (#42) ---
 //
