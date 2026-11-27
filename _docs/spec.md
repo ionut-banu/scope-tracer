@@ -262,8 +262,10 @@ always beats the media query. The outcome fills (success, failed,
 cancelled, incomplete, scope bar) and the critical-path stroke are the
 same literal colours in both themes; everything drawn on the page
 background (text, borders, tracks, ticks, links) uses the palette, and
-text meets WCAG AA (4.5:1). The light palette's bar fills for success,
-cancelled and incomplete are below 3:1 against the page (#191).
+text meets WCAG AA (4.5:1). Bars and strokes reach 3:1 against the page
+in the dark palette; in the light palette only failed, the scope bar and
+the critical stroke do, and the light fills stay unchanged by decision
+(success, cancelled and incomplete measure 2.66, 2.27 and 2.57; #191).
 **Critical path:** in a scope where every task succeeded and has a
 completion time, the latest-completing task is outlined amber (`#d97706`)
 and its row reads `← critical path +Xms`. Any failure, cancellation or

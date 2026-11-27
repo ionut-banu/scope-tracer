@@ -5,6 +5,8 @@
 #   (no option)  shoot docs/img/readme-report.png with headless Chrome and write
 #                docs/img/readme-report.source, two rows in sha256sum's format: the SHA-256 of the
 #                report it was shot from, then of the PNG itself.
+#                Shot in the light scheme (--blink-settings=preferredColorScheme=1) whatever the OS prefers (the report follows
+#                prefers-color-scheme, #191).
 #                Chrome is $CHROME, or found among the macOS and common Linux names;
 #                none found exits 2.
 #   --check      needs no Chrome. Exit 0 when the committed report and the PNG both
@@ -108,7 +110,7 @@ mkdir -p docs/img
 profile="$(mktemp -d)"
 trap 'rm -rf "$profile"' EXIT
 "$BIN" --headless --disable-gpu --no-sandbox --user-data-dir="$profile" \
-  --window-size=1100,700 --hide-scrollbars --force-device-scale-factor=1 \
+  --blink-settings=preferredColorScheme=1 --window-size=1100,700 --hide-scrollbars --force-device-scale-factor=1 \
   --virtual-time-budget=3000 --screenshot="$ROOT/$PNG" "file://$ROOT/$REPORT" >/dev/null 2>&1
 if [ ! -s "$PNG" ]; then
   echo "readme-image.sh: Chrome ($BIN) did not write $PNG" >&2
