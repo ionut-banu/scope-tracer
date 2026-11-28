@@ -1,0 +1,93 @@
+name: Plugin Verifier
+
+# Runs the IntelliJ Plugin Verifier (verifyPlugin) on pull requests that touch the plugin, so a
+# broken IDE range or a removed platform API shows up on the pull request and not on release day
+# (release.yml still runs it too: the release is the gate that cannot be skipped, this is the
+# early warning). It is not a required check. The IDEs are the ones pluginVerification in
+# scope-tracer-plugin/build.gradle.kts names, the newest 263+ build (EAP included) among them, so
+# a run can go red with no commit of ours. A red run whose failing step is the Gradle step and
+# whose message is a network or HTTP error is a download failure: re-run the job.
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'scope-tracer-plugin/**'
+      - '.github/workflows/plugin-verifier.yml'
+  # Keeps the Gradle cache (which holds the IDEs) saved from main: setup-gradle writes it only from
+  # the default branch, and pull requests read it.
+  push:
+    branches: [ main ]
+    paths:
+      - 'scope-tracer-plugin/**'
+      - '.github/workflows/plugin-verifier.yml'
+  # Wednesday, off the top of the hour and off jdk-ea.yml's Saturday 06:17 UTC slot. Catches a new
+  # EAP that breaks the plugin with no commit of ours, and refreshes the Gradle cache. GitHub mails a
+  # failed scheduled run to whoever last edited this line.
+  schedule:
+    - cron: '43 5 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per ref. Two verifyPlugin runs share ~/.pluginVerifier, and one crashes with
+# DirectoryNotEmptyException while the other downloads or extracts an IDE; a newer push cancels the
+# older run instead of letting it extract into the same directories.
+concurrency:
+  group: plugin-verifier-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # The same pair as release.yml's check job: 21 is for Gradle, 27 is listed last, so it is
+      # JAVA_HOME for Maven and the plugin's toolchain.
+      - name: Set up JDK 21 and 27
+        uses: actions/setup-java@v5
+        with:
+          java-version: |
+            21
+            27
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # The analyzer and agent jars the plugin bundles, as release.yml's check job builds them.
+      - name: Build the analyzer and agent jars the plugin bundles
+        run: mvn -B -q -DskipTests package
+
+      # One Gradle invocation, one verifyPlugin, no --parallel: see the concurrency note above.
+      - name: Build and verify the plugin
+        working-directory: scope-tracer-plugin
+        run: >-
+          JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew
+          -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_27_X64
+          javaToolchains buildPlugin verifyPluginStructure verifyPlugin
+
+      # The IDEs that were verified (the verifier writes one report directory per IDE), where a red
+      # run is read first. Gradle fails by itself when no IDE is configured; fewer than two would
+      # pass silently, so this fails then.
+      - name: Record the IDEs that were verified
+        if: always()
+        working-directory: scope-tracer-plugin
+        run: |
+          IDES=$(ls build/reports/pluginVerifier 2>/dev/null || true)
+          {
+            echo '### IDEs verified'
+            echo '```'
+            echo "${IDES:-(none)}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          COUNT=$(printf '%s' "$IDES" | grep -c . || true)
+          echo "IDEs verified: $COUNT"
+          if [ "$COUNT" -lt 2 ] && [ "${{ job.status }}" = "success" ]; then
+            echo "::error::verifyPlugin verified $COUNT IDE(s); pluginVerification names two"
+            exit 1
+          fi

@@ -997,6 +997,24 @@ try (var file = new RecordingFile(tempPath)) {
   scope-tracer-agent -am verify`: the build stays without the flag,
   and every child JVM the agent ITs start gets `--enable-preview`, as
   a user on 28 who keeps the flag runs (#176).
+- The Plugin Verifier run (`plugin-verifier.yml`, "Plugin Verifier")
+  runs `buildPlugin verifyPluginStructure verifyPlugin` as
+  `release.yml`'s `check` job does (JDK 21 and 27, `mvn -q
+  -DskipTests package` first), against the IDEs `pluginVerification`
+  names, the newest 263+ build and EAP among them, so a run can go red
+  with no commit of ours. It runs on pull requests to `main` and on
+  pushes to `main` that change `scope-tracer-plugin/**` or the
+  workflow file, weekly (Wednesday 05:43 UTC) and on
+  `workflow_dispatch`. It is not a required check, has `contents:
+  read` and no secret, one run per ref (`concurrency`, cancelling the
+  older), and a 30-minute limit. The IDEs are Gradle dependencies,
+  cached with the Gradle user home by `setup-gradle` (saved from
+  `main`, read by pull requests); nothing else is cached, and the
+  verifier's own downloads (`~/.pluginVerifier/loaded-plugins`, 2.3 GB)
+  are fetched on every run. It fails when fewer than two IDEs were
+  verified. `release.yml`
+  keeps its own `verifyPlugin`: the release is the gate, this is the
+  early warning (#215).
 - maven-shade-plugin runs with the ASM named by `shade.asm.version`
   (9.11.1) in place of its own 9.9.1, which cannot read class-file
   major 71.
