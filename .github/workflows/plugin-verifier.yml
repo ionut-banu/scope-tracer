@@ -13,15 +13,15 @@ on:
     paths:
       - 'scope-tracer-plugin/**'
       - '.github/workflows/plugin-verifier.yml'
-  # The run that saves the IDE cache: a cache written on a pull request ref is readable only by
-  # that ref, so only a run on main gives every pull request one to restore.
+  # Keeps the Gradle cache (which holds the IDEs) saved from main: setup-gradle writes it only from
+  # the default branch, and pull requests read it.
   push:
     branches: [ main ]
     paths:
       - 'scope-tracer-plugin/**'
       - '.github/workflows/plugin-verifier.yml'
   # Wednesday, off the top of the hour and off jdk-ea.yml's Saturday 06:17 UTC slot. Catches a new
-  # EAP that breaks the plugin with no commit of ours, and refreshes the cache. GitHub mails a
+  # EAP that breaks the plugin with no commit of ours, and refreshes the Gradle cache. GitHub mails a
   # failed scheduled run to whoever last edited this line.
   schedule:
     - cron: '43 5 * * 3'
@@ -59,41 +59,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # What the verifier downloads into its own home, ~/.pluginVerifier/loaded-plugins (2.3 GB
-      # locally, the plugins and dependencies it resolves for the IDEs), is not in the Gradle user
-      # home, so setup-gradle does not cache it. (The IDEs themselves are Gradle dependencies, in the
-      # Gradle user home, which setup-gradle caches; ~/.pluginVerifier/ides stays empty.) It is
-      # restored on every run and saved by the last step, only by a run on main that succeeded, so a
-      # failed or cancelled job never saves a half-written directory. The key is the files that
-      # decide which IDEs are verified plus the ISO week, so main saves at most one entry a week
-      # (the newest EAP's files come with it) and an exact hit saves nothing; the restore-keys
-      # prefix starts a run from the newest older entry and downloads only what is missing. GitHub
-      # evicts an entry nobody restored for seven days.
-      - name: Name the cache key
-        id: week
-        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
-
-      - name: Restore the Plugin Verifier's downloads
-        id: downloads
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.pluginVerifier/loaded-plugins
-          key: plugin-verifier-${{ hashFiles('scope-tracer-plugin/build.gradle.kts', 'scope-tracer-plugin/gradle.properties') }}-${{ steps.week.outputs.week }}
-          restore-keys: |
-            plugin-verifier-${{ hashFiles('scope-tracer-plugin/build.gradle.kts', 'scope-tracer-plugin/gradle.properties') }}-
-            plugin-verifier-
-
-      - name: Say whether the downloads were restored
-        env:
-          MATCHED_KEY: ${{ steps.downloads.outputs.cache-matched-key }}
-        run: |
-          if [ -n "$MATCHED_KEY" ]; then
-            echo "Restored ~/.pluginVerifier/loaded-plugins from the cache entry $MATCHED_KEY"
-          else
-            echo "No cache entry to restore: the verifier downloads everything"
-          fi
-          du -sh "$HOME/.pluginVerifier/loaded-plugins" 2>/dev/null || true
-
       # The analyzer and agent jars the plugin bundles, as release.yml's check job builds them.
       - name: Build the analyzer and agent jars the plugin bundles
         run: mvn -B -q -DskipTests package
@@ -126,12 +91,3 @@ jobs:
             echo "::error::verifyPlugin verified $COUNT IDE(s); pluginVerification names two"
             exit 1
           fi
-
-      # Runs only when every step above passed (the default), only on main (a pull request ref
-      # could not share what it saves), and not when this week's entry was restored as it is.
-      - name: Save the Plugin Verifier's downloads
-        if: github.ref == 'refs/heads/main' && steps.downloads.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: ~/.pluginVerifier/loaded-plugins
-          key: ${{ steps.downloads.outputs.cache-primary-key }}
