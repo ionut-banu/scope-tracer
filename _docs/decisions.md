@@ -1519,10 +1519,11 @@ are folded in.
 ## 2026-11-27 - The Plugin Verifier runs on plugin pull requests; no verifier cache (#215)
 
 Decided by the maintainer on #215 (2026-11-27): `actions/cache` is
-approved but then not used (below); the workflow runs on plugin pull requests, on pushes to
-`main` and weekly; it is advisory, not required; the EAP IDE is
-included; the warm run has to finish in 15 minutes, or it runs on
-`main` and the schedule only. The details are the engineer's.
+approved but then not used (below); the workflow runs on plugin pull
+requests, on pushes to `main` and weekly; it is advisory, not
+required; the EAP IDE is included; the warm run has to finish in 15
+minutes, or it runs on `main` and the schedule only. The details are
+the engineer's.
 
 - **What it is.** `.github/workflows/plugin-verifier.yml`, a separate
   workflow because `paths:` work per workflow. It builds as
@@ -1534,9 +1535,11 @@ included; the warm run has to finish in 15 minutes, or it runs on
   2.20.1 (verifier 1.411) that directory stays empty: the IDEs are
   Gradle dependencies, in the Gradle user home, which `setup-gradle`
   already caches. What the verifier itself downloads is
-  `~/.pluginVerifier/loaded-plugins`, 58 plugin and dependency zips
-  (the biggest are 522 and 342 MB), and `extracted-plugins`, which it
-  empties on every start. The groomed plan would have cached `loaded-plugins`; see "No verifier cache".
+  `~/.pluginVerifier/loaded-plugins`, about 58 plugin and dependency
+  zips in the measured run (the directory accumulates, so it can hold
+  more; the biggest are 522 and 342 MB), and `extracted-plugins`,
+  which it empties on every start. The groomed plan would have cached
+  `loaded-plugins`; see "No verifier cache".
 - **Measurements, all local** (macOS, arm64, one home network, Gradle
   9.6.1, JDK 21 for Gradle and 27 as toolchain; nothing here was run
   on a GitHub runner, so the CI figures are still to be measured, see
@@ -1567,8 +1570,12 @@ included; the warm run has to finish in 15 minutes, or it runs on
 - **Warm ceiling.** 6 min 6 s locally is the expected warm figure (IDEs
   cached, verifier downloads fetched). If a runner misses 15 minutes,
   the fallback is `main` and the schedule only.
-- **Not measured, for the maintainer**: cold and warm times on a runner, and that the job fails for the right reason. See the
-  pull request.
+- **Not measured, for the maintainer**: cold and warm times on a
+  runner, and that the job fails for the right reason. See the pull
+  request.
+- **One concurrency group per ref.** A push to `main` and the weekly
+  run share a group, so a push can cancel a scheduled run in
+  progress. That is fine for an advisory job.
 - **`DirectoryNotEmptyException`.** It comes from `extracted-plugins`
   (the verifier clears it at start), not from `ides`: a second
   `verifyPlugin` on the same machine deletes the directory the first
